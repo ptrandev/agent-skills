@@ -114,26 +114,49 @@ If `NOT_FOUND`, stop and tell the user:
 
 ## Step 0.5: Auth probe
 
-Gemini accepts auth from any of:
-- `$GEMINI_API_KEY` (preferred for headless use)
-- `$GOOGLE_API_KEY`
-- `~/.gemini/oauth_creds.json` (interactive `gemini` OAuth flow)
-- `gcloud auth application-default` credentials
+`~/.gemini/settings.json` controls which auth method the CLI accepts in non-interactive
+mode. When `selectedType` is `"gemini-api-key"`, the CLI **only** accepts `$GEMINI_API_KEY`
+— it ignores gcloud ADC and OAuth even if those credentials exist on disk.
 
 ```bash
 GEMINI_AUTH="missing"
-[ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
-[ "$GEMINI_AUTH" = "missing" ] && [ -n "$GOOGLE_API_KEY" ] && GEMINI_AUTH="env:GOOGLE_API_KEY"
-[ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.gemini/oauth_creds.json" ] && GEMINI_AUTH="oauth"
-[ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.config/gcloud/application_default_credentials.json" ] && GEMINI_AUTH="gcloud-adc"
+
+# Detect the configured auth type from settings.json
+GEMINI_SETTINGS="$HOME/.gemini/settings.json"
+SELECTED_TYPE=""
+if [ -f "$GEMINI_SETTINGS" ]; then
+  SELECTED_TYPE=$(python3 -c "
+import json
+d = json.load(open('$GEMINI_SETTINGS'))
+print(d.get('security', {}).get('auth', {}).get('selectedType', ''))
+" 2>/dev/null)
+fi
+echo "GEMINI_SETTINGS selectedType: ${SELECTED_TYPE:-unknown}"
+
+if [ "$SELECTED_TYPE" = "gemini-api-key" ]; then
+  # API key mode: only GEMINI_API_KEY works non-interactively
+  [ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
+else
+  # Other/unknown mode: check all sources
+  [ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
+  [ "$GEMINI_AUTH" = "missing" ] && [ -n "$GOOGLE_API_KEY" ] && GEMINI_AUTH="env:GOOGLE_API_KEY"
+  [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.gemini/oauth_creds.json" ] && GEMINI_AUTH="oauth"
+  [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.config/gcloud/application_default_credentials.json" ] && GEMINI_AUTH="gcloud-adc"
+fi
+
 echo "GEMINI_AUTH: $GEMINI_AUTH"
 ```
 
 If `GEMINI_AUTH: missing`, stop and tell the user:
 
-> No Gemini authentication found. Either:
-> - Run `gemini` once interactively to do the OAuth flow, or
-> - Set `GEMINI_API_KEY` (get one at https://aistudio.google.com/apikey)
+> No Gemini authentication found.
+>
+> Your `~/.gemini/settings.json` is set to `selectedType: gemini-api-key`, which
+> requires the `GEMINI_API_KEY` environment variable in non-interactive mode.
+> gcloud ADC and OAuth credentials are ignored in this mode.
+>
+> Fix: add `export GEMINI_API_KEY="your-key"` to `~/.zshrc` and run `source ~/.zshrc`.
+> Get a key at https://aistudio.google.com/apikey
 
 ---
 
