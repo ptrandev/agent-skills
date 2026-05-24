@@ -115,25 +115,14 @@ If `NOT_FOUND`, stop and tell the user:
 ## Step 0.5: Auth probe
 
 Gemini accepts auth from any of:
-- `~/.gemini/auth.json` with a `GEMINI_API_KEY` field (preferred — same pattern as `~/.codex/auth.json`)
-- `$GEMINI_API_KEY` env var
-- `$GOOGLE_API_KEY` env var
+- `$GEMINI_API_KEY` (preferred for headless use)
+- `$GOOGLE_API_KEY`
 - `~/.gemini/oauth_creds.json` (interactive `gemini` OAuth flow)
 - `gcloud auth application-default` credentials
 
 ```bash
 GEMINI_AUTH="missing"
-
-# Load from ~/.gemini/auth.json if present (mirrors ~/.codex/auth.json pattern)
-if [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.gemini/auth.json" ]; then
-  _KEY=$(python3 -c "import json,sys; d=json.load(open('$HOME/.gemini/auth.json')); print(d.get('GEMINI_API_KEY',''))" 2>/dev/null)
-  if [ -n "$_KEY" ]; then
-    export GEMINI_API_KEY="$_KEY"
-    GEMINI_AUTH="file:~/.gemini/auth.json"
-  fi
-fi
-
-[ "$GEMINI_AUTH" = "missing" ] && [ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
+[ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
 [ "$GEMINI_AUTH" = "missing" ] && [ -n "$GOOGLE_API_KEY" ] && GEMINI_AUTH="env:GOOGLE_API_KEY"
 [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.gemini/oauth_creds.json" ] && GEMINI_AUTH="oauth"
 [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.config/gcloud/application_default_credentials.json" ] && GEMINI_AUTH="gcloud-adc"
@@ -142,10 +131,9 @@ echo "GEMINI_AUTH: $GEMINI_AUTH"
 
 If `GEMINI_AUTH: missing`, stop and tell the user:
 
-> No Gemini authentication found. Options:
-> - **Recommended:** create `~/.gemini/auth.json` with `{"GEMINI_API_KEY": "your-key"}` (get a key at https://aistudio.google.com/apikey)
-> - Set `GEMINI_API_KEY` as an environment variable
-> - Run `gemini` once interactively to do the OAuth flow
+> No Gemini authentication found. Either:
+> - Run `gemini` once interactively to do the OAuth flow, or
+> - Set `GEMINI_API_KEY` (get one at https://aistudio.google.com/apikey)
 
 ---
 
