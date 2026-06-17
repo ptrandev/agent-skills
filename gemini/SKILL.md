@@ -112,16 +112,28 @@ If `NOT_FOUND`, stop and tell the user:
 
 ---
 
-## Step 0.5: Auth probe
+## Step 0.5: Auth probe (API-key only)
 
-`~/.gemini/settings.json` controls which auth method the CLI accepts in non-interactive
-mode. When `selectedType` is `"gemini-api-key"`, the CLI **only** accepts `$GEMINI_API_KEY`
-— it ignores gcloud ADC and OAuth even if those credentials exist on disk.
+**This skill is API-key only.** It authenticates exclusively via `$GEMINI_API_KEY`
+(or `$GOOGLE_API_KEY`) — never OAuth or gcloud ADC. Two reasons:
+
+1. **Models.** The `-latest` aliases and the full model catalog are served by the
+   Generative Language API behind an API key. The OAuth "Code Assist" backend
+   uses a different, smaller model namespace and returns **404 ModelNotFoundError**
+   for `gemini-pro-latest` / `gemini-flash-latest`.
+2. **Limits.** OAuth "Gemini Code Assist for individuals" is rate-capped (per-minute
+   and per-day); a billing-enabled API key is pay-as-you-go with far higher limits.
+
+Two conditions must both hold:
+
+- `~/.gemini/settings.json` → `security.auth.selectedType` is `"gemini-api-key"`.
+  If it's anything else (e.g. `oauth-personal`), the CLI uses *that* method and
+  **ignores the key**.
+- `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) is set in the environment the skill runs
+  in. A non-interactive shell does **not** source `~/.zshrc`, so the export must
+  live in `~/.zshenv` (see Setup, Step 0.7).
 
 ```bash
-GEMINI_AUTH="missing"
-
-# Detect the configured auth type from settings.json
 GEMINI_SETTINGS="$HOME/.gemini/settings.json"
 SELECTED_TYPE=""
 if [ -f "$GEMINI_SETTINGS" ]; then
@@ -131,32 +143,39 @@ d = json.load(open('$GEMINI_SETTINGS'))
 print(d.get('security', {}).get('auth', {}).get('selectedType', ''))
 " 2>/dev/null)
 fi
-echo "GEMINI_SETTINGS selectedType: ${SELECTED_TYPE:-unknown}"
+echo "selectedType: ${SELECTED_TYPE:-unset}"
 
-if [ "$SELECTED_TYPE" = "gemini-api-key" ]; then
-  # API key mode: only GEMINI_API_KEY works non-interactively
-  [ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
-else
-  # Other/unknown mode: check all sources
-  [ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
-  [ "$GEMINI_AUTH" = "missing" ] && [ -n "$GOOGLE_API_KEY" ] && GEMINI_AUTH="env:GOOGLE_API_KEY"
-  [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.gemini/oauth_creds.json" ] && GEMINI_AUTH="oauth"
-  [ "$GEMINI_AUTH" = "missing" ] && [ -f "$HOME/.config/gcloud/application_default_credentials.json" ] && GEMINI_AUTH="gcloud-adc"
-fi
-
+GEMINI_AUTH="missing"
+[ -n "$GEMINI_API_KEY" ] && GEMINI_AUTH="env:GEMINI_API_KEY"
+[ "$GEMINI_AUTH" = "missing" ] && [ -n "$GOOGLE_API_KEY" ] && GEMINI_AUTH="env:GOOGLE_API_KEY"
 echo "GEMINI_AUTH: $GEMINI_AUTH"
+
+if [ "$GEMINI_AUTH" = "missing" ]; then
+  echo "BLOCKED: no API key in environment"
+elif [ "$SELECTED_TYPE" != "gemini-api-key" ]; then
+  echo "BLOCKED: selectedType is '${SELECTED_TYPE:-unset}', must be 'gemini-api-key'"
+else
+  echo "AUTH OK: api-key mode"
+fi
 ```
 
-If `GEMINI_AUTH: missing`, stop and tell the user:
+Stop conditions (do the Setup in Step 0.7 to resolve):
 
-> No Gemini authentication found.
->
-> Your `~/.gemini/settings.json` is set to `selectedType: gemini-api-key`, which
-> requires the `GEMINI_API_KEY` environment variable in non-interactive mode.
-> gcloud ADC and OAuth credentials are ignored in this mode.
->
-> Fix: add `export GEMINI_API_KEY="your-key"` to `~/.zshrc` and run `source ~/.zshrc`.
-> Get a key at https://aistudio.google.com/apikey
+- **`BLOCKED: no API key`** → No `GEMINI_API_KEY`/`GOOGLE_API_KEY` in the
+  environment. The export likely lives in `~/.zshrc` (not loaded by
+  non-interactive shells) or isn't set at all. Tell the user:
+
+  > No Gemini API key in the environment. Add `export GEMINI_API_KEY="your-key"`
+  > to `~/.zshenv` (not `~/.zshrc` — non-interactive shells don't source it),
+  > then open a new shell. Get a key at https://aistudio.google.com/apikey
+  > (enable billing on the project for high/unlimited-style limits).
+
+- **`BLOCKED: selectedType ... must be 'gemini-api-key'`** → The CLI is configured
+  for OAuth/Vertex and will ignore the key. Tell the user:
+
+  > `~/.gemini/settings.json` has `selectedType: <value>`. This skill needs
+  > `gemini-api-key`. Set `security.auth.selectedType` to `"gemini-api-key"`
+  > (see Setup, Step 0.7).
 
 ---
 
@@ -167,6 +186,56 @@ PLAN_ROOT="${CLAUDE_PLANS_DIR:-$HOME/.claude/plans}"
 TMP_ROOT="${TMPDIR:-/tmp}"
 mkdir -p "$PLAN_ROOT" "$TMP_ROOT"
 ```
+
+---
+
+## Step 0.7: One-time setup (API-key only)
+
+Run this once. After it, both the auth probe and the `gemini` calls work under
+Claude Code's non-interactive Bash tool, with no rate caps beyond your API tier.
+
+**1. Get an API key (enable billing for high limits).**
+Create a key at https://aistudio.google.com/apikey. The free API tier is itself
+rate-limited; for unlimited-style pay-as-you-go usage, enable billing on the
+key's Google Cloud project.
+
+**2. Tell the CLI to use API-key auth (not OAuth).**
+
+```bash
+python3 - <<'PY'
+import json, os
+p = os.path.expanduser("~/.gemini/settings.json")
+d = json.load(open(p)) if os.path.exists(p) else {}
+d.setdefault("security", {}).setdefault("auth", {})["selectedType"] = "gemini-api-key"
+json.dump(d, open(p, "w"), indent=2)
+print("selectedType ->", d["security"]["auth"]["selectedType"])
+PY
+```
+
+If you previously logged in with OAuth, you can also delete
+`~/.gemini/oauth_creds.json` so it can't be selected by mistake (optional).
+
+**3. Put the key where every shell sees it — `~/.zshenv`, NOT `~/.zshrc`.**
+`~/.zshrc` is only sourced for interactive shells; the Bash tool runs
+non-interactive shells, which source `~/.zshenv`. Add:
+
+```bash
+export GEMINI_API_KEY="your-key-here"
+```
+
+If a key is currently exported in `~/.zshrc`, move that line to `~/.zshenv` so
+there's a single source of truth. Also remove any stale `GEMINI_API_KEY` in a
+`.env` the CLI auto-loads (`~/.gemini/.env` or a project `.env`) — an expired key
+there can shadow the good one.
+
+**4. Verify (fresh shell):**
+
+```bash
+echo "key set: ${GEMINI_API_KEY:+yes}"   # should print "key set: yes"
+gemini -m gemini-pro-latest -p "Reply with exactly one word: OK" < /dev/null
+```
+
+A clean `OK` confirms the skill is ready.
 
 ---
 
