@@ -300,9 +300,13 @@ state={}
 if os.path.exists(p):
     try: state=json.load(open(p))
     except Exception: state={}
-state[slug]={"lastSync": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+state.setdefault(slug, {})["lastSync"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")  # preserve any sibling keys
 os.makedirs(os.path.dirname(p), exist_ok=True)
-json.dump(state, open(p,"w"), indent=2)
+# Atomic write (temp + os.replace): an interrupted or concurrent cross-repo write can't
+# truncate/corrupt the cursor JSON; the replace is atomic on the same filesystem.
+_tmp = p + ".tmp"
+json.dump(state, open(_tmp,"w"), indent=2)
+os.replace(_tmp, p)
 print("phillip-sync: cursor updated ->", slug, state[slug]["lastSync"])
 PY
 ```

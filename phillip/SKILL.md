@@ -63,16 +63,31 @@ string this skill sets):
 
 ### Capture the diff under review
 
-Detect the default branch instead of assuming `master` -> many repos use `main`:
+Detect the default branch instead of assuming `master` -> many repos use `main`.
+Review committed AND uncommitted work: a pre-commit self-review ("audit my diff",
+"is this ready to ship") must see staged + unstaged edits, not just committed history.
 
 ```bash
 git fetch origin --quiet 2>/dev/null
 DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
 DEFAULT=${DEFAULT:-$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')}
+# origin/HEAD unresolvable (offline / local-only / fork) -> pick whichever of main/master
+# actually exists rather than blindly assuming master (which breaks main-only repos).
+[ -z "$DEFAULT" ] && for b in main master; do git rev-parse --verify --quiet "origin/$b" >/dev/null && DEFAULT=$b && break; done
+[ -z "$DEFAULT" ] && for b in main master; do git rev-parse --verify --quiet "$b" >/dev/null && DEFAULT=$b && break; done
 DEFAULT=${DEFAULT:-master}
-BASE=$(git merge-base HEAD "origin/$DEFAULT" 2>/dev/null || git merge-base HEAD "$DEFAULT")
-git diff --stat "$BASE"...HEAD
-git diff "$BASE"...HEAD
+BASE=$(git merge-base HEAD "origin/$DEFAULT" 2>/dev/null || git merge-base HEAD "$DEFAULT" 2>/dev/null)
+# `git diff "$BASE"` compares BASE -> working tree (committed + staged + unstaged, tracked
+# files). With a clean tree (e.g. full-send commits in Phase 4 first) this equals
+# BASE...HEAD; with uncommitted work it also captures what you're about to ship. Guard the
+# empty-BASE case (shallow/disconnected history) so the diff never expands to `...HEAD`.
+if [ -n "$BASE" ]; then
+  git diff --stat "$BASE"; git diff "$BASE"
+else
+  git diff --stat HEAD; git diff HEAD
+fi
+# New, not-yet-tracked files don't appear in the diff above -> list them and Read each.
+git ls-files --others --exclude-standard
 ```
 
 Scope every reviewer to THIS diff. Do not re-review unchanged code. Do not flag
@@ -90,6 +105,11 @@ resolved PR-review lessons into the rubric below:
 - PROCEED REGARDLESS of its outcome. Never block, fail, or retry the review because sync
   warned or did nothing -> the existing rubric in section 1 is always good enough to review
   against. Sync is an enhancement, not a gate.
+- If sync reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read this file
+  (`~/.claude/skills/phillip/SKILL.md`) section 1 NOW. The rubric you were loaded with
+  predates sync's edit THIS run, so the just-synced lines only take effect if you reread
+  them. On a cooldown/empty no-op (the common case) skip the reread -> the in-context rubric
+  is already current.
 
 Then continue with section 1 using the (possibly just-updated) rubric.
 
@@ -198,20 +218,38 @@ from here.
 
 ## 2. The multi-round adversarial loop
 
-Run rounds until convergence. Each round has three reviewers plus your own pass.
+Run rounds until convergence. Each round uses three independent reviewers: Codex, Gemini,
+and your own Claude pass.
 
-### Per round
+### Per round (run the reviewers in PARALLEL)
 
-1. Codex review -> invoke the `codex` skill: `/codex review`
-   (independent diff review, read-only sandbox, pass/fail gate, high reasoning effort).
-2. Codex challenge -> `/codex challenge` (adversarial: actively tries to break the code).
-3. Gemini review -> invoke the `gemini` skill: `/gemini review` (defaults to
-   `gemini-pro-latest`).
-4. Gemini challenge -> `/gemini challenge` (adversarial, `gemini-pro-latest`).
-5. Claude review -> your own pass, applying the Phillip Standard above directly to the
-   diff. You are the third independent voice, not just an aggregator.
+The reviewers are independent and the external CLIs are the slow part (each pass is
+~1-5 min). Do NOT run them one-after-another -> launch Codex and Gemini AT THE SAME TIME and
+do your own Claude pass while they work. This cuts a round from the sum of all passes down
+to roughly the slowest single pass.
 
-Collect every finding from all three into one list with proposed severity.
+1. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
+   true`, one job per model). Group each model's review + challenge into its OWN job so that
+   model runs its two passes back-to-back while the OTHER model runs in parallel:
+   - Codex job  -> `codex review` then `codex` adversarial challenge -> `/tmp/phillip-codex.out`.
+   - Gemini job -> `gemini` review then `gemini` adversarial challenge -> `/tmp/phillip-gemini.out`.
+
+   Call the CLIs DIRECTLY (backgrounded) so both run at once -> nested `/codex` and `/gemini`
+   Skill invocations CANNOT parallelize, because skill calls are sequential. The `codex` and
+   `gemini` skills remain the source of truth for the exact CLI flags, the filesystem-boundary
+   prompt, the diff-scope prompt, and auth handling -> mirror their review/challenge CLI calls
+   here as background processes. (Read those skills once if you need the precise invocation.)
+2. While Codex and Gemini run, do your Claude review pass (reviewer #3): apply the Phillip
+   Standard above directly to the diff. You are an independent voice, not an aggregator. This
+   overlaps with the external CLIs -> zero idle time.
+3. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
+   `/tmp/phillip-gemini.out`. Combine every finding from all three reviewers into one list
+   with proposed severity.
+
+Fallback if you cannot background jobs in your environment: issue the Codex and Gemini CLI
+calls as two Bash calls in a SINGLE message (the harness runs independent calls
+concurrently); worst case, invoke the `/codex` and `/gemini` skills sequentially -> still
+correct, just slower. Parallelism is a speedup, never a correctness requirement.
 
 If the gemini skill is not installed (no `~/.claude/skills/gemini/SKILL.md`) or its CLI
 auth is missing, do NOT silently drop a reviewer: run with Codex + Claude and state in

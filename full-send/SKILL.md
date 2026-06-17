@@ -2,7 +2,8 @@
 name: full-send
 description: |
   End-to-end feature workflow: Linear ticket → implement → /phillip self-review →
-  commit → draft PR → Copilot review → address all threads → UI screenshots.
+  commit → draft PR → automated bot review (Copilot and/or Gemini Code Assist) →
+  address all threads → UI screenshots.
   Zero stops. Use with /full-send <TICKET-ID> or just /full-send.
 ---
 
@@ -114,51 +115,127 @@ EOF
   --label "Pending Code Review"
 ```
 
-Then request Copilot:
+Then request the automated reviewers:
 ```bash
 PR_NUMBER=$(gh pr view --json number --jq '.number')
 REPO=$(gh repo view --json nameWithOwner --jq '.nameWithOwner')
+
+# Copilot must be requested explicitly, and only reviews when usage is available.
+# This call can error or be silently dropped when Copilot is over its usage limit —
+# that is not fatal; Gemini still reviews.
 gh api repos/$REPO/pulls/$PR_NUMBER/requested_reviewers \
   --method POST \
-  --field 'reviewers[]=Copilot'
+  --field 'reviewers[]=Copilot' \
+  || echo "Copilot request failed (likely usage limits) — Gemini Code Assist will still review."
 ```
+
+**Gemini Code Assist needs no request.** It is a GitHub App that reviews every PR
+automatically (it posts a review ~2 min after the PR opens), so it covers the case
+where Copilot is rate-limited or otherwise unavailable. You do not — and cannot — add
+it via `requested_reviewers`.
 
 ---
 
-## Phase 7 — Copilot Review
+## Phase 7 — Automated Review (Copilot + Gemini)
 
-Poll every 60 seconds, up to 10 minutes:
+Up to two bots may review. Their logins differ between the `reviews` API and the
+inline-`comments` API, so match them exactly:
+
+| Bot | Trigger | Review author (`reviews`) | Inline author (`comments`) | Thread author (GraphQL) |
+|-----|---------|---------------------------|----------------------------|--------------------------|
+| GitHub Copilot | Requested in Phase 6; reviews only when usage is available | `copilot-pull-request-reviewer[bot]` | `Copilot` | `copilot-pull-request-reviewer` |
+| Gemini Code Assist | Automatic on every PR (~2 min) | `gemini-code-assist[bot]` | `gemini-code-assist[bot]` | `gemini-code-assist` |
+
+Either, both, or (rarely) neither may land. **Do not block on Copilot specifically** —
+when Copilot is rate-limited, Gemini is the fallback and usually arrives first. Process
+whichever bot reviews are present.
+
+### Step 7a — Wait for an automated review
 
 ```bash
+# Matches both bots' review-author logins.
+BOT_REVIEWS='.user.login=="copilot-pull-request-reviewer[bot]" or .user.login=="gemini-code-assist[bot]"'
+
+# Poll up to 10 min for the first bot review (usually Gemini).
+N=0
 for i in $(seq 1 10); do
-  COUNT=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-    --jq '[.[] | select(.user.login | startswith("copilot"))] | length')
-  [ "$COUNT" -gt 0 ] && echo "DONE" && break
-  echo "Waiting for Copilot ($i/10)..."
+  N=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+    --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | length")
+  [ "$N" -gt 0 ] && break
+  echo "Waiting for an automated review ($i/10)..."
   sleep 60
 done
+
+# One bot in but not the other → give the slower bot (usually Copilot) a short
+# grace window before processing, in case both will review.
+if [ "$N" = "1" ]; then
+  for j in 1 2 3; do
+    sleep 60
+    N=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+      --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | length")
+    [ "$N" -ge 2 ] && break
+  done
+fi
+
+gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+  --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | \"Reviewed by: \" + join(\", \")"
 ```
 
-When the review arrives (or after timeout):
+If neither bot responds within the window, note the timeout and continue — do not stop.
 
-1. Fetch inline comments: `gh api repos/$REPO/pulls/$PR_NUMBER/comments`
+### Step 7b — Read the review summaries
+
+Each bot posts a summary in its review body — read them for feedback that isn't tied to
+a specific line:
+
+```bash
+gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
+  --jq ".[] | select($BOT_REVIEWS) | \"### \(.user.login)\n\(.body)\n\""
+```
+
+Gemini tags each inline finding with a severity badge (`high` / `medium` / `low`). Treat
+HIGH and MEDIUM as actionable; LOW and praise/nit comments can be acknowledged and resolved.
+
+### Step 7c — Address and resolve every bot thread
+
+1. Fetch the bots' inline comments (note Copilot's inline author is `Copilot`, **not** its
+   review login):
+   ```bash
+   gh api repos/$REPO/pulls/$PR_NUMBER/comments \
+     --jq '.[] | select(.user.login=="Copilot" or .user.login=="gemini-code-assist[bot]") | {id, path, line, body}'
+   ```
 2. For each comment: fix if actionable, otherwise explain why not.
 3. Reply to every comment:
    ```bash
    gh api repos/$REPO/pulls/comments/$COMMENT_ID/replies \
      --method POST --field body="<response>"
    ```
-4. Resolve every thread via GraphQL:
+4. List the unresolved **bot** thread IDs (skip human-authored threads), then resolve each.
+   Both bots create standard resolvable threads; in GraphQL their authors drop the `[bot]`
+   suffix, so a regex matches both:
    ```bash
-   gh api graphql -f query='mutation {
-     resolveReviewThread(input:{threadId:"$THREAD_ID"}) {
-       thread { isResolved }
+   OWNER=${REPO%/*}; NAME=${REPO#*/}
+   gh api graphql -f query='
+   query($owner:String!,$name:String!,$pr:Int!) {
+     repository(owner:$owner,name:$name) {
+       pullRequest(number:$pr) {
+         reviewThreads(first:100) {
+           nodes { id isResolved comments(first:1){ nodes { author { login } } } }
+         }
+       }
      }
-   }'
-   ```
-5. If any fixes were made, commit as `fix(<scope>): address Copilot review findings` and push.
+   }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR_NUMBER" \
+     --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+           | select(.isResolved==false)
+           | select(.comments.nodes[0].author.login | test("copilot|gemini-code-assist"))
+           | .id'
 
-If Copilot doesn't respond within 10 minutes, note the timeout and continue.
+   # Then resolve each thread id:
+   gh api graphql -f query='mutation($id:ID!) {
+     resolveReviewThread(input:{threadId:$id}) { thread { isResolved } }
+   }' -F id="$THREAD_ID"
+   ```
+5. If any fixes were made, commit as `fix(<scope>): address automated review findings` and push.
 
 ---
 
@@ -296,5 +373,6 @@ If this skill started the dev server (tracked via `$DEV_PID`), leave it running 
 Report:
 - PR URL
 - All commits on this branch (`git log master..HEAD --oneline`)
+- Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
 - Screenshot paths (if any), with a note that the user should upload them to the PR
-- Anything skipped and why (pre-existing errors, skipped review findings, Copilot timeout)
+- Anything skipped and why (pre-existing errors, skipped review findings, no automated review landed within the timeout)
