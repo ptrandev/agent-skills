@@ -186,14 +186,27 @@ Parse the user's input:
    - Otherwise ask "What would you like to ask Gemini?"
 4. `/gemini <anything else>` → **Consult mode** (Step 2C); the rest is the prompt.
 
-**Model override:** If the user passes `--pro`, use `gemini-2.5-pro` (default for
-review/challenge). If they pass `--flash`, use `gemini-2.5-flash` (default for
-consult, faster). Strip the flag from the prompt text before forwarding.
+**Model selection — always track latest stable.** Defaults use Google's rolling
+`-latest` aliases so the skill follows new model generations automatically, with
+no skill edits: `gemini-pro-latest` (latest stable Pro) and `gemini-flash-latest`
+(latest stable Flash). These are moving pointers — a model promotion can change
+output, cost, or behavior between runs. If a run must be reproducible, pin a
+concrete version instead (e.g. `gemini-2.5-pro`, `gemini-3-pro-preview`) via the
+`-m` flag or the `GEMINI_MODEL` env var. Caveat: `-latest` tracks *stable*, so a
+brand-new `-preview` model isn't picked up until it goes GA — pin it explicitly
+to use it early.
+
+**Model override:** If the user passes `--pro`, use `gemini-pro-latest`. If they
+pass `--flash`, use `gemini-flash-latest` (faster, cheaper). Strip the flag from
+the prompt text before forwarding.
 
 Per-mode defaults:
-- Review (2A): `gemini-2.5-pro` — needs depth
-- Challenge (2B): `gemini-2.5-pro` — needs depth
-- Consult (2C): `gemini-2.5-flash` — large context, interactive, speed matters
+- Review (2A): `gemini-pro-latest` — needs depth
+- Challenge (2B): `gemini-pro-latest` — needs depth
+- Consult (2C): `gemini-pro-latest` — it's a real third opinion / plan review, so
+  reasoning depth matters more than speed. Pro carries the same 1M context as
+  Flash, so long-context questions lose nothing by defaulting to Pro. Pass
+  `--flash` for quick lookups over large context where speed/cost dominates.
 
 ---
 
@@ -221,7 +234,7 @@ _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo"
 cd "$_REPO_ROOT"
 
 BASE_BRANCH="${BASE_BRANCH:-main}"  # set this from Step 1 detection
-MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
+MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
 
 TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX.txt")
 TMPDIFF=$(mktemp "$TMP_ROOT/gemini-diff-XXXXXX.patch")
@@ -263,7 +276,7 @@ GEMINI SAYS (code review, model=<model>):
 ════════════════════════════════════════════════════════════
 <full gemini output, verbatim — do not truncate or summarize>
 ════════════════════════════════════════════════════════════
-GATE: PASS | Model: gemini-2.5-pro
+GATE: PASS | Model: gemini-pro-latest
 ```
 
 **Synthesis recommendation (REQUIRED).** After the verbatim block, emit ONE line:
@@ -300,7 +313,7 @@ _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo"
 cd "$_REPO_ROOT"
 
 BASE_BRANCH="${BASE_BRANCH:-main}"
-MODEL="${GEMINI_MODEL:-gemini-2.5-pro}"
+MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
 
 TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX.txt")
 TMPDIFF=$(mktemp "$TMP_ROOT/gemini-diff-XXXXXX.patch")
@@ -348,7 +361,7 @@ include whole files, plans, or repo summaries without splitting.
 _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
 cd "$_REPO_ROOT"
 
-MODEL="${GEMINI_MODEL:-gemini-2.5-flash}"
+MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
 TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX.txt")
 ```
 
@@ -421,9 +434,14 @@ understanding, flag it: "Note: Claude Code disagrees on X because Y."
 
 ## Model & Context
 
-**Default models:**
-- `gemini-2.5-pro` — slow but deepest reasoning, best for review/challenge
-- `gemini-2.5-flash` — fast, very long context, best for consult / plan review
+**Default models (rolling `-latest` aliases — auto-track new generations):**
+- `gemini-pro-latest` — latest stable Pro; deepest reasoning. Default for all
+  modes (review, challenge, consult).
+- `gemini-flash-latest` — latest stable Flash; faster and cheaper, same 1M
+  context. Opt-in via `--flash` for speed-sensitive lookups over large context.
+
+Pin a concrete version (`-m gemini-2.5-pro`, `gemini-3-pro-preview`, …) when you
+need a reproducible run or want to use a `-preview` model before it reaches GA.
 
 **Long context:** Gemini's 1M-token window is the standout feature. Use it
 when Claude/Codex would have to truncate (e.g. "review every file in
