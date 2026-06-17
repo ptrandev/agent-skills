@@ -1,7 +1,7 @@
 ---
 name: full-send
 description: |
-  End-to-end feature workflow: Linear ticket → implement → Codex + Gemini review →
+  End-to-end feature workflow: Linear ticket → implement → /phillip self-review →
   commit → draft PR → Copilot review → address all threads → UI screenshots.
   Zero stops. Use with /full-send <TICKET-ID> or just /full-send.
 ---
@@ -79,26 +79,21 @@ git commit -m "feat(<scope>): <ticket title>"
 
 ---
 
-## Phase 5 — Codex Review
+## Phase 5 — Self-Review (`/phillip`)
 
-Run `/codex review` via the Skill tool.
+Run `/phillip` via the Skill tool. This single step replaces the old separate Codex and Gemini passes: `/phillip` runs a multi-round adversarial review with three independent reviewers (Claude + Codex + Gemini), verifies every finding against the real code path, implements the genuine HIGH/MEDIUM fixes itself, rejects false positives with a written reason, and loops until a clean round. It writes a report to `~/.claude/plans/phillip-<branch>-<date>.md`.
 
-For each finding:
-- **Bug / correctness / security / edge case** → fix it, commit as `fix(<scope>): address Codex review findings`.
-- **Style / preference / nitpick** → skip; note why.
-- **Pre-existing / false positive** → skip; note why.
+- Let it run to completion. It applies the HIGH/MEDIUM fixes directly to the working tree (and may commit them itself).
+- If it left any fixes uncommitted, commit them — `git add <specific files — never git add .>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit if it changed nothing.
+- Do not stop for the verdict (zero stops) — carry it forward to Phase 9 (Done):
+  - **"Ready for PR"** → proceed normally.
+  - **"Needs human review — cap hit, ..."** or any verdict with unresolved HIGH/MEDIUM → proceed, but record the unresolved items and the report path so the Done summary surfaces them on the PR.
 
----
-
-## Phase 6 — Gemini Review
-
-Run `/gemini review` via the Skill tool. Apply the same triage as Phase 5.
-
-If fixes were made, commit as `fix(<scope>): address Gemini review findings`.
+For a small or low-risk diff, `/phillip quick` is acceptable (it auto-scales down on trivial diffs anyway).
 
 ---
 
-## Phase 7 — PR
+## Phase 6 — PR
 
 Read `CLAUDE.local.md` for the `username` (assignee). Read `.github/PULL_REQUEST_TEMPLATE.md` for the body format.
 
@@ -130,7 +125,7 @@ gh api repos/$REPO/pulls/$PR_NUMBER/requested_reviewers \
 
 ---
 
-## Phase 8 — Copilot Review
+## Phase 7 — Copilot Review
 
 Poll every 60 seconds, up to 10 minutes:
 
@@ -167,11 +162,11 @@ If Copilot doesn't respond within 10 minutes, note the timeout and continue.
 
 ---
 
-## Phase 9 — Screenshots
+## Phase 8 — Screenshots
 
 Skip if no files under `apps/agents-portal/src/pages/` or `apps/agents-portal/src/components/` were modified.
 
-### Step 9a — Ensure the dev environment is running
+### Step 8a — Ensure the dev environment is running
 
 Check which ports the stack needs and free any that are blocked:
 
@@ -215,7 +210,7 @@ done
 
 If still not ready after 60 seconds, check `/tmp/full-send-$TICKET_ID/dev-server.log` for errors, fix any missing package builds, and retry once.
 
-### Step 9b — Open a dedicated browser session and log in
+### Step 8b — Open a dedicated browser session and log in
 
 Set up the browse binary:
 
@@ -261,7 +256,7 @@ $B url
 
 Confirm the URL is no longer the login page before proceeding. If login fails (still on `/` or `/login`), check console errors and retry once.
 
-### Step 9c — Take screenshots
+### Step 8c — Take screenshots
 
 Create the output directory:
 
@@ -290,13 +285,13 @@ $B prettyscreenshot /tmp/full-send-$TICKET_ID/02-modal-open.png
 
 After all screenshots are taken, use the Read tool on each PNG so they appear inline in the conversation.
 
-### Step 9d — Tear down
+### Step 8d — Tear down
 
 If this skill started the dev server (tracked via `$DEV_PID`), leave it running — the user may want to inspect the UI. Do not kill it.
 
 ---
 
-## Phase 10 — Done
+## Phase 9 — Done
 
 Report:
 - PR URL
