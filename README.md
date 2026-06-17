@@ -23,6 +23,8 @@ Before each run it invokes `/phillip-sync` (non-blocking) to refresh the rubric 
 
 **Requires:** `/codex` (gstack) and `/gemini` skills for the external reviewers; degrades to fewer reviewers if either is absent.
 
+**First-time setup:** [`docs/phillip-agent-setup.md`](docs/phillip-agent-setup.md) is a paste-to-Claude script that provisions a Mac end-to-end (gstack/`/codex`, the Codex + Gemini CLIs, `gh`, and symlinks these skills). [`docs/phillip-agent-usage.md`](docs/phillip-agent-usage.md) is the day-to-day guide.
+
 ---
 
 ### `/phillip-sync`
@@ -71,6 +73,16 @@ ln -s ~/Git/claude-skills/weekly-launch-summary ~/.claude/skills/weekly-launch-s
 ```
 
 > **Note:** `full-send/dev-credentials.md` is gitignored — create it manually after cloning if needed.
+
+### Setting up the Phillip agent (full)
+
+The snippet above wires the skills into an already-configured machine. To provision a fresh
+Mac for `/phillip` end-to-end — Homebrew/Node/bun, gstack (for `/codex`), the Codex + Gemini
+CLIs and their auth, `gh`, and these symlinks — paste the entire contents of
+[`docs/phillip-agent-setup.md`](docs/phillip-agent-setup.md) into Claude Code as your message;
+it runs the whole setup itself, stopping only for the few interactive bits (password installers,
+API keys, `gh auth login`). See [`docs/phillip-agent-usage.md`](docs/phillip-agent-usage.md) for
+day-to-day use. Updating later is just `cd ~/Git/claude-skills && git pull`.
 
 ## Adding a new skill
 
