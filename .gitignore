@@ -1,3 +1,6 @@
+# macOS Finder metadata — never source
+.DS_Store
+
 full-send/dev-credentials.md
 
 # phillip-sync writes its per-repo cooldown cursor here at runtime (via the symlink) — local state, not source
