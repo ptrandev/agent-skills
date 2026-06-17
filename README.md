@@ -37,15 +37,15 @@ Keeps the `/phillip` rubric fresh by mining the current repo's recent resolved-a
 ---
 
 ### `/gemini`
-Google Gemini CLI wrapper with three modes:
+Google Gemini CLI wrapper with three modes (defaults to `gemini-pro-latest`; pass `--flash` for `gemini-flash-latest`):
 
-- **Review** — independent diff review with pass/fail gate (uses `gemini-2.5-pro`)
+- **Review** — independent diff review with a pass/fail gate
 - **Challenge** — adversarial mode that tries to break your code
 - **Consult** — ask Gemini anything, leveraging its 1M+ token context for whole-repo questions
 
 **Usage:** `/gemini review`, `/gemini challenge`, `/gemini <question>`
 
-**Requires:** `gemini` CLI — `npm install -g @google/gemini-cli` and a `GEMINI_API_KEY` or OAuth via `gemini` interactive mode.
+**Requires:** `gemini` CLI (`npm install -g @google/gemini-cli`) and **API-key auth** — `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in your environment (in `~/.zshenv` so non-interactive shells see it) plus `security.auth.selectedType: "gemini-api-key"` in `~/.gemini/settings.json`. OAuth / Code Assist login is not supported — it 404s on the `-latest` model aliases.
 
 ---
 
