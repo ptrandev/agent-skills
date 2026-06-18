@@ -30,7 +30,7 @@ No arguments. It reviews your current branch vs the default branch (main/master,
 
 Runs your diff through three independent reviewers (Claude + Codex + Gemini) over multiple rounds. It verifies every finding against the real code, fixes the genuine HIGH/MEDIUM ones, rejects bad suggestions out loud (with a reason), and loops until a clean ("dry") round turns up nothing new. It caps at 3 rounds -> if it's still finding HIGH/MEDIUM issues at round 3, it stops, applies them, and flags the result as unconfirmed (that's the "Needs human review" verdict below).
 
-The two external reviewers (Codex and Gemini) run in parallel, and Claude's own pass overlaps them, so a round costs about the slowest single reviewer rather than the sum of all of them.
+All three reviewers are genuinely independent. Codex and Gemini are separate CLI processes that see only your diff. The Claude reviewer is a **blind sub-agent** -> a fresh Claude with no access to the conversation, the ticket, or who wrote the code, so it reviews with no author bias, exactly like the two CLIs. The orchestrating session that runs `/phillip` does NOT count as a reviewer; it integrates and verifies their findings. The two CLIs and the blind sub-agent run in parallel, so a round costs about the slowest single reviewer rather than the sum of all of them.
 
 ## Full vs quick
 

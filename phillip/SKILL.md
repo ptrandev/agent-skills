@@ -16,6 +16,7 @@ triggers:
   - audit my diff
   - is this ready to ship
 allowed-tools:
+  - Agent
   - Bash
   - Read
   - Edit
@@ -56,10 +57,14 @@ string this skill sets):
 
 - `/phillip` (default) -> full multi-round loop, all three reviewers.
 - `/phillip quick` -> one round, Claude-only (or Claude + one external if the diff is
-  substantial). Use for small or low-risk diffs to avoid overkill.
+  substantial). Use for small or low-risk diffs to avoid overkill. "Claude-only" still means
+  the blind sub-agent (reviewer #3), not an in-session pass -> keep the reviewer independent
+  even when you skip the externals.
 - Auto-scale by diff size: if the diff is trivial (docs-only, or under ~30 changed
   lines with no logic change), run Claude-only and say so -> do not spin up 12 external
-  CLI calls to confirm a one-line change.
+  CLI calls to confirm a one-line change. On a truly trivial diff, spawning a sub-agent is
+  also overkill -> reviewing inline is fine, but then label it `Claude (inline, not blind)`
+  in the report so the independence claim stays honest.
 
 ### Capture the diff under review
 
@@ -219,14 +224,19 @@ from here.
 ## 2. The multi-round adversarial loop
 
 Run rounds until convergence. Each round uses three independent reviewers: Codex, Gemini,
-and your own Claude pass.
+and a BLIND Claude sub-agent. You (the orchestrating session) are NOT a reviewer -> you are
+the integrator/verifier. The Claude voice that counts as reviewer #3 is a fresh sub-agent
+spawned via the Agent tool, because the orchestrating session has author bias: it carries
+this conversation, the implementation reasoning, and (in self-review / full-send flows) the
+fact that it wrote the code under review. A blind sub-agent starts with none of that, so it
+is structurally as independent as the two external CLIs. That blindness is the whole point ->
+do not collapse it back into an in-session pass.
 
-### Per round (run the reviewers in PARALLEL)
+### Per round (run the three reviewers in PARALLEL)
 
 The reviewers are independent and the external CLIs are the slow part (each pass is
-~1-5 min). Do NOT run them one-after-another -> launch Codex and Gemini AT THE SAME TIME and
-do your own Claude pass while they work. This cuts a round from the sum of all passes down
-to roughly the slowest single pass.
+~1-5 min). Do NOT run them one-after-another -> start all three AT THE SAME TIME. This cuts a
+round from the sum of all passes down to roughly the slowest single pass.
 
 1. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
    true`, one job per model). Group each model's review + challenge into its OWN job so that
@@ -239,17 +249,42 @@ to roughly the slowest single pass.
    `gemini` skills remain the source of truth for the exact CLI flags, the filesystem-boundary
    prompt, the diff-scope prompt, and auth handling -> mirror their review/challenge CLI calls
    here as background processes. (Read those skills once if you need the precise invocation.)
-2. While Codex and Gemini run, do your Claude review pass (reviewer #3): apply the Phillip
-   Standard above directly to the diff. You are an independent voice, not an aggregator. This
-   overlaps with the external CLIs -> zero idle time.
+2. Reviewer #3 is a BLIND Claude sub-agent, launched via the Agent tool right after the two
+   background jobs are running. The two CLIs keep working while the sub-agent works -> all
+   three overlap, zero idle time. The sub-agent must derive everything from the repo, never
+   from you. Feed it ONLY:
+   - the role: "You are an independent code reviewer. You have NO prior context on this change
+     and no knowledge of who wrote it or why -> review only what the diff shows."
+   - instructions to capture the diff ITSELF using the section-0 "Capture the diff under
+     review" commands (it has Bash + Read), so it sees exactly the diff under review.
+   - instructions to Read section 1 (the review standard) of this file
+     (`~/.claude/skills/phillip/SKILL.md`) and apply it -> including the severity taxonomy,
+     the verification discipline, and the HONESTY RULE.
+   - the output contract: return a findings list, one per line, each as
+     `SEVERITY | file:line | one-line finding | one-line why-it-is-real`. It REVIEWS only; it
+     does not edit, fix, or commit anything.
+
+   Do NOT paste the conversation, the ticket, the implementation rationale, or any "what this
+   is supposed to do" narrative into the sub-agent prompt -> that reintroduces the author bias
+   the blindness exists to remove. Run it at full strength (it inherits this session's model;
+   do not downgrade it).
 3. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
-   `/tmp/phillip-gemini.out`. Combine every finding from all three reviewers into one list
-   with proposed severity.
+   `/tmp/phillip-gemini.out`, and take the blind sub-agent's returned findings. Combine every
+   finding from all three reviewers into one list with proposed severity. You did NOT review;
+   from here on you de-dupe, verify, adjudicate, and implement. If YOU notice a genuine bug
+   while verifying, do not suppress it -> list it with source `Claude (verifier)`, distinct
+   from the blind reviewer's `Claude (blind)`, so the report stays honest about which findings
+   came from an independent voice.
 
 Fallback if you cannot background jobs in your environment: issue the Codex and Gemini CLI
 calls as two Bash calls in a SINGLE message (the harness runs independent calls
 concurrently); worst case, invoke the `/codex` and `/gemini` skills sequentially -> still
 correct, just slower. Parallelism is a speedup, never a correctness requirement.
+
+Fallback if the Agent tool is unavailable (older harness / sub-agents unsupported): run
+reviewer #3 as an INLINE Claude pass on the diff, exactly as the orchestrator would, AND state
+in the report "reviewer #3 ran inline, not blind (Agent tool unavailable)." Never claim a
+blind third reviewer you did not actually run as a sub-agent -> that violates the HONESTY RULE.
 
 If the gemini skill is not installed (no `~/.claude/skills/gemini/SKILL.md`) or its CLI
 auth is missing, do NOT silently drop a reviewer: run with Codex + Claude and state in
@@ -317,13 +352,13 @@ the session and can be pasted into the PR body as proof the self-review ran.
 
 ```
 ### Phillip self-review -> <branch>, <date>
-Reviewers: Claude + Codex + Gemini   Rounds run: <n>
+Reviewers: Claude (blind) + Codex + Gemini   Rounds run: <n>
 Stopped because: dry round / 3-round cap
 
 | # | Severity | File:line | Finding | Source | Status |
 |---|----------|-----------|---------|--------|--------|
 | 1 | HIGH     | Aicc.ts:1098 | <one line> | Codex | Fixed b8c6727914 |
-| 2 | MEDIUM   | app/index.tsx:28 | <one line> | Claude | Fixed <sha> |
+| 2 | MEDIUM   | app/index.tsx:28 | <one line> | Claude (blind) | Fixed <sha> |
 | 3 | nit      | foo.ts:12 | <one line> | Gemini | Listed, not fixed |
 | 4 | -        | bar.ts:40 | Gemini race claim | Gemini | Rejected: predicate also fires on status-only transition -> dup push |
 ```
