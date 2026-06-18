@@ -56,6 +56,13 @@ Generates a non-developer-friendly weekly summary of merged PRs across the Atlla
 
 ---
 
+### `/daily-launch-summary`
+Same as `/weekly-launch-summary`, but scoped to the **last 24 hours** (a rolling window) instead of the calendar week starting Monday.
+
+**Usage:** `/daily-launch-summary`
+
+---
+
 ## Setup
 
 Skills are symlinked from this repo into `~/.claude/skills/` so edits here take effect immediately without any sync step.
@@ -70,6 +77,7 @@ ln -s ~/Git/claude-skills/gemini ~/.claude/skills/gemini
 ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip
 ln -s ~/Git/claude-skills/phillip-sync ~/.claude/skills/phillip-sync
 ln -s ~/Git/claude-skills/weekly-launch-summary ~/.claude/skills/weekly-launch-summary
+ln -s ~/Git/claude-skills/daily-launch-summary ~/.claude/skills/daily-launch-summary
 ```
 
 > **Note:** `full-send/dev-credentials.md` is gitignored — create it manually after cloning if needed.
