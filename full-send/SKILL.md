@@ -1,27 +1,118 @@
 ---
 name: full-send
 description: |
-  End-to-end feature workflow: Linear ticket → implement → /phillip self-review →
-  commit → draft PR → automated bot review (Copilot and/or Gemini Code Assist) →
-  address all threads → UI screenshots.
-  Zero stops. Use with /full-send <TICKET-ID> or just /full-send.
+  End-to-end feature workflow: Linear ticket (or raw idea) → implement →
+  /phillip self-review → commit → draft PR → automated bot review (Copilot and/or
+  Gemini Code Assist) → address all threads → UI screenshots + walkthrough video.
+  Autonomous (zero stops) by default; opt into an interactive grill with
+  /full-send interactive <TICKET-ID>. Use with /full-send <TICKET-ID>, just
+  /full-send, or /full-send <free-text idea>.
 ---
 
 # full-send
 
-Takes a ticket from nothing to a fully-reviewed draft PR in one shot.
+Takes a ticket — or a raw idea — from nothing to a fully-reviewed draft PR in one shot.
 
 ## Input
 
-`$ARGS` may contain a ticket ID (e.g. `AP-1234`). If not present, ask for it once before starting.
+`$ARGS` may contain a leading **mode keyword**, then either a ticket ID (e.g. `AP-1234`) or
+free-text describing the work. Parse them in this order:
+
+1. **Mode keyword** (optional, first token):
+   - `interactive` / `ask` / `careful` → **interactive mode** (front-load a grill, see Phase 0.5).
+   - `auto` → explicit **autonomous mode** (the default; this alias exists only for symmetry).
+   - No keyword → **autonomous mode**.
+2. **Remaining `$ARGS`:**
+   - A ticket ID (e.g. `AP-1234`) → fetch it (Phase 0).
+   - Free-text with no ticket ID → treat as a **raw idea/spec** and synthesize a ticket (Phase 0).
+   - Empty → ask once for a ticket ID or an idea before starting.
+
+### Modes
+
+Two modes, encoding the global working principle (*ask when interactive; pick the most reasonable
+interpretation and record it when unattended*):
+
+- **Autonomous (default)** — zero stops. For anything ambiguous, pick the most reasonable
+  interpretation, proceed, and record it in an **Assumptions** block carried onto the PR.
+- **Interactive** — exactly **one** stop: a thorough up-front grill (Phase 0.5) that removes
+  ambiguity before any code is written. After the grill's plan is approved, the run is autonomous
+  through Phase 9, identical to the default flow.
 
 ---
 
-## Phase 0 — Ticket
+## Preflight — dependency check (runs first)
+
+Before doing any work, check the tools this run will use and print a **readiness summary** up
+front. The point is early visibility: anything optional that's missing is surfaced now — at
+second zero — so the user can install it *if they want that feature*, rather than discovering the
+gap 20 minutes later at Phase 8.
+
+**Required** (if any is missing, stop and say so clearly — the run can't complete without it):
+- `gh` CLI, authenticated (`gh auth status`) — needed for the PR and bot review.
+- Linear MCP available — needed to fetch/create/update the ticket.
+- The `browse` binary (see Phase 8b) — only required if the change touches UI and screenshots are expected.
+
+**Optional** (note what's missing and how to enable it, then continue — these degrade gracefully):
+- **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor`. If missing →
+  video will be skipped. To enable: install OpenCap and run `opencap login` once.
+- **`/grilling` skill** (interactive mode only): confirm `grilling` is in the available skills.
+  If missing and the run is interactive → fall back to an inline clarification Q&A. To enable:
+  install the grilling skill.
+
+Print a compact summary, e.g.:
+
+```
+Preflight:  gh ✓   Linear ✓   browse ✓   OpenCap ✗ (run `opencap login` to enable video)   grilling ✓
+```
+
+**Mode behavior:**
+- **Autonomous (default):** print the summary and proceed immediately — **do not wait** (zero
+  stops). Missing optional tools simply mean those features are skipped this run; the early print
+  still gives the user a chance to interrupt and install if they care.
+- **Interactive:** present the summary as part of the up-front interaction, so the user can fix
+  any optional gaps before the Phase 0.5 grill begins.
+
+> The operative OpenCap gate still runs at Phase 8b.1 (it sets `OPENCAP_OK` right before
+> recording, after the headed session is up). This preflight is the early-warning pass.
+
+---
+
+## Phase 0 — Ticket / Spec
+
+**If a ticket ID was supplied:**
 
 1. Fetch the ticket from Linear using the Linear MCP.
 2. Extract: title, description, acceptance criteria.
 3. Assign the ticket to the current user and set status to **In Progress**.
+
+**If a raw idea/spec was supplied instead (no ticket ID):** synthesize a ticket, then proceed
+as if it had been fetched:
+
+1. Derive a concise **title**, a **description**, and an explicit **acceptance-criteria** list
+   from the idea.
+2. Create the Linear issue via the same Linear MCP used for fetch/update (the create-issue tool).
+3. Assign it to the current user and set status to **In Progress**.
+4. Mode-specific handling of the derived acceptance criteria:
+   - **Autonomous:** keep the inferred AC and record everything you inferred in an
+     **Assumptions** block (carry it to the PR body in Phase 6 and the Done summary in Phase 9).
+   - **Interactive:** treat the AC as provisional — finalize it after the grill (Phase 0.5).
+
+---
+
+## Phase 0.5 — Interactive grill (interactive mode only)
+
+**Skip this entire phase in autonomous mode.** In interactive mode, before writing any code:
+
+1. Invoke `/grilling` via the Skill tool, scoped to this ticket/idea — interrogate edge cases,
+   scope boundaries, data shapes, non-goals, and any unclear acceptance criteria until you are
+   confident you understand exactly what to build.
+2. Fold the answers back into the Linear ticket: update the description and acceptance criteria
+   (Linear MCP update tool) so the ticket reflects the clarified spec.
+3. State the resulting implementation plan inline (same numbered-list format as Phase 2) and get
+   a single explicit go-ahead.
+
+**This is the one and only stop in interactive mode.** After the go-ahead, run autonomously
+through Phase 9 exactly like the default flow — no further per-phase checkpoints.
 
 ---
 
@@ -71,6 +162,21 @@ cd apps/agents-portal && yarn lint 2>&1 | tail -30
 ```
 
 If a typecheck error is pre-existing and unrelated to this ticket, note it and do not fix it.
+
+Then run the test suite for each affected workspace. Detect the workspace(s) from the changed
+files and run whatever test script the package actually defines (check its `package.json`
+`scripts` — skip with a note if it has no test script):
+
+```bash
+# API
+cd apps/api && yarn test 2>&1 | tail -30
+
+# Frontend
+cd apps/agents-portal && yarn test 2>&1 | tail -30
+```
+
+Treat failures like typecheck errors: **fix** test failures caused by this change; **note and
+skip** pre-existing or unrelated failures rather than fixing them.
 
 Commit everything:
 ```bash
@@ -239,9 +345,14 @@ HIGH and MEDIUM as actionable; LOW and praise/nit comments can be acknowledged a
 
 ---
 
-## Phase 8 — Screenshots
+## Phase 8 — Evidence (screenshots + video)
 
 Skip if no files under `apps/agents-portal/src/pages/` or `apps/agents-portal/src/components/` were modified.
+
+This phase produces two artifacts: clean **screenshots** of each affected surface, and a
+continuous **walkthrough video** of the same flow recorded with [OpenCap](https://opencap.dev).
+The video is **best-effort** — if OpenCap isn't installed or logged in, capture screenshots only
+and never block the PR.
 
 ### Step 8a — Ensure the dev environment is running
 
@@ -333,7 +444,27 @@ $B url
 
 Confirm the URL is no longer the login page before proceeding. If login fails (still on `/` or `/login`), check console errors and retry once.
 
-### Step 8c — Take screenshots
+### Step 8b.1 — OpenCap preflight (non-fatal)
+
+OpenCap records the screen, so it needs a headed/desktop session — which is exactly what the
+headed browse session above provides (it works locally on macOS; it cannot work in a truly
+headless CI run). It also needs a one-time `opencap login` before its first use. Probe for it;
+if it's unavailable, degrade to screenshots-only — do **not** block:
+
+```bash
+if command -v opencap >/dev/null 2>&1 && opencap config doctor >/dev/null 2>&1; then
+  OPENCAP_OK=1
+  echo "OpenCap ready — will record a walkthrough video."
+else
+  OPENCAP_OK=0
+  echo "OpenCap unavailable (not installed or not logged in) — capturing screenshots only."
+fi
+```
+
+> First-time setup: run `opencap login` once (interactive). If you see the "unavailable" message
+> and want video, that login is the most likely missing step.
+
+### Step 8c — Record a walkthrough while taking screenshots
 
 Create the output directory:
 
@@ -341,7 +472,19 @@ Create the output directory:
 mkdir -p /tmp/full-send-$TICKET_ID
 ```
 
-Navigate to each page affected by the ticket and capture:
+If OpenCap is ready, start recording before the walkthrough so the **same** flow that produces
+the screenshots also produces the video (the two stay in sync). Prefer targeting the browser
+surface over full-screen — resolve a window/display with `opencap list-windows` /
+`opencap list-displays` and pass `--window <id>` / `--display <id>`, or use `--pick` when
+ambiguous. Confirm the exact target flag with `opencap --help` on first use.
+
+```bash
+[ "$OPENCAP_OK" = 1 ] && opencap record start --task "$TICKET_ID: $TICKET_TITLE"
+```
+
+Navigate to each page affected by the ticket and capture. **Don't just render each page —
+exercise the happy path** (open the modal, submit the form, show the result) so the video proves
+the feature works. Drop an OpenCap marker before each scene so the recording is navigable:
 
 - The main page showing the new feature
 - Any modal or dialog (trigger it, screenshot, close)
@@ -350,19 +493,60 @@ Navigate to each page affected by the ticket and capture:
 Use `prettyscreenshot` for clean full-page captures:
 
 ```bash
+[ "$OPENCAP_OK" = 1 ] && opencap marker "Feature page"
 $B goto http://localhost:3000/<affected-path>
 sleep 2
 $B prettyscreenshot /tmp/full-send-$TICKET_ID/01-feature-page.png
 
 # For modals: open them, screenshot, then close
+[ "$OPENCAP_OK" = 1 ] && opencap marker "Modal open"
 $B click '[data-testid="<trigger-button>"]'
 sleep 1
 $B prettyscreenshot /tmp/full-send-$TICKET_ID/02-modal-open.png
 ```
 
+Stop the recording once the walkthrough is complete, then resolve its artifacts:
+
+```bash
+if [ "$OPENCAP_OK" = 1 ]; then
+  opencap record stop
+  SESSION=$(opencap list --json 2>/dev/null | head -1)   # newest session id; confirm shape via `opencap list --help`
+  opencap show "$SESSION"                                  # local file path
+  VIDEO_LINK=$(opencap share "$SESSION" 2>/dev/null)       # shareable link (preferred for the PR)
+  echo "Video: ${VIDEO_LINK:-see local path above}"
+fi
+```
+
+> Optional polish, only if trivially available: `opencap trim "$SESSION" --start <ms> --end <ms>
+> --save-as-copy` to clip dead air. Skip it if it adds any friction.
+
 After all screenshots are taken, use the Read tool on each PNG so they appear inline in the conversation.
 
-### Step 8d — Tear down
+### Step 8d — Attach the evidence to the PR
+
+Post the evidence directly onto the PR as a comment instead of leaving it for the user to upload
+by hand. Embed the screenshots and link the video (the OpenCap share link is the simplest path;
+fall back to the local file note if no link was produced):
+
+```bash
+gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
+## Walkthrough evidence
+
+**Video:** ${VIDEO_LINK:-_(no OpenCap link — see attached/local recording)_}
+
+Screenshots:
+<one Markdown image embed or link per PNG in /tmp/full-send-$TICKET_ID/>
+EOF
+)"
+```
+
+> Screenshots: confirm the cleanest binary-attach path with `gh` on first use — dragging images
+> into a comment renders inline; otherwise link them. The share link is the preferred default for
+> the video; only fall back to uploading the local file if no link is available.
+
+Record the comment URL — Phase 9 references it instead of asking the user to upload anything.
+
+### Step 8e — Tear down
 
 If this skill started the dev server (tracked via `$DEV_PID`), leave it running — the user may want to inspect the UI. Do not kill it.
 
@@ -370,9 +554,17 @@ If this skill started the dev server (tracked via `$DEV_PID`), leave it running 
 
 ## Phase 9 — Done
 
+Close the Linear loop:
+- Move the ticket to **In Review** (Linear MCP update).
+- Post a comment on the Linear issue with the PR URL (and the OpenCap share link if there is one).
+
 Report:
 - PR URL
 - All commits on this branch (`git log master..HEAD --oneline`)
 - Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
-- Screenshot paths (if any), with a note that the user should upload them to the PR
+- Evidence: link to the PR comment where the screenshots and walkthrough video are already
+  attached (Phase 8d) — note the video link, or that video was skipped because OpenCap was unavailable
+- Mode-specific context:
+  - **Interactive:** the clarifications captured during the Phase 0.5 grill.
+  - **Autonomous:** the **Assumptions** block recorded in Phase 0 for anything inferred.
 - Anything skipped and why (pre-existing errors, skipped review findings, no automated review landed within the timeout)
