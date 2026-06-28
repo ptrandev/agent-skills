@@ -38,6 +38,22 @@ interpretation and record it when unattended*):
   ambiguity before any code is written. After the grill's plan is approved, the run is autonomous
   through Phase 9, identical to the default flow.
 
+### Bail-out (the one exception to zero-stops)
+
+"Zero stops" means *don't pause for preferences* — it does **not** mean ship broken code. Stop
+and report instead of proceeding when the run hits an **unrecoverable** state, specifically:
+
+- Typecheck, lint, or tests cannot be made green after a genuine fix attempt, and the failure is
+  caused by this change (not pre-existing).
+- The implementation cannot satisfy the acceptance criteria (the ticket is wrong, blocked, or
+  needs a decision only a human can make).
+- A `git` rebase/push conflict can't be resolved cleanly.
+
+On bail-out: commit/stash what's safe, leave the branch intact (so it can be resumed), and report
+exactly where it stopped, why, and what's needed to continue. Do **not** open or finalize a PR
+around known-broken code. A trivial/blocked ambiguity is not a bail-out — record an assumption and
+keep going.
+
 ---
 
 ## Preflight — dependency check (runs first)
@@ -74,6 +90,30 @@ Preflight:  gh ✓   Linear ✓   browse ✓   OpenCap ✗ (run `opencap login` 
 
 > The operative OpenCap gate still runs at Phase 8b.1 (it sets `OPENCAP_OK` right before
 > recording, after the headed session is up). This preflight is the early-warning pass.
+
+---
+
+## Resume — idempotency check (runs after Preflight)
+
+This skill is safe to re-run on the same ticket (it often crashes or is interrupted mid-way — e.g.
+during Phase 7's multi-minute poll). Before doing work, establish what's already done and **skip
+completed phases** rather than redoing them. Determine state from the world, not memory:
+
+```bash
+# Is there already a branch / PR for this ticket?
+git rev-parse --verify "$TICKET_ID" 2>/dev/null && echo "branch exists"
+gh pr list --head "$TICKET_ID" --json number,url,isDraft --jq '.[0]' 2>/dev/null   # existing PR?
+```
+
+Apply these skip rules:
+- **Ticket already In Progress / assigned** → don't reassign (Phase 0 is a no-op).
+- **Branch exists with commits** → resume on it; don't recreate it (Phase 1).
+- **PR already open** → reuse its number; skip `gh pr create` (Phase 6), go straight to processing
+  reviews/CI (Phases 7+).
+- **Bot threads already resolved / commits already pushed** → don't duplicate replies or commits.
+
+The guiding rule: every phase should check "is this already true?" and become a no-op if so. When
+in doubt, prefer reading current state (`git`, `gh`, Linear) over assuming a fresh run.
 
 ---
 
@@ -118,13 +158,24 @@ through Phase 9 exactly like the default flow — no further per-phase checkpoin
 
 ## Phase 1 — Branch
 
-Check the current branch. If it's `master`/`main` or unrelated, create a new branch named after the ticket ID (preserve original casing per CLAUDE.md):
+Always branch from an **up-to-date base** so you don't build on a stale `master` and hit avoidable
+conflicts later. Detect the base branch (`master`/`main`), fetch it, and branch from the fresh ref:
 
 ```bash
-git checkout -b $TICKET_ID
+BASE=$(git remote show origin | sed -n 's/.*HEAD branch: //p')   # usually master
+git fetch origin "$BASE"
 ```
 
-If the branch already exists, switch to it (this is a resume).
+If the current branch is the base or unrelated, create a new branch (named after the ticket ID,
+preserving original casing per CLAUDE.md) from the freshly fetched base:
+
+```bash
+git checkout -b $TICKET_ID "origin/$BASE"
+```
+
+If the branch already exists, switch to it — **this is a resume** (see the Resume section); rebase
+it onto the latest base if it has diverged, and stop to report if the rebase conflicts rather than
+forcing through it.
 
 ---
 
@@ -145,6 +196,11 @@ Execute the plan. Follow all conventions in CLAUDE.md and CLAUDE.local.md.
 - Never add abstractions or features beyond what the ticket requires.
 - When modifying a shared package (sdk, privs, common, ui), rebuild it: `cd packages/<name> && yarn build`.
 - Add `data-testid` attributes to every new interactive element.
+- **Cover the new behavior with tests.** Add or extend tests that exercise the code paths this
+  ticket introduces (the acceptance criteria are the checklist), following the workspace's
+  existing test patterns and file conventions. If a touched area genuinely has no test
+  infrastructure, note that rather than scaffolding a framework from scratch. Screenshots prove it
+  renders; tests prove it works.
 - Use TaskCreate to track sub-steps; mark each complete as you finish it.
 
 ---
@@ -176,7 +232,12 @@ cd apps/agents-portal && yarn test 2>&1 | tail -30
 ```
 
 Treat failures like typecheck errors: **fix** test failures caused by this change; **note and
-skip** pre-existing or unrelated failures rather than fixing them.
+skip** pre-existing or unrelated failures rather than fixing them. Confirm the new tests written
+in Phase 3 actually run and pass (a green suite that never exercises the new path doesn't count).
+
+If typecheck, lint, or the tests **cannot be made green** after a genuine fix attempt and the
+failure is caused by this change, **bail out** per the Bail-out rule (Modes section): stop, leave
+the branch intact, and report — do not push known-broken code toward a PR.
 
 Commit everything:
 ```bash
@@ -342,6 +403,26 @@ HIGH and MEDIUM as actionable; LOW and praise/nit comments can be acknowledged a
    }' -F id="$THREAD_ID"
    ```
 5. If any fixes were made, commit as `fix(<scope>): address automated review findings` and push.
+
+### Step 7d — Ensure CI is green
+
+Bot reviews are advisory; the PR's **CI checks** (build, tests, lint, type) are the real gate, and
+a developer cares more that they pass than that a bot commented. After the last code push, wait
+for the checks to settle:
+
+```bash
+# Waits for all required checks; exits non-zero if any fail.
+gh pr checks "$PR_NUMBER" --watch --interval 30 || CI_FAILED=1
+```
+
+- **All green** → continue.
+- **A check fails** → read its log, fix the cause, commit (`fix(<scope>): fix CI`), push, and
+  re-watch. Loop until green or until the failure is genuinely unrecoverable.
+- **Unrecoverable / failure is pre-existing & unrelated** → don't loop forever: note it, carry the
+  red-check status to the Done summary so it's surfaced on the PR, and (if the failure is caused by
+  this change) treat it as a **bail-out** rather than presenting the PR as ready.
+
+If the repo has no CI configured, `gh pr checks` reports no checks — note that and move on.
 
 ---
 
@@ -562,6 +643,7 @@ Report:
 - PR URL
 - All commits on this branch (`git log master..HEAD --oneline`)
 - Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
+- **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
   attached (Phase 8d) — note the video link, or that video was skipped because OpenCap was unavailable
 - Mode-specific context:
