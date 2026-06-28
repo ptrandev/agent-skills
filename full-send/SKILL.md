@@ -58,10 +58,8 @@ keep going.
 
 ## Preflight — dependency check (runs first)
 
-Before doing any work, check the tools this run will use and print a **readiness summary** up
-front. The point is early visibility: anything optional that's missing is surfaced now — at
-second zero — so the user can install it *if they want that feature*, rather than discovering the
-gap 20 minutes later at Phase 8.
+Before doing any work, check the tools this run will use and print a **readiness summary**, so
+missing optional tooling surfaces now instead of 20 minutes into Phase 8.
 
 **Required** (if any is missing, stop and say so clearly — the run can't complete without it):
 - `gh` CLI, authenticated (`gh auth status`) — needed for the PR and bot review.
@@ -81,15 +79,10 @@ Print a compact summary, e.g.:
 Preflight:  gh ✓   Linear ✓   browse ✓   OpenCap ✗ (run `opencap login` to enable video)   grilling ✓
 ```
 
-**Mode behavior:**
-- **Autonomous (default):** print the summary and proceed immediately — **do not wait** (zero
-  stops). Missing optional tools simply mean those features are skipped this run; the early print
-  still gives the user a chance to interrupt and install if they care.
-- **Interactive:** present the summary as part of the up-front interaction, so the user can fix
-  any optional gaps before the Phase 0.5 grill begins.
-
-> The operative OpenCap gate still runs at Phase 8b.1 (it sets `OPENCAP_OK` right before
-> recording, after the headed session is up). This preflight is the early-warning pass.
+**Mode behavior:** Autonomous prints and proceeds immediately (zero stops — missing optional tools
+just skip those features). Interactive folds the summary into the up-front interaction so the user
+can fix gaps before the Phase 0.5 grill. The operative OpenCap gate runs later at Phase 8b.1; this
+is only the early-warning pass.
 
 ---
 
@@ -196,11 +189,10 @@ Execute the plan. Follow all conventions in CLAUDE.md and CLAUDE.local.md.
 - Never add abstractions or features beyond what the ticket requires.
 - When modifying a shared package (sdk, privs, common, ui), rebuild it: `cd packages/<name> && yarn build`.
 - Add `data-testid` attributes to every new interactive element.
-- **Cover the new behavior with tests.** Add or extend tests that exercise the code paths this
-  ticket introduces (the acceptance criteria are the checklist), following the workspace's
-  existing test patterns and file conventions. If a touched area genuinely has no test
-  infrastructure, note that rather than scaffolding a framework from scratch. Screenshots prove it
-  renders; tests prove it works.
+- **Cover the new behavior with tests.** Add/extend tests for the code paths this ticket
+  introduces (acceptance criteria = the checklist), following the workspace's existing test
+  patterns. If a touched area has no test infrastructure, note it rather than scaffolding a
+  framework from scratch.
 - Use TaskCreate to track sub-steps; mark each complete as you finish it.
 
 ---
@@ -232,12 +224,11 @@ cd apps/agents-portal && yarn test 2>&1 | tail -30
 ```
 
 Treat failures like typecheck errors: **fix** test failures caused by this change; **note and
-skip** pre-existing or unrelated failures rather than fixing them. Confirm the new tests written
-in Phase 3 actually run and pass (a green suite that never exercises the new path doesn't count).
+skip** pre-existing or unrelated failures. Confirm the Phase 3 tests actually run and pass (a green
+suite that never exercises the new path doesn't count).
 
-If typecheck, lint, or the tests **cannot be made green** after a genuine fix attempt and the
-failure is caused by this change, **bail out** per the Bail-out rule (Modes section): stop, leave
-the branch intact, and report — do not push known-broken code toward a PR.
+If typecheck, lint, or tests **cannot be made green** and the failure is caused by this change,
+**bail out** (see Bail-out, Modes) rather than pushing broken code toward a PR.
 
 Commit everything:
 ```bash
@@ -527,23 +518,16 @@ Confirm the URL is no longer the login page before proceeding. If login fails (s
 
 ### Step 8b.1 — OpenCap preflight (non-fatal)
 
-OpenCap records the screen, so it needs a headed/desktop session — which is exactly what the
-headed browse session above provides (it works locally on macOS; it cannot work in a truly
-headless CI run). It also needs a one-time `opencap login` before its first use. Probe for it;
-if it's unavailable, degrade to screenshots-only — do **not** block:
+The operative video gate (the headed browse session OpenCap records is now up). If unavailable,
+degrade to screenshots-only — do **not** block:
 
 ```bash
 if command -v opencap >/dev/null 2>&1 && opencap config doctor >/dev/null 2>&1; then
-  OPENCAP_OK=1
-  echo "OpenCap ready — will record a walkthrough video."
+  OPENCAP_OK=1; echo "OpenCap ready — will record a walkthrough video."
 else
-  OPENCAP_OK=0
-  echo "OpenCap unavailable (not installed or not logged in) — capturing screenshots only."
+  OPENCAP_OK=0; echo "OpenCap unavailable (not installed / not logged in) — screenshots only."
 fi
 ```
-
-> First-time setup: run `opencap login` once (interactive). If you see the "unavailable" message
-> and want video, that login is the most likely missing step.
 
 ### Step 8c — Record a walkthrough while taking screenshots
 
@@ -553,11 +537,9 @@ Create the output directory:
 mkdir -p /tmp/full-send-$TICKET_ID
 ```
 
-If OpenCap is ready, start recording before the walkthrough so the **same** flow that produces
-the screenshots also produces the video (the two stay in sync). Prefer targeting the browser
-surface over full-screen — resolve a window/display with `opencap list-windows` /
-`opencap list-displays` and pass `--window <id>` / `--display <id>`, or use `--pick` when
-ambiguous. Confirm the exact target flag with `opencap --help` on first use.
+Start recording before the walkthrough so the same flow yields both screenshots and video. Prefer
+targeting the browser surface over full-screen (`opencap list-windows` / `list-displays` →
+`--window`/`--display`, or `--pick`); confirm the exact flag via `opencap --help` on first use.
 
 ```bash
 [ "$OPENCAP_OK" = 1 ] && opencap record start --task "$TICKET_ID: $TICKET_TITLE"
