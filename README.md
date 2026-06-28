@@ -5,9 +5,15 @@ Custom [Claude Code](https://claude.ai/code) skills. Each skill lives in its own
 ## Skills
 
 ### `/full-send`
-End-to-end feature workflow: Linear ticket → implement → `/phillip` self-review → commit → draft PR → Copilot review → address all threads → UI screenshots. Zero stops.
+End-to-end feature workflow: Linear ticket (or raw idea) → implement (with tests) → `/phillip` self-review → commit → draft PR → automated bot review (Copilot and/or Gemini Code Assist) → address all threads → green CI → UI screenshots + walkthrough video (via [OpenCap](https://opencap.dev)) attached to the PR → Linear moved to In Review.
 
-**Usage:** `/full-send` or `/full-send <TICKET-ID>`
+Autonomous (zero stops) by default; opt into an up-front grill with the `interactive` mode. Safe to re-run — it resumes and skips completed phases.
+
+**Usage:**
+- `/full-send <TICKET-ID>` — run autonomously from an existing ticket
+- `/full-send` — prompts for a ticket ID or idea
+- `/full-send <free-text idea>` — synthesizes a Linear ticket from the idea, then builds it
+- `/full-send interactive <TICKET-ID>` — grills you to remove ambiguity before writing code
 
 ---
 
