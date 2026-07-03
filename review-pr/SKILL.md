@@ -170,7 +170,9 @@ dispatch → aggregate.
 - **Concurrency:** agents for **different repos run in parallel** (separate clones). Agents for
   PRs in the **same repo run sequentially** (shared clone, serial checkouts) — or in parallel
   only if each gets its own `git worktree` at its head SHA *and* verification deps are available
-  in that worktree.
+  in that worktree. **Tier-3 dynamic walkthroughs are globally serialized** regardless of repo
+  parallelism — one live stack machine-wide via the Phase 6 stack lock (pinned ports, singleton
+  `browse` daemon); an agent that finds the lock held defers with a NEEDS-DYNAMIC-RUN note.
 - **Return contract:** each agent returns only the verdict line (event, head SHA, posted review
   id, inline-comment count), its report path, and its NEEDS-YOUR-EYES / NEEDS-DYNAMIC-RUN items
   — not its transcript.
@@ -341,6 +343,78 @@ When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
 A **live-confirmed** defect ("modal throws on submit", screenshot) is the **highest-confidence**
 finding tier → strong basis for `REQUEST_CHANGES`; a clean walkthrough supports `APPROVE`.
 
+### Stack lifecycle (no preview env — local boot rules)
+
+There is no preview deploy, so the walkthrough boots the PR's code locally. Booting someone
+else's branch is the most failure-prone and highest-noise part of this skill; these rules exist to
+keep its evidence trustworthy.
+
+**One stack at a time, machine-wide.** Acquire a lock before boot; release in teardown:
+
+```bash
+LOCK="$SCRATCH/review-pr-stack.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+  OLDPID=$(cat "$LOCK/pid" 2>/dev/null)
+  if [ -n "$OLDPID" ] && kill -0 "$OLDPID" 2>/dev/null; then
+    echo "stack busy (PR being walked by pid $OLDPID) — defer"; exit 0   # NEEDS-DYNAMIC-RUN note
+  fi
+  rm -rf "$LOCK" && mkdir "$LOCK"      # stale lock from a dead run — reclaim
+fi
+echo $$ > "$LOCK/pid"
+```
+
+Why sequential: the ports below are pinned (two stacks can't coexist), `browse` is a singleton
+Chromium daemon (parallel walkthroughs interleave tabs/state), and one-stack failures triage
+cleanly ("PR 1768's stack didn't boot") instead of becoming an interference puzzle. Walkthrough
+volume is low — Tier 3 only fires for UI-touching PRs — so parallel stacks solve a problem this
+skill doesn't have. **Orchestrator note:** per-repo agents may run in parallel (Phase 1), but
+Tier-3 walkthroughs serialize on this lock; an agent that finds it held defers with a
+NEEDS-DYNAMIC-RUN note rather than waiting.
+
+**Pinned ports — free-or-abort preflight.** The stack's ports come from repo config and are NOT
+relocatable without editing the checkout (FE `baseURL` is hardcoded, emulator ports live in
+`firebase.json`): **3000** (Next FE), **4000** (API, `BACK_PORT` default), **4001 / 8080 / 8085 /
+9099 / 9199** (Firebase emulators). Before boot, every one must be free:
+
+```bash
+BUSY=$(lsof -nP -iTCP:3000 -iTCP:4000 -iTCP:4001 -iTCP:8080 -iTCP:8085 -iTCP:9099 -iTCP:9199 \
+       -sTCP:LISTEN 2>/dev/null | tail -n +2)
+if [ -n "$BUSY" ]; then rm -rf "$LOCK"; echo "SKIP_WALKTHROUGH: ports occupied"; echo "$BUSY"; fi
+```
+
+Any port occupied → **do not boot, do not walk through** — release the lock, add a neutral
+NEEDS-DYNAMIC-RUN note naming the port and likely cause ("is your dev stack running?"). This gate
+is load-bearing, not hygiene: `playwright.config.ts` sets `reuseExistingServer: true`, so if
+something already listens on :3000 (the user's dev server on `master`), the walkthrough would
+**silently validate that code instead of the PR's** and produce screenshots "proving" whatever is
+already running. A port conflict that errors is loud; validating the wrong stack is quiet — this
+preflight converts the quiet failure into a loud skip. Kill a leftover only if it's provably ours:
+its PID is in a previous run's `$LOCK/pid` **and** its command line matches the stack (`ps -p
+<pid> -o command=` shows `next start` / `firebase emulators`). Anything else → skip, never kill.
+
+**Post-boot identity assertion.** After the stack reports healthy, confirm :3000 is owned by a
+process this run spawned (`lsof -nP -iTCP:3000 -sTCP:LISTEN` PID is a descendant of the stack we
+started) before driving the browser. This is what makes walkthrough evidence attributable to the
+PR's code rather than to whatever answered the port.
+
+**State isolation** comes free from the existing harness — `yarn e2e:stack` runs
+`firebase emulators:exec` with per-run in-memory emulators seeded by `e2e/seed/seed.mjs` (no
+`--import`), and external services are stubbed. Never point the walkthrough at the dev database
+or real services; if the stubbed stack can't exercise the surface, that's a NEEDS-DYNAMIC-RUN
+note, not a reason to relax stubbing.
+
+**Boot budget: ~120 s to healthy** (matches the Playwright `webServer` timeout). Miss it → tear
+down, release the lock, neutral note ("stack didn't boot in budget"), move on. No retry spiral.
+
+**Guaranteed teardown, and boot failures are never findings.** `emulators:exec` tears down the
+emulators on its own exit; everything else this run started (API process, `next start`, browse
+tabs) is killed by an EXIT trap that also releases the lock — teardown must not depend on the
+walkthrough succeeding. And triage discipline: "didn't boot on my machine" ≠ "PR broken". Infra
+failures (ports, budget, emulator crash) produce **neutral report notes only**; a posted finding
+requires misbehavior observed **in the app, on a healthy, identity-verified stack**. If the stack
+ever gains first-class port parameterization, move to a dedicated review-port block then — do not
+`sed` ports into the checkout to force one now.
+
 ---
 
 ## Phase 7 — Assemble the review
@@ -418,7 +492,11 @@ clone** (use a worktree at the head SHA, never stash/switch the user's branch); 
 (verified-only, bot threads only, reply-before-resolve, never moves the verdict — Phase 5b); re-review
 after a push (incremental, new `commit_id`); drafts (review, cap at `COMMENT`); files outside the
 diff/clone (can't verify → don't post); 422 anchor failure (fold to body); rate limits (back off →
-draft); self-authored / already-reviewed-at-head (skip).
+draft); self-authored / already-reviewed-at-head (skip); **stack ports occupied** (free-or-abort:
+skip the walkthrough with a neutral note — never boot onto busy ports, `reuseExistingServer: true`
+would silently validate the wrong code); **leaked stack from a dead run** (reclaim only via stale
+lockfile PID + command-line match; kill nothing else); **stack didn't boot in budget** (neutral
+NEEDS-DYNAMIC-RUN note, never a posted finding).
 
 ---
 
