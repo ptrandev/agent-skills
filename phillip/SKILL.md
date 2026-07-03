@@ -134,6 +134,10 @@ keep writing deterministically.
 <!-- Auto-synced rubric lines land here: recurring + acted-on + generalizable patterns
      mined from this repo's resolved PR reviews. Each is tagged with the date it was added.
      Promote anything especially important up into the curated categories below. -->
+- Unhandled promise rejection: a fire-and-forget async chain (`void fn().then(...)`, an un-awaited write, or `Promise.all([...])` with no `.catch`) throws into the void on failure (RN redbox / a screen stuck on its skeleton), not a handled error -> attach `.catch` or await inside try/catch.  _(auto-synced from PR reviews 2026-06-19)_
+- Inconsistent numeric basis: two related figures derived from different sources (a usage bar on plan-cap math vs an "X left" line that also counts purchased credits), or a count/total that excludes a category another view includes (cold leads under "all"; a rollup summing only the stuck subset) -> the numbers visibly contradict. Drive both from one source of truth.  _(auto-synced from PR reviews 2026-06-19)_
+- Persisted/validated field != the field the user edits: a setup/save path drops an override the form collected (`performSetup` drops `smsSenderName`/`smsMeetingLink`), or validation gates on the shared DEFAULT while the user edited a per-agent OVERRIDE -> the change appears to save but silently never takes effect, or a feature enabled with its required field left blank saves then never fires. Drive validation AND persistence off the exact field bound to the input.  _(auto-synced from PR reviews 2026-06-25)_
+- Nullish/falsy coalescing eats a legitimate `0` or `null`: a truthy check (`tokensAvailable ? ...`) hides the UI at exactly 0, or `input.x ?? existing.x` / `?? default` blocks the user clearing a field to null (e.g. a calling-window `schedule`) -> the edit looks saved but the zero/cleared state is silently dropped. Use explicit `!= null` / `!== undefined`.  _(auto-synced from PR reviews 2026-06-30)_
 <!-- phillip-sync:auto END -->
 
 ### Severity taxonomy (use these exact markers)
@@ -219,6 +223,12 @@ from here.
 
 <!-- phillip-sync:candidates START -->
 <!-- Candidate lines land here. Human-gated: promote or delete. -->
+- Async try/finally cleanup race: `return thisAsyncCall()` inside `try { } finally { releaseLock() }` runs the finally BEFORE the returned promise settles, so the lock/cleanup fires while the async work is still running -> use `return await`. (PR #1632, 2026-06-19)
+- React state update during render: calling a setter (e.g. `setTick`) inside a `useMemo` or the render body is a render-phase side effect (double-fires under StrictMode, unsupported going forward) -> move it to `useEffect`. (PR #1710, 2026-06-19)
+- Firestore query treated as ordered without `orderBy`: `where('x','==',v).get()` then taking `docs[0]` as the "most recent" -> result order is by document id, not time. Add an explicit `orderBy(...).limit(1)`. (PR #1700, 2026-06-25)
+- Access-level downgrade on route consolidation: merging two product pages into one unified route picks the looser guard (`OH Premium` -> `OH Free`), silently widening access to a paid surface. Re-check the access level whenever routes are merged. (PR #1700, 2026-06-25)
+- Expensive object allocated per-render/per-call: `new Intl.DateTimeFormat(...)` (or a regex/formatter) built inside a frequently re-evaluated view, method, or row loop -> hoist to a module/static cache keyed by its args. (PR #1782, 2026-06-30)
+- First-page-only pagination used as a gate: an external list API fetched with no `limit`/`paging.next` follow (Graph `/leadgen_forms` ~25/page) then treated as the complete set -> items past page 1 silently excluded (forms 26+ can't be enabled -> leads never called). Page through fully when the list gates behavior. (PR #1743, 2026-06-30)
 <!-- phillip-sync:candidates END -->
 
 ## 2. The multi-round adversarial loop
