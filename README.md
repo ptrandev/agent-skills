@@ -42,6 +42,26 @@ Keeps the `/phillip` rubric fresh by mining the current repo's recent resolved-a
 
 ---
 
+### `/babysit-prs`
+Watches your open PRs on the Atllas repos and triages every unresolved review thread — bot (Copilot, Gemini Code Assist) and teammate alike. Fixes the safe, mechanical ones, replies everywhere with evidence (the fixing commit), and auto-resolves only threads it actually fixed and verified green; questions and judgment calls are answered and left open for you. Dispatches one sub-agent per PR so contexts stay isolated. Idempotent and concurrency-guarded, so it runs headless on a schedule — cloud Routine hourly ([`babysit-prs/routine.md`](babysit-prs/routine.md)) or local `/loop`.
+
+**Usage:**
+- `/babysit-prs` — all open PRs you authored across the default repos
+- `/babysit-prs <PR#> [<PR#>...]` — specific PRs
+- `/babysit-prs --repo <owner/name>` — restrict to one repo
+
+---
+
+### `/review-pr`
+The reviewer side of the PR loop: reviews PRs where you're the **requested reviewer**, applying the same bar as `/phillip` (its rubric, three independent reviewers, verify-every-finding), then posts the review to GitHub — inline comments plus a conservative verdict (`REQUEST_CHANGES` only on a verified HIGH, `APPROVE` only on a clean fully-verified pass). Also adjudicates existing bot threads: surfaces the legit ones, resolves verified-false noise with a written reason. One sub-agent per PR. Idempotent via the reviews-API `commit_id`; runs headless on a Routine ([`review-pr/routine.md`](review-pr/routine.md)).
+
+**Usage:**
+- `/review-pr` — all PRs awaiting your review across the default repos
+- `/review-pr <PR#|URL>`, `/review-pr --repo <owner/name>`, `/review-pr quick`
+- Opt-downs: `--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots`
+
+---
+
 ### `/gemini`
 Google Gemini CLI wrapper with three modes (defaults to `gemini-pro-latest`; pass `--flash` for `gemini-flash-latest`):
 
@@ -52,6 +72,16 @@ Google Gemini CLI wrapper with three modes (defaults to `gemini-pro-latest`; pas
 **Usage:** `/gemini review`, `/gemini challenge`, `/gemini <question>`
 
 **Requires:** `gemini` CLI (`npm install -g @google/gemini-cli`) and **API-key auth** — `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in your environment (in `~/.zshenv` so non-interactive shells see it) plus `security.auth.selectedType: "gemini-api-key"` in `~/.gemini/settings.json`. OAuth / Code Assist login is not supported — it 404s on the `-latest` model aliases.
+
+---
+
+### `/debrief`
+End-of-session confidence audit, distilled from the "I end every AI session with two questions" workflow. Interrogates the session just completed — least-confident assumptions, early decisions never revisited, what you don't realize, the most likely 3-month failure — then converts every uncertainty into a concrete check (command / test / file read), runs the safe ones, and separates real gaps from confident-sounding filler. Optionally spawns a blind, context-free sub-agent on the diff (skipped when `/phillip` already ran, since it does blind review). Read-only: reports ranked findings, never fixes unprompted.
+
+**Usage:**
+- `/debrief` — audit the current session
+- `/debrief deep` — force the blind-reviewer pass even after `/phillip`
+- `/debrief <topic>` — focus the audit on one area
 
 ---
 
@@ -78,7 +108,10 @@ To set up on a new machine:
 ```bash
 git clone https://github.com/ptrandev/claude-skills.git ~/Git/claude-skills
 
+ln -s ~/Git/claude-skills/babysit-prs ~/.claude/skills/babysit-prs
+ln -s ~/Git/claude-skills/debrief ~/.claude/skills/debrief
 ln -s ~/Git/claude-skills/full-send ~/.claude/skills/full-send
+ln -s ~/Git/claude-skills/review-pr ~/.claude/skills/review-pr
 ln -s ~/Git/claude-skills/gemini ~/.claude/skills/gemini
 ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip
 ln -s ~/Git/claude-skills/phillip-sync ~/.claude/skills/phillip-sync
