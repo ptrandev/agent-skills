@@ -85,8 +85,15 @@ End-of-session confidence audit, distilled from the "I end every AI session with
 
 ---
 
+### `/merge-master`
+Brings the current branch up to date with `master` and pushes: fetches `origin/master`, merges it in, resolves any conflicts, then commits and pushes. Refuses to run on `master`/`main` itself, and stops to ask before clobbering a dirty tree.
+
+**Usage:** `/merge-master` (or "merge master", "sync with master", "update my branch")
+
+---
+
 ### `/weekly-launch-summary`
-Generates a non-developer-friendly weekly summary of merged PRs across the Atllas repos. Produces a categorized, bulleted summary suitable for stakeholders or changelog posts.
+Generates a non-developer-friendly weekly summary of merged PRs across the Atllas `codebase` and `aicc-queues` repos, split into **Mobile** and **App** sections. Only counts PRs merged into `master`. Produces a categorized, bulleted summary suitable for stakeholders or changelog posts.
 
 **Usage:** `/weekly-launch-summary`
 
@@ -113,6 +120,7 @@ ln -s ~/Git/claude-skills/debrief ~/.claude/skills/debrief
 ln -s ~/Git/claude-skills/full-send ~/.claude/skills/full-send
 ln -s ~/Git/claude-skills/review-pr ~/.claude/skills/review-pr
 ln -s ~/Git/claude-skills/gemini ~/.claude/skills/gemini
+ln -s ~/Git/claude-skills/merge-master ~/.claude/skills/merge-master
 ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip
 ln -s ~/Git/claude-skills/phillip-sync ~/.claude/skills/phillip-sync
 ln -s ~/Git/claude-skills/weekly-launch-summary ~/.claude/skills/weekly-launch-summary
