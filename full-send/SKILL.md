@@ -1,12 +1,13 @@
 ---
 name: full-send
 description: |
-  End-to-end feature workflow: Linear ticket (or raw idea) → implement →
-  /phillip self-review → commit → draft PR → automated bot review (Copilot and/or
-  Gemini Code Assist) → address all threads → UI screenshots + walkthrough video.
+  End-to-end feature workflow: Linear ticket (or raw idea) → implement (size-adaptive:
+  small tickets single-pass, large ones decompose into a Ralph-style one-task-per-iteration
+  loop to avoid context rot) → /phillip self-review → commit → draft PR → automated bot review
+  (Copilot and/or Gemini Code Assist) → address all threads → UI screenshots + walkthrough video.
   Autonomous (zero stops) by default; opt into an interactive grill with
-  /full-send interactive <TICKET-ID>. Use with /full-send <TICKET-ID>, just
-  /full-send, or /full-send <free-text idea>.
+  /full-send interactive <TICKET-ID>, or force the loop with /full-send loop <TICKET-ID>.
+  Use with /full-send <TICKET-ID>, just /full-send, or /full-send <free-text idea>.
 ---
 
 # full-send
@@ -22,6 +23,8 @@ free-text describing the work. Parse them in this order:
    - `interactive` / `ask` / `careful` → **interactive mode** (front-load a grill, see Phase 0.5).
    - `auto` → explicit **autonomous mode** (the default; this alias exists only for symmetry).
    - No keyword → **autonomous mode**.
+   - `loop` (orthogonal — may combine with any of the above) → force the Phase 3B Ralph loop
+     regardless of size. Without it, the implement path is size-gated in Phase 3.0.
 2. **Remaining `$ARGS`:**
    - A ticket ID (e.g. `AP-1234`) → fetch it (Phase 0).
    - Free-text with no ticket ID → treat as a **raw idea/spec** and synthesize a ticket (Phase 0).
@@ -37,6 +40,18 @@ interpretation and record it when unattended*):
 - **Interactive** — exactly **one** stop: a thorough up-front grill (Phase 0.5) that removes
   ambiguity before any code is written. After the grill's plan is approved, the run is autonomous
   through Phase 9, identical to the default flow.
+
+**When the up-front grill (Phase 0.5) runs.** The grill is *the* alignment stop. It runs when
+**either**:
+
+- the run is **interactive** (the keyword was passed), **or**
+- the input is a **raw idea/spec** (no ticket ID) **and a human is present to answer** — a raw idea
+  is the highest-ambiguity input, with no human-authored ticket to anchor on, so it earns one
+  alignment pass even in autonomous mode.
+
+It is **skipped** — falling back to infer-and-record-Assumptions — for a real ticket in autonomous
+mode (the ticket already carries the spec), or for any **unattended/headless** run (no human to
+answer, e.g. `claude -p` on a schedule).
 
 ### Bail-out (the one exception to zero-stops)
 
@@ -69,20 +84,43 @@ missing optional tooling surfaces now instead of 20 minutes into Phase 8.
 **Optional** (note what's missing and how to enable it, then continue — these degrade gracefully):
 - **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor`. If missing →
   video will be skipped. To enable: install OpenCap and run `opencap login` once.
-- **`/grilling` skill** (interactive mode only): confirm `grilling` is in the available skills.
-  If missing and the run is interactive → fall back to an inline clarification Q&A. To enable:
-  install the grilling skill.
+- **Skill dependencies** (`/grilling`, and the Phase 5 `/phillip` + its `/codex` + `/gemini`
+  reviewers): **auto-installed when missing**, with any CLI auth walked through interactively — see
+  "Skill dependencies — auto-install & setup" just below.
 
 Print a compact summary, e.g.:
 
 ```
-Preflight:  gh ✓   Linear ✓   browse ✓   OpenCap ✗ (run `opencap login` to enable video)   grilling ✓
+Preflight:  gh ✓   Linear ✓   browse ✓   phillip ✓   grilling ✓   codex ✓   gemini ✗ (CLI ok, needs GEMINI_API_KEY → /phillip runs Claude+Codex)   OpenCap ✗ (run `opencap login` to enable video)
 ```
 
-**Mode behavior:** Autonomous prints and proceeds immediately (zero stops — missing optional tools
-just skip those features). Interactive folds the summary into the up-front interaction so the user
-can fix gaps before the Phase 0.5 grill. The operative OpenCap gate runs later at Phase 8b.1; this
-is only the early-warning pass.
+### Skill dependencies — auto-install & setup
+
+full-send leans on skills that may not be installed yet. **Install the ones that are missing** (the
+installs are idempotent — a present dep's check is a no-op), and for the ones that wrap an external
+CLI needing a human login, **walk the user through auth when attended**, or note-and-degrade when
+headless. The split:
+
+- **Skill install** (plugin add, git clone, symlink) → non-interactive; fine to run even headless.
+- **External-CLI install + auth** (`gemini`, `codex` logins) → needs a human. **Attended:** walk
+  through the exact steps and wait for the user. **Headless:** note the gap and let `/phillip`
+  degrade (down to Claude-only) rather than blocking — a missing reviewer CLI is a note, never a
+  bail-out.
+
+| Dep | When needed | Detect | Install if missing | External CLI + auth |
+|-----|-------------|--------|--------------------|---------------------|
+| **`/grilling`** (mattpocock plugin) | grill will run | `grilling` in available skills | `claude plugin marketplace add mattpocock/skills` → `claude plugin install mattpocock-skills@mattpocock`, then `/setup-matt-pocock-skills` once per repo | none — if install fails, fall back to inline clarification Q&A |
+| **`/phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | symlink from the repo: `ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip` (clone `https://github.com/ptrandev/claude-skills.git` → `~/Git/claude-skills` first if the repo is absent) | none directly; drives `/gemini` + `/codex` below. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
+| **`/gemini`** (ptrandev) | always (via `/phillip`) | `gemini` in available skills | same symlink pattern as `/phillip` | CLI `gemini`: `npm install -g @google/gemini-cli`. **Auth (API-key only — no OAuth):** set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `~/.zshenv`, and add `security.auth.selectedType: "gemini-api-key"` to `~/.gemini/settings.json` |
+| **`/codex`** (garrytan/gstack) | always (via `/phillip`) | `codex` in available skills | `git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` (the `./setup` step may prompt — attended) | CLI `codex`: `npm install -g @openai/codex` then `codex login` (interactive; confirm the exact steps via `codex --help` or the skill's own docs) |
+
+If `/phillip` itself can't be installed → skip Phase 5 and flag prominently on the PR and Done
+summary that **no self-review ran** (a notable quality gap).
+
+**Mode behavior:** Print the summary and proceed — missing optional tools skip their features,
+missing skills auto-install silently. Only pause (attended) to walk through a missing
+`gemini`/`codex` auth; headless never pauses (note the gap, let `/phillip` degrade). If the grill
+will run, fold this summary into that interaction. The operative OpenCap gate is later at Phase 8b.1.
 
 ---
 
@@ -104,6 +142,9 @@ Apply these skip rules:
 - **PR already open** → reuse its number; skip `gh pr create` (Phase 6), go straight to processing
   reviews/CI (Phases 7+).
 - **Bot threads already resolved / commits already pushed** → don't duplicate replies or commits.
+- **A `fix_plan.md` exists under `/tmp/full-send-$TICKET_ID/`** → the implement step took the
+  Phase 3B loop path; resume it by re-reading `fix_plan.md` + `notes.md` and continuing from the
+  first unchecked task. Don't restart the decomposition or redo checked tasks.
 
 The guiding rule: every phase should check "is this already true?" and become a no-op if so. When
 in doubt, prefer reading current state (`git`, `gh`, Linear) over assuming a fresh run.
@@ -125,27 +166,30 @@ as if it had been fetched:
    from the idea.
 2. Create the Linear issue via the same Linear MCP used for fetch/update (the create-issue tool).
 3. Assign it to the current user and set status to **In Progress**.
-4. Mode-specific handling of the derived acceptance criteria:
-   - **Autonomous:** keep the inferred AC and record everything you inferred in an
+4. Handling of the derived acceptance criteria depends on whether the grill (Phase 0.5) will run
+   (see "When the up-front grill runs"):
+   - **Grill will run** → treat the AC as **provisional** and finalize it during the grill.
+   - **Grill skipped** → keep the inferred AC and record everything you inferred in an
      **Assumptions** block (carry it to the PR body in Phase 6 and the Done summary in Phase 9).
-   - **Interactive:** treat the AC as provisional — finalize it after the grill (Phase 0.5).
 
 ---
 
-## Phase 0.5 — Interactive grill (interactive mode only)
+## Phase 0.5 — Up-front alignment grill
 
-**Skip this entire phase in autonomous mode.** In interactive mode, before writing any code:
+Run this phase when the grill triggers (see "When the up-front grill runs"); otherwise skip it and
+fall back to infer-and-record-Assumptions. When it runs, before writing any code:
 
 1. Invoke `/grilling` via the Skill tool, scoped to this ticket/idea — interrogate edge cases,
    scope boundaries, data shapes, non-goals, and any unclear acceptance criteria until you are
-   confident you understand exactly what to build.
+   confident you understand exactly what to build. (If `/grilling` couldn't be installed in
+   Preflight, run the inline clarification Q&A fallback instead — same goal, no skill.)
 2. Fold the answers back into the Linear ticket: update the description and acceptance criteria
    (Linear MCP update tool) so the ticket reflects the clarified spec.
 3. State the resulting implementation plan inline (same numbered-list format as Phase 2) and get
    a single explicit go-ahead.
 
-**This is the one and only stop in interactive mode.** After the go-ahead, run autonomously
-through Phase 9 exactly like the default flow — no further per-phase checkpoints.
+**This is the one and only stop.** After the go-ahead, run autonomously through Phase 9 exactly
+like the default flow — no further per-phase checkpoints.
 
 ---
 
@@ -183,17 +227,119 @@ Check for an existing plan file in `~/.claude/plans/` referencing this ticket ID
 
 ## Phase 3 — Implement
 
-Execute the plan. Follow all conventions in CLAUDE.md and CLAUDE.local.md.
+Full-send implements one of two ways depending on the size of the change. Small tickets run in a
+**single pass** (no loop overhead); larger tickets decompose into a **Ralph-style loop** — one
+task per fresh sub-context — so no single context window ever carries the whole feature and focus
+doesn't rot as the diff grows.
+
+### Phase 3.0 — Size assessment (pick the path)
+
+Judge the scope from the Phase 2 plan:
+
+- **Single-pass (3A)** when the change is small enough to hold in one focused context without rot:
+  roughly ≤ 3–4 files, a single layer, or one cohesive acceptance criterion.
+- **Loop (3B)** when the change spans multiple layers (types → sdk → api → frontend → ui) or many
+  files, or the ticket has several independent acceptance criteria.
+
+`/full-send loop <TICKET-ID>` forces 3B regardless of size; a trivial change never needs it.
+Record the chosen path in one line so a resume (see Resume) knows which way the run went.
+
+### Standing rules (both paths)
+
+Every implementation task — a 3A single pass or one 3B loop iteration — follows these. Follow all
+conventions in CLAUDE.md and CLAUDE.local.md.
 
 - Read every file before editing it.
-- Never add abstractions or features beyond what the ticket requires.
+- **Search before assuming something isn't implemented** — ripgrep silence ≠ absent.
+- Full implementations — **no placeholders or TODOs.**
+- Never add **features or abstractions** beyond what the ticket/task requires.
+- **Opportunistic cleanup is allowed — within the blast radius.** When you're already editing a
+  function or file, you may DRY it and raise its quality (extract a duplicated helper, tighten a
+  type, delete dead code, clarify a name) — but only for code the change already touches, only when
+  it's low-risk and covered by tests, and without materially widening the diff. Anything bigger, or
+  in code this change doesn't touch, stays a **surfaced note** (a Linear follow-up or a PR comment),
+  per CLAUDE.md's "stay in scope, but surface smells." The line: clean what you're standing on,
+  don't wander off to refactor the neighbourhood.
 - When modifying a shared package (sdk, privs, common, ui), rebuild it: `cd packages/<name> && yarn build`.
 - Add `data-testid` attributes to every new interactive element.
 - **Cover the new behavior with tests.** Add/extend tests for the code paths this ticket
   introduces (acceptance criteria = the checklist), following the workspace's existing test
   patterns. If a touched area has no test infrastructure, note it rather than scaffolding a
   framework from scratch.
-- Use TaskCreate to track sub-steps; mark each complete as you finish it.
+
+### Phase 3A — Single-pass (small change)
+
+Execute the Phase 2 plan directly following the standing rules above, then continue to Phase 4.
+Use TaskCreate to track sub-steps; mark each complete as you finish it.
+
+### Phase 3B — Ralph loop (large change)
+
+Don't hold the whole feature in one context. Decompose it into an ordered task list on disk, then
+work **one task per fresh sub-context**, committing each unit as you go.
+
+**Bounded, not free-reign.** This is a large existing codebase, so every task stays within the
+ticket's scope: opportunistic cleanup is welcome *within the blast radius* (standing rules), but no
+repo-wide or out-of-scope rewrites, and never `git reset --hard` the branch. (The Ralph technique
+assumes it can rewrite anything to recover — a greenfield assumption that does not hold here.
+Recovery is a bounded repair-or-bail, per step 4 below.)
+
+**Run state — on disk, not in context.** Under the run dir `/tmp/full-send-$TICKET_ID/`:
+
+- `fix_plan.md` — the ordered, checkboxed task list; the single source of truth for what's left.
+- `notes.md` — learnings carried across iterations: build/test commands discovered, gotchas,
+  decisions, and any follow-on work surfaced mid-build.
+- `spec.md` — the ticket title, description, and acceptance criteria, so a fresh sub-context
+  re-hydrates from disk instead of from the transcript.
+
+```bash
+mkdir -p /tmp/full-send-$TICKET_ID
+```
+
+**Decompose (`fix_plan.md`).** Turn the Phase 2 plan into discrete, independently committable,
+independently verifiable tasks ordered by dependency (types → sdk → api → frontend state → ui →
+tests). Each task is *one thing* — a cohesive unit a blank context can finish, verify, and commit
+without needing the others in-context. Aim for ~30-minute chunks. A unit's tests live in the same
+task as the unit (or the immediately following task), so nothing merges unexercised.
+
+```markdown
+# AP-1234 — <title>
+
+- [ ] 1. Add `Foo` types to packages/sdk (types only)
+- [ ] 2. API: POST /foo endpoint + service + test
+- [ ] 3. Frontend state: useFoo hook + SDK wiring
+- [ ] 4. UI: FooModal component (+ data-testid) + test
+- [ ] 5. Wire FooModal into FooPage
+```
+
+**The loop.** The orchestrator (this session) holds only `fix_plan.md` + progress — never the
+accumulated implementation detail. Until every task is checked:
+
+1. Pick the **single** top unchecked task in `fix_plan.md`.
+2. Dispatch it to a **fresh subagent** (Agent tool, inherit the main model — this is substantive
+   coding work) with: the one task, the paths to `fix_plan.md` / `notes.md` / `spec.md`, and the
+   standing rules above. The subagent starts blank on purpose; it reads state from disk, not from a
+   rotting transcript.
+3. The subagent does **exactly that one task**, following the standing rules above (including
+   blast-radius cleanup), plus these loop-specific steps:
+   - **Backpressure:** typecheck + lint the touched workspace and run the tests this task
+     added/touched. Must be green before committing.
+   - Commit just this unit: `git add <specific files — never git add .>` then
+     `git commit -m "<type>(<scope>): <task description>"`. If the task did opportunistic cleanup
+     alongside the feature work, a separate `refactor(<scope>): ...` commit keeps the unit readable.
+   - Append anything learned to `notes.md`; check off the task in `fix_plan.md`.
+   - Return a **short structured summary**: task, files touched, verify result, commit SHA, and
+     anything discovered (new tasks to append, a surfaced smell, or a blocker) — not the full diff.
+4. **Verify the summary** (main-loop pass, per CLAUDE.md): confirm the task is actually checked off
+   and committed, fold any newly-discovered tasks into `fix_plan.md`, and continue. If the subagent
+   reported a blocker or its task couldn't be made green, retry **once** with the failure recorded
+   in `notes.md` (Ralph "tuning"); if it still fails, **bail out** (see Bail-out) — leave the branch
+   intact, don't reset it.
+
+Per-task commits are intentional: the history stays revertible unit-by-unit and human-reviewable,
+and a crash mid-loop resumes cleanly from the first unchecked task in `fix_plan.md` (see Resume).
+
+When `fix_plan.md` is fully checked, the feature is implemented across a series of commits —
+continue to Phase 4 for the final full-suite verification sweep.
 
 ---
 
@@ -230,10 +376,14 @@ suite that never exercises the new path doesn't count).
 If typecheck, lint, or tests **cannot be made green** and the failure is caused by this change,
 **bail out** (see Bail-out, Modes) rather than pushing broken code toward a PR.
 
-Commit everything:
+Commit any remaining uncommitted work. **Single-pass (3A):** this is where the change is committed
+— `feat(<scope>): <ticket title>`. **Loop (3B):** the units were already committed per-task during
+the loop, so only commit stragglers from this final sweep (e.g. a test fix the full-suite run
+surfaced); don't squash the per-task history.
+
 ```bash
 git add <specific files — never git add .>
-git commit -m "feat(<scope>): <ticket title>"
+git commit -m "feat(<scope>): <ticket title>"   # 3A; or fix(<scope>): <what the sweep fixed> for 3B stragglers
 ```
 
 ---
@@ -241,6 +391,8 @@ git commit -m "feat(<scope>): <ticket title>"
 ## Phase 5 — Self-Review (`/phillip`)
 
 Run `/phillip` via the Skill tool. This single step replaces the old separate Codex and Gemini passes: `/phillip` runs a multi-round adversarial review with three independent reviewers (Claude + Codex + Gemini), verifies every finding against the real code path, implements the genuine HIGH/MEDIUM fixes itself, rejects false positives with a written reason, and loops until a clean round. It writes a report to `~/.claude/plans/phillip-<branch>-<date>.md`.
+
+Operative gate (mirrors Preflight's "Skill dependencies"): if `/phillip` couldn't be installed, **skip this phase** and flag prominently on the PR and Done summary that **no self-review ran**. If `/phillip` is present but a reviewer CLI (`gemini`/`codex`) is unauthenticated, let `/phillip` degrade to the reviewers that are available (down to Claude-only) — don't block.
 
 - Let it run to completion. It applies the HIGH/MEDIUM fixes directly to the working tree (and may commit them itself).
 - If it left any fixes uncommitted, commit them — `git add <specific files — never git add .>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit if it changed nothing.
@@ -580,9 +732,6 @@ if [ "$OPENCAP_OK" = 1 ]; then
 fi
 ```
 
-> Optional polish, only if trivially available: `opencap trim "$SESSION" --start <ms> --end <ms>
-> --save-as-copy` to clip dead air. Skip it if it adds any friction.
-
 After all screenshots are taken, use the Read tool on each PNG so they appear inline in the conversation.
 
 ### Step 8d — Attach the evidence to the PR
@@ -628,7 +777,7 @@ Report:
 - **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
   attached (Phase 8d) — note the video link, or that video was skipped because OpenCap was unavailable
-- Mode-specific context:
-  - **Interactive:** the clarifications captured during the Phase 0.5 grill.
-  - **Autonomous:** the **Assumptions** block recorded in Phase 0 for anything inferred.
+- Alignment context (per "When the up-front grill runs"):
+  - **Grill ran:** the clarifications captured during the Phase 0.5 grill.
+  - **Grill skipped:** the **Assumptions** block recorded in Phase 0 for anything inferred.
 - Anything skipped and why (pre-existing errors, skipped review findings, no automated review landed within the timeout)
