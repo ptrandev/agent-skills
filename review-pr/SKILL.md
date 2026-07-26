@@ -134,15 +134,19 @@ Per repo (validated: `gh search prs --review-requested=<me>` works on gh 2.87+):
 ```bash
 gh search prs --review-requested="$ME" --state=open --repo "$REPO" \
   --json number,title,author,url,isDraft \
-  --jq '.[] | select(.author.login!="'"$ME"'") | "\(.number)\t\(.author.login)\t\(.title)"'
+  --jq '.[] | select(.author.login!="'"$ME"'") | select(.isDraft!=true) | "\(.number)\t\(.author.login)\t\(.title)"'
 ```
 
 GraphQL fallback if the search flag is flaky in cloud:
-`search(query:"is:pr is:open review-requested:'"$ME"' repo:'"$REPO"'", type:ISSUE, first:50)`.
+`search(query:"is:pr is:open draft:false review-requested:'"$ME"' repo:'"$REPO"'", type:ISSUE, first:50)`.
 
 If `$ARGS` named a PR#/URL, use it directly — but still confirm `ME` is a requested reviewer and not
-the author. **Drafts** are included (teams request review on drafts) but their verdict caps at
-`COMMENT`.
+the author, **and that the PR is not a draft**.
+
+**Draft PRs are excluded from review.** A GitHub draft is work-in-progress; this skill reviews only
+**open, ready-for-review** PRs. Discovery filters drafts out (`select(.isDraft!=true)` / `draft:false`),
+and an explicitly-named draft (`/review-pr <PR#>`) is **skipped** with a note ("PR #N is a draft —
+skipped; re-request review when it's marked ready"). Never post to a draft.
 
 ### Dispatch — one sub-agent per PR (context isolation)
 
@@ -503,7 +507,7 @@ Large diffs (chunk by file/workspace; incomplete coverage caps verdict at `COMME
 base** (always fetch the PR's real base and three-dot diff — never trust local `master`); **dirty
 clone** (use a worktree at the head SHA, never stash/switch the user's branch); bot adjudication
 (verified-only, bot threads only, reply-before-resolve, never moves the verdict — Phase 5b); re-review
-after a push (incremental, new `commit_id`); drafts (review, cap at `COMMENT`); files outside the
+after a push (incremental, new `commit_id`); **draft PRs (skip — not ready for review)**; files outside the
 diff/clone (can't verify → don't post); 422 anchor failure (fold to body); rate limits (back off →
 draft); self-authored / already-reviewed-at-head (skip); **stack ports occupied** (free-or-abort:
 skip the walkthrough with a neutral note — never boot onto busy ports, `reuseExistingServer: true`
