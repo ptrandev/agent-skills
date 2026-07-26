@@ -352,6 +352,13 @@ not `--no-live`. Otherwise **skip and, if it's a UI PR, add a NEEDS-DYNAMIC-RUN 
 ("UI PR — run /review-pr <n> on a ≥8 GB runtime (cloud Routine / local) for the live walkthrough").
 
 When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
+- **Pre-build shared workspace packages first** (required — the stack's `next build` can't resolve
+  them otherwise): `yarn turbo run build --filter='./packages/*'` at the PR head. `scripts/e2e-stack.sh`
+  does **not** build workspace packages, and a fresh `yarn install` leaves their `dist/` empty, so
+  `next build` hard-fails resolving `loop-stats` (consumed by `loop-renderer`, etc.). Also confirm
+  **Node 20** is active (per the repo's `.nvmrc`) before building — Node 22 breaks the `re2` native
+  addon and risks build/runtime drift. *(Verified via cloud boot spike 2026-07-26: emulators + API
+  boot fine headlessly; this pre-build is the one gap between a fresh clone and a healthy `:3000`.)*
 - Bring up the **deterministic, externally-stubbed** stack (`yarn e2e:stack`, or `yarn agents-portal`
   with `config.E2E_STUB_EXTERNAL`) — **never fire real Stripe/Vapi/Twilio/etc.**
 - Log in with the dev creds from `~/.claude/skills/full-send/dev-credentials.md`.
