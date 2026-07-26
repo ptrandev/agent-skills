@@ -53,7 +53,7 @@ both skills' bar fresh automatically.
 
 ## Core safety model (do not weaken)
 
-This skill posts to **other people's** PRs — outward-facing and socially high-stakes. Four invariants:
+This skill posts to **other people's** PRs — outward-facing and socially high-stakes. Five invariants:
 
 1. **Autonomous post by default; quality-gated.** It submits the review without a confirm step.
    `--draft` opts down to assemble-and-print-only. The autonomy is bounded by rail #2, not by a stop.
@@ -66,6 +66,10 @@ This skill posts to **other people's** PRs — outward-facing and socially high-
    on a clean **fully-verified** pass (and never with `--no-approve`); otherwise `COMMENT`.
 4. **Skip self-authored PRs** (`author == ME`) and PRs already reviewed at the current head SHA
    (idempotency). Nits (LOW) are held to the local report — only verified HIGH+MEDIUM post inline.
+5. **Never review a draft PR.** A GitHub draft (`isDraft == true`) is work-in-progress and is
+   **excluded end-to-end**: filtered at discovery (`select(.isDraft!=true)` / `draft:false`), skipped
+   with a note when named explicitly, and **re-checked immediately before any post** — a PR flipped to
+   draft mid-run is abandoned, never posted. Review **only open, ready-for-review** PRs.
 
 ### Severity → verdict
 
