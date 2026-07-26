@@ -267,6 +267,11 @@ comments," not "fix":
     requires OAuth (401s on an API key) and reviews the **working tree**, which is empty in a detached
     read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure, use
     `codex exec`.
+  - **Model pinning (honor env, don't hardcode versions).** When the environment sets a reviewer
+    model, pin it: Codex `-m "$CODEX_MODEL"`, Gemini `-m "$GEMINI_MODEL"` (the `/gemini` skill already
+    reads `GEMINI_MODEL`). When unset, use the CLI/skill default. The cloud routine sets these to the
+    latest models (currently `CODEX_MODEL=gpt-5.6`, `GEMINI_MODEL=gemini-3.1-pro-preview`); bump the
+    **env values** as newer models ship — never pin a version in this file.
 - A **blind Claude sub-agent** (Agent tool) launched simultaneously: role = independent reviewer,
   given the PR diff + `$WORKDIR` to read real code, **Read phillip Section 1**, apply the severity
   taxonomy + verification discipline + HONESTY RULE, return `SEVERITY | file:line | finding | why-real`.
