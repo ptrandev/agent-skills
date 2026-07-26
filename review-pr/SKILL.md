@@ -260,6 +260,13 @@ comments," not "fix":
   directly). Outputs to `/tmp/review-pr-codex-$NAME-$PR.out` / `-gemini-$NAME-$PR.out`. (All temp
   paths include `$NAME` — PR numbers repeat across repos, and parallel per-repo agents writing
   `/tmp/review-pr-$PR-*` would clobber each other.)
+  - **Codex invocation (API-key envs).** When Codex is authed by API key (`OPENAI_API_KEY` /
+    `CODEX_API_KEY`, e.g. the cloud routine) rather than ChatGPT-plan OAuth, invoke it as
+    `codex exec -s read-only -c model_reasoning_effort=high` with the **diff embedded in the prompt**
+    (feed `/tmp/review-pr-$NAME-$PR.diff`). Do **not** use `/codex review` / `codex review` there: it
+    requires OAuth (401s on an API key) and reviews the **working tree**, which is empty in a detached
+    read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure, use
+    `codex exec`.
 - A **blind Claude sub-agent** (Agent tool) launched simultaneously: role = independent reviewer,
   given the PR diff + `$WORKDIR` to read real code, **Read phillip Section 1**, apply the severity
   taxonomy + verification discipline + HONESTY RULE, return `SEVERITY | file:line | finding | why-real`.
