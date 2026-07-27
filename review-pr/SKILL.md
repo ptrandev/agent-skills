@@ -305,7 +305,16 @@ comments," not "fix":
     (feed `/tmp/review-pr-$NAME-$PR.diff`). Do **not** use `/codex review` / `codex review` there: it
     requires OAuth (401s on an API key) and reviews the **working tree**, which is empty in a detached
     read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure, use
-    `codex exec`.
+    `codex exec`. **Auth:** `codex exec` needs a materialized credential — an API key in the env is
+    **not** enough (it 401s until a login writes `~/.codex/auth.json`). Run
+    `printenv OPENAI_API_KEY | codex login --with-api-key` once (bake it into the environment setup so
+    it isn't re-discovered per run).
+  - **Gemini invocation (headless sandbox).** Pass the diff **inline in the `-p` prompt** — Gemini's
+    `-p` mode does not read file-path arguments and cannot reach paths outside its workspace, so a
+    `/tmp/...` diff file is invisible to it, and it has no shell tool in the cloud sandbox. Embed the
+    diff text directly (the `/gemini` skill's review mode already does this). On `RESOURCE_EXHAUSTED` /
+    quota errors it degrades to a thinner voice — say so in the report; the fix is enabling billing on
+    the `GEMINI_API_KEY` project (the free tier is rate-capped).
   - **Models: default to latest, pin only when needed.** Codex's CLI default already tracks the
     latest (currently `gpt-5.6`), so leave it **unpinned** — pass no `-m` unless `$CODEX_MODEL` is
     set. Gemini defaults to the `gemini-pro-latest` rolling alias, which tracks latest *stable*; set
