@@ -405,6 +405,15 @@ When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
 - Navigate to the affected surface; exercise the **happy path + key error/empty/loading states**;
   capture the browser console + screenshots. Driver: **local** = `browse` (+ OpenCap video if
   `CAN_LIVE_WATCHED`); **cloud** = headless Playwright.
+  - **Cloud Chromium launch (required in the sandbox): `args: ['--ssl-version-max=tls1.2']`.** The
+    cloud egress path has a TLS-terminating middlebox that **resets Chromium's TLS 1.3 ClientHello**
+    (larger than curl's — GREASE + post-quantum ML-KEM key share), so *every* HTTPS request fails
+    with `net::ERR_CONNECTION_RESET` and the app hangs on its splash (e.g. `_app` can't load
+    `js.stripe.com` → login form never mounts). Capping at TLS 1.2 shrinks the ClientHello enough to
+    pass (verified 3/3 against the real target). Not a cert/proxy issue — cert-ignore/proxy flags do
+    **not** help and aren't needed (Chromium auto-uses `$https_proxy`). If the walkthrough runs the
+    app's `playwright.config.ts` harness, inject the arg into `use.launchOptions.args` in the
+    **ephemeral clone** (local, uncommitted — never a repo change).
 - Also flag UI features shipping **without** the Playwright E2E specs the agents-portal behavioral
   contract requires.
 
