@@ -79,7 +79,8 @@ missing optional tooling surfaces now instead of 20 minutes into Phase 8.
 **Required** (if any is missing, stop and say so clearly — the run can't complete without it):
 - `gh` CLI, authenticated (`gh auth status`) — needed for the PR and bot review.
 - Linear MCP available — needed to fetch/create/update the ticket.
-- The `browse` binary (see Phase 8b) — only required if the change touches UI and screenshots are expected.
+- **`/ui-walkthrough`** (Phase 8) — required only if the change touches UI. It owns the capture and
+  needs the `browse` binary; without it, Phase 8 degrades to no visual evidence and says so.
 
 **Optional** (note what's missing and how to enable it, then continue — these degrade gracefully):
 - **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor`. If missing →
@@ -120,7 +121,7 @@ summary that **no self-review ran** (a notable quality gap).
 **Mode behavior:** Print the summary and proceed — missing optional tools skip their features,
 missing skills auto-install silently. Only pause (attended) to walk through a missing
 `gemini`/`codex` auth; headless never pauses (note the gap, let `/phillip` degrade). If the grill
-will run, fold this summary into that interaction. The operative OpenCap gate is later at Phase 8b.1.
+will run, fold this summary into that interaction. The operative OpenCap gate is later at Phase 8c.
 
 ---
 
@@ -573,194 +574,87 @@ If the repo has no CI configured, `gh pr checks` reports no checks — note that
 
 Skip if no files under `apps/agents-portal/src/pages/` or `apps/agents-portal/src/components/` were modified.
 
-This phase produces two artifacts: clean **screenshots** of each affected surface, and a
-continuous **walkthrough video** of the same flow recorded with [OpenCap](https://opencap.dev).
-The video is **best-effort** — if OpenCap isn't installed or logged in, capture screenshots only
-and never block the PR.
+This phase produces the reviewer's visual context: **screenshots** of every affected surface at
+desktop/tablet/mobile, and a continuous **walkthrough video** of the same flow recorded with
+[OpenCap](https://opencap.dev). The video is **best-effort** — if OpenCap isn't installed or logged
+in, capture screenshots only and never block the PR.
 
-### Step 8a — Ensure the dev environment is running
+**Delegate the capture to `/ui-walkthrough`** — do not hand-roll it here. That skill owns surface
+discovery, the three-viewport matrix, the deterministic detectors, and (the part `gh` can't do)
+publishing images to GitHub so they actually render in a comment.
 
-Check which ports the stack needs and free any that are blocked:
-
-```bash
-# Ports used by agents-portal stack: 3000 (Next.js), 3001 (API)
-for PORT in 3000 3001; do
-  PIDS=$(lsof -ti :$PORT 2>/dev/null)
-  if [ -n "$PIDS" ]; then
-    echo "Killing processes on port $PORT: $PIDS"
-    kill $PIDS 2>/dev/null || true
-    sleep 1
-  fi
-done
+```
+/ui-walkthrough <PR_NUMBER> --author --embedded --target=dev
 ```
 
-Check if the dev server is already up:
+It returns `{blockers, mediums, nits, images, neutralNotes, coverage, markdown}` and **posts
+nothing** — this phase stays the single writer. What you get over the old desktop-only pass:
 
-```bash
-HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 5 2>/dev/null || echo "000")
-echo "localhost:3000 status: $HTTP_STATUS"
-```
+- **tablet + mobile**, where responsive defects actually live;
+- **detectors** (horizontal scroll, sub-44px touch targets, clipped text, console errors) so a
+  self-caught defect is evidence rather than an impression;
+- **working image embeds** — assets are pushed to a detached `refs/ui-walkthrough/pr-<n>-<sha>` ref
+  in this repo and embedded as `github.com/<o>/<r>/raw/<commit>/…`, the only form that renders for a
+  teammate on a private repo (`raw.githubusercontent.com` and external hosts both 404 for them).
 
-If status is not `200`:
+`--target=dev` is right here: this is **your** PR, attended, and Phase 8's dev stack is already up.
+`/ui-walkthrough` will reuse a running `:3000` only after confirming it serves this branch
+(`git rev-parse HEAD` == PR head, clean tree) — so it can't screenshot a stale server. It will
+**not** kill a process holding a port; a squatter from another worktree yields a neutral note, not a
+dead process. (The old Step 8a killed whatever held :3000/:3001 unconditionally — that could take
+out a teammate stack or another worktree's API.)
 
-1. Build any packages that are missing their `dist/` output (check `packages/*/dist` exists; build any that don't via `yarn turbo run build --filter=<name>`).
-2. Start the full dev environment in the background and wait for it to be ready:
+Surfaces with no data render their **empty/fallback state**, which screenshots perfectly and shows
+none of your change. `/ui-walkthrough` derives fixtures from the PR's own e2e specs; if it reports a
+surface as unpopulated, treat that as a real gap to fix before review, not a cosmetic note.
 
-```bash
-nohup yarn agents-portal > /tmp/full-send-$TICKET_ID/dev-server.log 2>&1 &
-DEV_PID=$!
-echo "Dev server PID: $DEV_PID"
+### Step 8c — Record the video around the capture
 
-# Wait up to 60 seconds for Next.js to be ready
-for i in $(seq 1 12); do
-  sleep 5
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 3 2>/dev/null || echo "000")
-  echo "Attempt $i: status=$STATUS"
-  [ "$STATUS" = "200" ] && echo "READY" && break
-done
-```
-
-If still not ready after 60 seconds, check `/tmp/full-send-$TICKET_ID/dev-server.log` for errors, fix any missing package builds, and retry once.
-
-### Step 8b — Open a dedicated browser session and log in
-
-Set up the browse binary:
-
-```bash
-_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-B=""
-[ -n "$_ROOT" ] && [ -x "$_ROOT/.claude/skills/gstack/browse/dist/browse" ] && B="$_ROOT/.claude/skills/gstack/browse/dist/browse"
-[ -z "$B" ] && B="$HOME/.claude/skills/gstack/browse/dist/browse"
-echo "Browse binary: $B"
-```
-
-Disconnect any existing browse daemon and start a fresh headed session dedicated to screenshots:
-
-```bash
-$B disconnect 2>/dev/null || true
-sleep 1
-```
-
-Read dev credentials from `~/.claude/skills/full-send/dev-credentials.md` and export them:
-
-```bash
-DEV_EMAIL="phillip+dev@atllas.com"
-DEV_PASSWORD="Password!123"
-DEV_URL="http://localhost:3000"
-```
-
-Navigate to the app and log in:
-
-```bash
-$B goto $DEV_URL
-```
-
-Check if a login form is present. If the app redirects to a login page:
-
-```bash
-$B snapshot -i 2>&1 | head -20
-$B fill '[data-testid="email"], input[type="email"], input[name="email"]' "$DEV_EMAIL"
-$B fill '[data-testid="password"], input[type="password"], input[name="password"]' "$DEV_PASSWORD"
-$B click '[data-testid="sign-in-button"], button[type="submit"]'
-sleep 3
-$B url
-```
-
-Confirm the URL is no longer the login page before proceeding. If login fails (still on `/` or `/login`), check console errors and retry once.
-
-### Step 8b.1 — OpenCap preflight (non-fatal)
-
-The operative video gate (the headed browse session OpenCap records is now up). If unavailable,
-degrade to screenshots-only — do **not** block:
+OpenCap wraps the delegated walkthrough. Start recording before invoking `/ui-walkthrough`, stop
+after it returns, then resolve the artifacts:
 
 ```bash
 if command -v opencap >/dev/null 2>&1 && opencap config doctor >/dev/null 2>&1; then
-  OPENCAP_OK=1; echo "OpenCap ready — will record a walkthrough video."
+  OPENCAP_OK=1; opencap record start --task "$TICKET_ID: $TICKET_TITLE"
 else
-  OPENCAP_OK=0; echo "OpenCap unavailable (not installed / not logged in) — screenshots only."
+  OPENCAP_OK=0; echo "OpenCap unavailable — screenshots only."
 fi
-```
-
-### Step 8c — Record a walkthrough while taking screenshots
-
-Create the output directory:
-
-```bash
-mkdir -p /tmp/full-send-$TICKET_ID
-```
-
-Start recording before the walkthrough so the same flow yields both screenshots and video. Prefer
-targeting the browser surface over full-screen (`opencap list-windows` / `list-displays` →
-`--window`/`--display`, or `--pick`); confirm the exact flag via `opencap --help` on first use.
-
-```bash
-[ "$OPENCAP_OK" = 1 ] && opencap record start --task "$TICKET_ID: $TICKET_TITLE"
-```
-
-Navigate to each page affected by the ticket and capture. **Don't just render each page —
-exercise the happy path** (open the modal, submit the form, show the result) so the video proves
-the feature works. Drop an OpenCap marker before each scene so the recording is navigable:
-
-- The main page showing the new feature
-- Any modal or dialog (trigger it, screenshot, close)
-- Any audit/activity log entry if applicable
-
-Use `prettyscreenshot` for clean full-page captures:
-
-```bash
-[ "$OPENCAP_OK" = 1 ] && opencap marker "Feature page"
-$B goto http://localhost:3000/<affected-path>
-sleep 2
-$B prettyscreenshot /tmp/full-send-$TICKET_ID/01-feature-page.png
-
-# For modals: open them, screenshot, then close
-[ "$OPENCAP_OK" = 1 ] && opencap marker "Modal open"
-$B click '[data-testid="<trigger-button>"]'
-sleep 1
-$B prettyscreenshot /tmp/full-send-$TICKET_ID/02-modal-open.png
-```
-
-Stop the recording once the walkthrough is complete, then resolve its artifacts:
-
-```bash
+# ... invoke /ui-walkthrough ...
 if [ "$OPENCAP_OK" = 1 ]; then
   opencap record stop
-  SESSION=$(opencap list --json 2>/dev/null | head -1)   # newest session id; confirm shape via `opencap list --help`
-  opencap show "$SESSION"                                  # local file path
-  VIDEO_LINK=$(opencap share "$SESSION" 2>/dev/null)       # shareable link (preferred for the PR)
-  echo "Video: ${VIDEO_LINK:-see local path above}"
+  SESSION=$(opencap list --json 2>/dev/null | head -1)   # confirm shape via `opencap list --help`
+  VIDEO_LINK=$(opencap share "$SESSION" 2>/dev/null)
+  echo "Video: ${VIDEO_LINK:-see local path}"
 fi
 ```
 
-After all screenshots are taken, use the Read tool on each PNG so they appear inline in the conversation.
+Use the Read tool on each returned PNG so the screenshots enter the conversation and you can judge
+them yourself before they go on the PR.
 
 ### Step 8d — Attach the evidence to the PR
 
-Post the evidence directly onto the PR as a comment instead of leaving it for the user to upload
-by hand. Embed the screenshots and link the video (the OpenCap share link is the simplest path;
-fall back to the local file note if no link was produced):
+Post one comment built from the returned `markdown` (its image URLs are already published and
+rendering — do not re-upload anything):
 
 ```bash
 gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
 ## Walkthrough evidence
 
-**Video:** ${VIDEO_LINK:-_(no OpenCap link — see attached/local recording)_}
+**Video:** ${VIDEO_LINK:-_(no OpenCap link — see local recording)_}
 
-Screenshots:
-<one Markdown image embed or link per PNG in /tmp/full-send-$TICKET_ID/>
+$WALKTHROUGH_MARKDOWN
 EOF
 )"
 ```
 
-> Screenshots: confirm the cleanest binary-attach path with `gh` on first use — dragging images
-> into a comment renders inline; otherwise link them. The share link is the preferred default for
-> the video; only fall back to uploading the local file if no link is available.
-
-Record the comment URL — Phase 9 references it instead of asking the user to upload anything.
-
+State coverage honestly — surfaces walked vs dropped, personas, and which stack produced the
+evidence (`--target=dev` means real dev data: not reproducible, and other users' records must not
+appear in a published screenshot). Record the comment URL; Phase 9 references it.
 ### Step 8e — Tear down
 
-If this skill started the dev server (tracked via `$DEV_PID`), leave it running — the user may want to inspect the UI. Do not kill it.
+Leave the dev server running — the user may want to inspect the UI. Do not kill it. (`/ui-walkthrough`
+tears down only what *it* started; a dev server it merely reused is left alone, and one it started in
+author mode is left up for the same reason.)
 
 ---
 

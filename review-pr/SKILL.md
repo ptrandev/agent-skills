@@ -391,6 +391,16 @@ Run when `CAN_LIVE_HEADLESS` **AND** the PR touches `apps/agents-portal/src/page
 not `--no-live`. Otherwise **skip and, if it's a UI PR, add a NEEDS-DYNAMIC-RUN note** to the report
 ("UI PR — run /review-pr <n> on a ≥8 GB runtime (cloud Routine / local) for the live walkthrough").
 
+**Delegate the walkthrough itself to `/ui-walkthrough --embedded`** rather than hand-rolling it here.
+It walks every affected surface at **desktop + tablet + mobile**, runs deterministic detectors
+(horizontal scroll, sub-44px touch targets, clipped text, console errors), publishes the
+screenshots to GitHub via a verified mechanism (its Phase 7), and returns
+`{blockers, mediums, nits, images, neutralNotes, coverage, markdown}` — posting nothing itself.
+**This skill keeps the verdict**: merge its `blockers` into your findings (a live-confirmed defect
+is still the highest-confidence tier), paste its `markdown` into the review body, and treat its
+`neutralNotes` as infra notes, never findings. The stack-lifecycle rules below stay **this file's**
+source of truth — `/ui-walkthrough` Phase 4 reads them from here, so don't duplicate them there.
+
 When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
 - **Pre-build shared workspace packages first** (required — the stack's `next build` can't resolve
   them otherwise): `yarn turbo run build --filter='./packages/*'` at the PR head. `scripts/e2e-stack.sh`
@@ -399,9 +409,30 @@ When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
   **Node 20** is active (per the repo's `.nvmrc`) before building — Node 22 breaks the `re2` native
   addon and risks build/runtime drift. *(Verified via cloud boot spike 2026-07-26: emulators + API
   boot fine headlessly; this pre-build is the one gap between a fresh clone and a healthy `:3000`.)*
-- Bring up the **deterministic, externally-stubbed** stack (`yarn e2e:stack`, or `yarn agents-portal`
-  with `config.E2E_STUB_EXTERNAL`) — **never fire real Stripe/Vapi/Twilio/etc.**
-- Log in with the dev creds from `~/.claude/skills/full-send/dev-credentials.md`.
+- Bring up the **deterministic, externally-stubbed** stack — **never fire real
+  Stripe/Vapi/Twilio/etc.** Two corrections to the obvious approach, both verified in the checkout:
+  **`yarn e2e:stack` cannot host a walkthrough** (it boots emulators → seeds → builds → runs the
+  Playwright suite → tears everything down; there is no persistent stack to drive), and
+  **`yarn agents-portal` is not emulator-scoped** (`npm run set-dev`; emulator interception is
+  env-var-driven via `e2e/.env.e2e`, so a process started outside that env talks to **real
+  atllas-dev** — silently). Use `/ui-walkthrough` Phase 4's hold-open mechanism: run the real
+  harness with a temporary hold spec in the **ephemeral checkout**, which keeps emulators + API +
+  `next start` up inside `emulators:exec` while the browser is driven from outside.
+  - **Prefix the boot with `env -u VSCODE_CWD`.** Claude Code running inside the VSCode extension
+    host exports `VSCODE_CWD=/`, and `firebase-tools` reads exactly that variable as "I am the VS
+    Code extension" (`lib/vsCodeUtils.js`), switching its template root to `lib/templates/` — a path
+    the npm package doesn't ship. The emulators then die at startup with
+    `ENOENT … lib/templates/hosting/init.js`, which reads like a corrupt `node_modules` and tempts a
+    pointless multi-GB reinstall. A terminal-launched `claude` has no `VSCODE_CWD`, so this
+    reproduces only from the IDE. Verified 2026-07-30.
+- Log in as a **seeded** persona — **not** a real dev account. Reviewer mode always walks the sealed
+  e2e stack, whose users are created per run by `apps/agents-portal/e2e/seed/seed.mjs` with
+  credentials committed in `apps/agents-portal/e2e/.env.e2e`: `e2e-agent@e2e.test`
+  (`E2E_TEST_USER_EMAIL`, has `core_premium: active` so it clears the paywall), `e2e-free@e2e.test`,
+  `e2e-admin@e2e.test`. **Nothing to provision** — no gitignored file, no routine env vars. A real
+  dev account like `phillip+premium@atllas.com` does **not exist** in the per-run emulator and fails
+  at the login form. Better still, reuse the authenticated `storageState` the harness's per-persona
+  setup projects already write, and skip the login form entirely.
 - Navigate to the affected surface; exercise the **happy path + key error/empty/loading states**;
   capture the browser console + screenshots. Driver: **local** = `browse` (+ OpenCap video if
   `CAN_LIVE_WATCHED`); **cloud** = headless Playwright.
@@ -448,13 +479,21 @@ skill doesn't have. **Orchestrator note:** per-repo agents may run in parallel (
 Tier-3 walkthroughs serialize on this lock; an agent that finds it held defers with a
 NEEDS-DYNAMIC-RUN note rather than waiting.
 
-**Pinned ports — free-or-abort preflight.** The stack's ports come from repo config and are NOT
-relocatable without editing the checkout (FE `baseURL` is hardcoded, emulator ports live in
-`firebase.json`): **3000** (Next FE), **4000** (API, `BACK_PORT` default), **4001 / 8080 / 8085 /
-9099 / 9199** (Firebase emulators). Before boot, every one must be free:
+**Pinned ports — free-or-abort preflight, and the repo already owns this check.** The stack's ports
+come from repo config and are NOT relocatable without editing the checkout (FE `baseURL` is
+hardcoded, emulator ports live in `firebase.json`). **Prefer the harness's own preflight** —
+`scripts/e2e-stack.sh` runs `node scripts/e2e-preflight.mjs --ports
+"${E2E_PREFLIGHT_PORTS:-4000,3000,9099,8080,9000,9199,8085}" --checkout "$ROOT"`, which fails loudly
+naming the squatter's pid/command/cwd. A hand-maintained list here drifts from `firebase.json`, and
+did: the set below previously omitted **9000** (the `database` emulator, which `--only` *does* start)
+and included **4001** (the emulator UI, which `--only` does *not* start, so requiring it free is a
+false blocker). Never set `E2E_KILL_SQUATTERS=1` — killing a process you don't own violates the
+"provably ours" rule below.
+
+If you need a pre-lock check before invoking the harness, match its list exactly:
 
 ```bash
-BUSY=$(lsof -nP -iTCP:3000 -iTCP:4000 -iTCP:4001 -iTCP:8080 -iTCP:8085 -iTCP:9099 -iTCP:9199 \
+BUSY=$(lsof -nP -iTCP:3000 -iTCP:4000 -iTCP:8080 -iTCP:8085 -iTCP:9000 -iTCP:9099 -iTCP:9199 \
        -sTCP:LISTEN 2>/dev/null | tail -n +2)
 if [ -n "$BUSY" ]; then rm -rf "$LOCK"; echo "SKIP_WALKTHROUGH: ports occupied"; echo "$BUSY"; fi
 ```
@@ -508,8 +547,11 @@ Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side
 - The line **must be inside a diff hunk** or GitHub returns **422**. Pre-validate each finding's line
   against the patch ranges in `/tmp/review-pr-$NAME-$PR-files.json`; a verified finding **outside** the
   diff → fold it into the summary `body` as a `file:line` reference instead of an inline anchor.
-- Build the JSON with `jq -n` (never hand-quote `body` text). Walkthrough screenshots attach as a
-  separate `gh pr comment` (the `/full-send` Phase 8d pattern), optionally an artifact HTML report.
+- Build the JSON with `jq -n` (never hand-quote `body` text). Walkthrough screenshots are already
+  published and embedded by `/ui-walkthrough` Phase 7 (assets pushed to a detached
+  `refs/ui-walkthrough/pr-<n>` ref in the PR's own repo, embedded as
+  `github.com/<o>/<r>/raw/<commit>/…` — the only embed form that renders for a viewer on a private
+  repo). Paste its returned `markdown` into the review `body`; don't re-upload anything.
 
 ---
 

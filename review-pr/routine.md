@@ -46,7 +46,7 @@ once, cached). **The two repos differ — codebase is Yarn 3 Berry, aicc-queues 
 # (a) install the skills this one reads/calls (public repo, no auth).
 git clone --depth 1 https://github.com/ptrandev/claude-skills.git /tmp/claude-skills
 mkdir -p "$HOME/.claude/skills"
-for s in review-pr phillip phillip-sync codex gemini full-send; do
+for s in review-pr phillip phillip-sync codex gemini full-send ui-walkthrough; do
   cp -R "/tmp/claude-skills/$s" "$HOME/.claude/skills/$s"
 done
 
@@ -68,6 +68,13 @@ npx --yes playwright install --with-deps chromium \
 ```
 
 Notes:
+- **No credentials to provision for the walkthrough.** The Tier-3 walkthrough drives the sealed e2e
+  stack and logs in as a **seeded** persona (`e2e-agent@e2e.test`), created per run by
+  `apps/agents-portal/e2e/seed/seed.mjs` with credentials committed in
+  `apps/agents-portal/e2e/.env.e2e`. Nothing needs to go in **Environment variables**, and nothing
+  is gitignored — which matters, because step (a) clones the **public** skills repo, so any
+  gitignored credential file is absent here by construction. (A real dev account such as
+  `phillip+premium@atllas.com` would fail anyway: it doesn't exist in the per-run emulator.)
 - `codex` / `gemini` also need their CLIs + auth in the sandbox to actually run (set keys via
   **Environment variables**); without them the skill degrades to fewer reviewers and says so.
 - The `codex`/`gemini` review CLIs and any non-default registries must be reachable — if a host is

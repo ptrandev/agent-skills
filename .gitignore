@@ -1,7 +1,10 @@
 # macOS Finder metadata — never source
 .DS_Store
 
+# Real credentials — this repo is PUBLIC. The committed *.example.md files are the
+# templates; the filled-in copies never leave the machine.
 full-send/dev-credentials.md
+ui-walkthrough/dev-credentials.md
 
 # phillip-sync writes its per-repo cooldown cursor here at runtime (via the symlink) — local state, not source
 phillip/.sync-state.json
