@@ -618,8 +618,19 @@ done
 TREE=$(git -C "$WORKDIR" write-tree)
 COMMIT=$(git -C "$WORKDIR" commit-tree "$TREE" -m "ui-walkthrough evidence: PR #$PR @ $HEAD_SHA")
 unset GIT_INDEX_FILE
-git -C "$WORKDIR" push origin "$COMMIT:$ASSET_REF" || { echo "PUBLISH FAILED"; }  # → ladder rung 2
-echo "https://github.com/$OWNER/$NAME/raw/$COMMIT/01-agents-desktop.png"
+
+# Rung 1 — clean detached ref (works locally / off-proxy: invisible, not fetched by default).
+if git -C "$WORKDIR" push origin "$COMMIT:$ASSET_REF"; then
+  PUBLISHED=1
+else
+  # Rung 2 — cloud git proxies allowlist ONLY refs/heads/* and 403 a custom ref at the transport
+  # (verified 2026-07-30). Fall back to a claude/-prefixed BRANCH, which the proxy allows. Same
+  # commit → the embed URL (keyed on $COMMIT) is unchanged; the cost is default-fetch clone growth.
+  ASSET_BRANCH="refs/heads/claude/ui-walkthrough-pr-$PR-$HEAD_SHA"   # flat leaf → no dir/file conflict
+  git -C "$WORKDIR" push origin "$COMMIT:$ASSET_BRANCH" && PUBLISHED=1 \
+    || { echo "PUBLISH FAILED"; PUBLISHED=0; }   # → ladder rung 3
+fi
+echo "https://github.com/$OWNER/$NAME/raw/$COMMIT/01-agents-desktop.png"  # ref-agnostic — keyed on $COMMIT
 ```
 
 Why each piece: `GIT_INDEX_FILE` points git at a scratch index so the user's real index and working
@@ -640,11 +651,18 @@ at scale 1; retina only for a hero shot.
 
 **Fallback ladder** (degrade, never block):
 
-1. Push succeeds → inline embeds. Primary, works headless.
-2. **No push access** (read-only, or a fork PR whose base you can't push) → post the findings with
-   **no inline images**, note the local artifact directory, and say plainly that images couldn't be
-   attached. Findings still land.
-3. Local + author mode only, optional: drive a real browser to attach images to the comment box
+1. Detached-ref push succeeds → inline embeds. Primary; works locally / off-proxy (invisible ref,
+   not fetched by default → **no clone growth**).
+2. **Detached-ref push rejected** (cloud git proxies allowlist only `refs/heads/*` and 403 a custom
+   ref at the transport — verified 2026-07-30) → retry as a `claude/`-prefixed **branch**
+   (`refs/heads/claude/ui-walkthrough-pr-<n>-<sha>`), which the proxy allows. Same commit, same embed
+   URL. **Trade-off:** a real branch *is* fetched by default clones, so it adds modest, permanent,
+   shared clone growth — the accepted price of autonomous inline embedding on a private repo. CI is
+   unaffected here (agents-portal workflows filter push to `master`/`proj-**` + code paths).
+3. **No push access at all** (read-only, or a fork PR whose base you can't push) → post the findings
+   with **no inline images**, note the local artifact directory, and say plainly that images couldn't
+   be attached. Findings still land.
+4. Local + author mode only, optional: drive a real browser to attach images to the comment box
    with your logged-in session. Produces native `user-attachments` URLs but needs cookies, so it
    can't run in a routine — never the default.
 
