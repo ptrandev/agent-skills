@@ -533,7 +533,13 @@ Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side
 
 ## Phase 9 — Report
 
-Write `~/.claude/plans/review-pr-<owner>-<repo>-<PR>-<date>.md`:
+Write `${REVIEW_PR_PLANS_DIR:-$HOME/.claude/plans}/review-pr-<owner>-<repo>-<PR>-<date>.md`.
+
+> **Headless/sandbox note.** Claude Code guards the entire `~/.claude/` tree as **sensitive**, so
+> writing a report there prompts for permission **even under `bypassPermissions`** — which stalls an
+> unattended routine (no one to approve). In a headless environment, set `REVIEW_PR_PLANS_DIR` to a
+> path **outside `~/.claude/`** (e.g. `/root/review-pr-reports`); local runs keep the default so plans
+> stay where you browse them.
 
 ```
 ### /review-pr -> Atllas-Inc/codebase#1773, <date>
