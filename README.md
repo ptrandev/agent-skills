@@ -106,6 +106,13 @@ Same as `/weekly-launch-summary`, but scoped to the **last 24 hours** (a rolling
 
 ---
 
+### `/plain-english`
+Rewrites pasted text into plain English using ASD-STE100 (Simplified Technical English) rules — one idea per sentence, active voice with a named actor, simple tenses, no jargon or noun stacks. Outputs a one-line TL;DR then the rewrite, nothing else. Fidelity is the hard constraint: every hedge, bound, condition, attribution, number, and scope limit survives; only filler is cut, and nothing outside the source is ever added. When the source makes no checkable claim, it says so and lists the questions a reader would need answered instead of producing a polished rewrite of nothing. Ships `scripts/check.py` to lint a rewrite for sentence length, filler, passives, and noun clusters.
+
+**Usage:** `/plain-english` then paste the text, or paste the text and ask for plain English.
+
+---
+
 ## Setup
 
 Skills are symlinked from this repo into `~/.claude/skills/` so edits here take effect immediately without any sync step.
@@ -123,6 +130,8 @@ ln -s ~/Git/claude-skills/gemini ~/.claude/skills/gemini
 ln -s ~/Git/claude-skills/merge-master ~/.claude/skills/merge-master
 ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip
 ln -s ~/Git/claude-skills/phillip-sync ~/.claude/skills/phillip-sync
+ln -s ~/Git/claude-skills/plain-english ~/.claude/skills/plain-english
+ln -s ~/Git/claude-skills/ui-walkthrough ~/.claude/skills/ui-walkthrough
 ln -s ~/Git/claude-skills/weekly-launch-summary ~/.claude/skills/weekly-launch-summary
 ln -s ~/Git/claude-skills/daily-launch-summary ~/.claude/skills/daily-launch-summary
 ```
