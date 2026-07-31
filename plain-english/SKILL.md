@@ -1,162 +1,163 @@
 ---
 name: plain-english
-description: Rewrites pasted text into plain English using ASD-STE100 (Simplified Technical English) principles, and outputs a one-line TL;DR followed by the rewrite. Keeps every real claim, hedge, number, condition, and attribution; cuts only filler. Says so honestly when the source makes no checkable claim instead of inventing content. Use when the user pastes text and asks to "put this in plain English", "simplify this", "make this readable", "de-jargon this", "TL;DR this", "what is this actually saying", "cut the fluff", "translate the corporate speak", "rewrite this clearly", or pastes marketing copy, a press release, legal terms, a policy, an academic abstract, or an internal memo and wants the meaning without the padding.
+description: Extracts the signal from bloated or evasive text and shows it as a bottom line, a list of what the text actually claims with each claim's strength marked, what it conspicuously does not say, and what it implies without claiming. Adds nothing from outside the source. Use when the user pastes text and asks "what is this actually saying", "cut through this", "extract the signal", "what are they actually claiming", "is this saying anything", "decode this", "what am I missing here", "put this in plain English", "TL;DR this", "translate the corporate speak", or pastes AI-generated writing, marketing copy, a press release, legal terms, a policy, an academic abstract, an executive memo, or a status update and wants to know what is really in it.
 ---
 
 # Plain English
 
-Rewrite the pasted text so a competent non-specialist reads it once and gets it.
-Everything needed for the normal case is in this file. Do not open a reference
-file unless a trigger below says to.
+Pull the signal out of the noise. The reader wants to know what the text says,
+what it avoids saying, and what it is steering them toward. Do not rewrite the
+text. Select from it.
 
-Two failure modes matter more than style: losing a claim, and dressing up a
-source that says nothing.
+This file is self-contained. Open a reference only when a trigger at the bottom
+fires.
+
+## The guarantee
+
+> Add nothing. Drop nothing that would change the reader's take.
+
+Dropping noise is the job, so "preserve everything" is the wrong rule. This one
+replaces it. A hedge, bound, condition, scope limit, or attribution is never
+carried forward as text; it rides along as part of the claim it modifies.
 
 ## Output contract
 
-Exactly this, and nothing before it. No preamble, no "Here is the rewrite".
+Nothing before the bottom line. No preamble, no "Here's the breakdown".
 
 ```
-**TL;DR:** <one sentence, 25 words maximum>
+**Bottom line:** <the one thing that matters to this reader, or "Nothing actionable.">
 
-<the rewrite>
+**What it claims**
+- **<strength>:** <the claim, with its hedge, number, and scope attached>
+
+**Not stated**
+- <what a reader needs and does not get>
+
+**What it implies but never claims**   <- only when this gap exists
+- <the reading the text induces, and the device that induces it>
 ```
 
-- The TL;DR states what the text says, not what it is about. Write "Support ends
-  March 1", not "This describes a support change".
-- Add an `Unclear:` bullet list after the rewrite only when the source is
-  ambiguous in a way that changes meaning: an unresolvable pronoun, a missing
-  actor, a cross-reference to text you were not given. Omit it otherwise. Never
-  use it to editorialize.
-- Match the source's length ceiling, never its length. A 900-word source with
-  one claim gets a three-sentence rewrite. That is the correct result.
+Rules for the shape:
 
-## Procedure
+- Length tracks real content, not input length. Three sentences of substance
+  produce three bullets. A 2,000-word post with one claim gets one.
+- Drop **Not stated** only when nothing material is missing. That is rare.
+- Drop **What it implies but never claims** whenever there is no gap. That is
+  common, and an empty section is worse than none.
+- Never pad a section to make the output look proportionate to the input.
 
-1. **Inventory the claims.** Silently list every statement that could be false:
-   facts, numbers, dates, names, causes, comparisons, conditions, exceptions,
-   negations, promises, attributions. This list is the fidelity contract.
-2. **Rewrite** under the rules below. Cut only what carries no claim.
-3. **Verify both directions.** Every claim in the inventory appears in the
-   rewrite. Nothing in the rewrite is absent from the source. No hedge dropped,
-   none added, no number changed, no cause invented.
+## Strength labels
 
-## Rules
+Every claim gets exactly one. This is the point of the skill: slop's main trick
+is making a soft thing feel firm, and the label makes that visible at a glance.
 
-**Words**
+| Label | Means | Trigger words |
+| --- | --- | --- |
+| `fact` | Asserted flatly, checkable now | none needed |
+| `hedged` | Asserted with an escape hatch | may, might, could, should, expects, aims to, is designed to |
+| `attributed` | Someone else's assertion, not the author's | according to, X says, reportedly, per, sources indicate |
+| `promise` | A future act the author commits to | will, plans to, by <date>, in the coming weeks |
+| `opinion` | A value judgment, not falsifiable | best, critical, exciting, industry-leading |
 
-- One word, one meaning, held for the whole text. If the source calls one thing
-  "the dashboard", "the console", and "the portal", pick one name. Elegant
-  variation makes a reader think there are three things.
-- Shortest word that carries the meaning: use / help / to / because / now /
-  before / after / if / can / start / stop / most / about / buy / get / try /
-  many / decide / consider / needs / shows.
-- Delete pure filler: "it is important to note that", "needless to say", "at the
-  end of the day", "we are excited to announce", very, really, basically,
-  world-class, cutting-edge, seamless, robust, innovative, game-changing,
-  synergy, holistic, turnkey.
-- Keep a domain term that has no plain equivalent. Never gloss it from your own
-  knowledge.
-- No idioms, metaphors, slang, or humor.
-- Noun clusters: three words maximum.
-- Keep the articles. Telegraphic style reads as harder, not easier.
+Judgment calls:
 
-**Verbs**
+- Label by what the sentence does, not by its verb. "We will consider it" is
+  `hedged`, not `promise`, because the committed act is only consideration.
+- A hedged promise is `hedged`. The escape hatch wins.
+- Attribution outranks the rest. "The vendor says it cuts costs 40%" is
+  `attributed`, even though the inner claim is a fact.
+- If a sentence carries two separately falsifiable claims, split it into two
+  bullets. Never merge two claims under one label.
 
-- Active voice, named actor. "The board approved the changes", not "the changes
-  were approved". If the source never names the actor, keep the passive and note
-  it under `Unclear:`. Inventing an actor is a fidelity failure.
-- Simple tenses only.
-- No verb turned into a noun: "decide", not "make a decision".
-- No `-ing` form as a noun or adjective. `-ing` is fine in a continuous tense the
-  source means.
+## What must ride along with a claim
 
-**Sentences**
+Losing one of these changes what the text asserts. Each stays attached to its
+bullet, in plain words.
 
-- 25 words maximum, 20 for an instruction. Past the limit, split. Do not compress
-  by deleting function words.
-- One idea per sentence. Two separately falsifiable claims get two sentences.
-- Condition first: "If the check fails, restart the service".
-- Warnings, costs, deadlines, and irreversible steps come before the step.
-- No throat-clearing. Start with the subject.
+- **Hedges:** may, might, could, should, we believe, we expect, estimated,
+  projected, planned, targeted.
+- **Attribution:** according to, reportedly, said, per.
+- **Bounds:** about, roughly, up to, at least, at most, more than, fewer than.
+  "up to 40%" is not "40%". "at least 7 days" is not "7 days".
+- **Quantifiers:** all, most, many, some, few, none, only.
+- **Conditions and exceptions:** if, unless, until, provided that, subject to,
+  except, excluding, other than.
+- **Negation:** not, no, never, cannot.
+- **Time and scope limits:** as of <date>, in <year>, so far, in <region>, for
+  <group>, on <platform>.
+- **Numbers, units, dates, currency, versions, names, percentages,** copied
+  verbatim. Convert nothing, round nothing.
 
-**Structure**
+Judge these by meaning: `essentially` and `effectively` are hedges when they mean
+"close but not exactly"; `only` is a bound in "only 3 users" and filler in "just
+click here"; `significant` is a claim when the source gives the number and vague
+when it does not.
 
-- Six sentences maximum per paragraph, one topic each, topic sentence first.
-- Vertical list for three or more parallel items, or any sequence of steps.
-- Keep the source's order, unless it buries its conclusion. Leading with a buried
-  result is reordering, not adding.
-- Headings only if the source has sections. Do not impose structure on a
-  four-sentence source.
+## Add nothing
 
-## Fidelity: keep every real claim
+Selection makes invention easy to hide, so this is stricter than it was under
+rewriting.
 
-Cutting filler is easy. Cutting a claim that looks like filler is the whole risk.
-These are non-negotiable.
+- No context, examples, definitions, or corrections from your own knowledge,
+  however right. If the source is wrong, say the source claims it and put the
+  correction nowhere.
+- Keep an undefined domain term as the source wrote it. Do not gloss it. If it
+  blocks meaning, that belongs under **Not stated**.
+- Vagueness is data. "significant improvement" with no number is extracted as a
+  claim with no number, so the reader learns the number is missing.
+- Do not resolve an ambiguous pronoun by guessing.
+- Do not add a cause the source only implies by adjacency. That belongs under
+  **What it implies but never claims**.
 
-- **Hedges are claims.** "may reduce costs" never becomes "reduces costs".
-  Keep `may`, `might`, `could`, `should`, `we believe`, `estimated`, `planned`.
-- **Attribution is a claim.** "The vendor says X" never becomes "X". Keep
-  `according to`, `reportedly`, `per`.
-- **Scope and time limits are claims.** "in the EU", "for enterprise plans",
-  "as of 2024" survive the rewrite.
-- **Bounds are claims.** "up to 40%" is not "40%". "at least 7 days" is not
-  "7 days". Keep `about`, `roughly`, `at most`, `more than`, `fewer than`.
-- **Keep negation, conditions, exceptions, and quantifiers exactly.**
-  not / never / cannot, if / unless / until / subject to, except / excluding,
-  all / most / some / none / only.
-- **Copy numbers, units, dates, currency, versions, and names verbatim.**
-  Convert nothing, round nothing.
-- **Do not merge two claims** that can be separately false.
-- **Do not add a cause** the source only implies by adjacency.
-- **Add nothing from your own knowledge** — no context, examples, definitions,
-  or corrections, however right they are. If the source is wrong, the rewrite is
-  wrong in the same way. Say so under `Unclear:` if it matters.
-- **Vagueness is data.** "significant improvement" with no number stays
-  "significant improvement", so the reader learns the number is missing.
-- **Do not resolve an ambiguous pronoun by guessing.**
+## Finding what is not stated
 
-Judge these by meaning, not by the word: `essentially` and `effectively` are
-hedges when they mean "close but not exactly"; `only` is a bound in "only 3
-users" and filler in "just click here"; `significant` is a claim when the source
-gives the number.
+Read as someone who has to act on this. The absences that matter are the ones
+that block a decision.
 
-## Honesty: when the source says nothing
+- Who acts, decides, or is accountable. Passive voice and "it was determined"
+  are the tell.
+- When. "Soon", "in due course", "in the coming weeks" are absences, not dates.
+- How much. A percentage with no baseline, a gain with no denominator.
+- Who is affected, and how they find out.
+- What happens if it fails, or what the tradeoff cost.
+- The comparison. "Faster" and "better" need a "than what".
 
-A source says nothing when no claim survives step 1 — every sentence is
-unfalsifiable. Marketing copy, mission statements, and most announcements of
-announcements land here.
+List the absence, not a complaint about it. Write "Who decided", not "They
+conveniently avoid saying who decided".
 
-Do not produce a polished rewrite of an empty source. A fluent four-sentence
-version of nothing is worse than the original, because it looks like content.
-Output this instead:
+## What it implies but never claims
 
-```
-**TL;DR:** Nothing checkable here — it <announces X / promises detail later / restates its own title>.
+Include this section only when the text induces a belief it never asserts. Every
+bullet names the device, so the reader can check you.
 
-What it does assert:
-- <the few weak assertions, each marked "no detail given">
+- **Adjacency posing as cause.** "Sales fell. We changed the pricing." implies a
+  link the text never claims.
+- **A hedge placed to read as a commitment.** "We aim to ship in Q3" in a section
+  headed "Q3 Deliverables".
+- **A statistic with no denominator.** "Support tickets dropped 60%" implies
+  fewer problems, and never says volume fell because a product was retired.
+- **An actor hidden by the passive** so nobody appears responsible.
+- **Precision borrowed from an unrelated number.** An exact figure next to a
+  vague claim lends it false weight.
+- **A retracted commitment stated as progress.** "We have decided to focus
+  elsewhere" for work that was cancelled.
 
-What you would need for this to mean anything:
-- <the questions a reader must have answered>
-```
+Name the mechanism and stop. Never speculate about motive, and never write a
+bullet you cannot point at a specific sentence for.
 
-Partial cases follow the same rule. If one claim survives out of twelve
-paragraphs, say that in the TL;DR ("Only one checkable claim: ...") and let the
-rewrite be one sentence long. Never pad to make the output look proportionate to
-the input.
+## When the source says nothing
 
-## Reference files, and when to open them
+Not a special case any more. **What it claims** comes out thin or empty, and
+**Not stated** comes out long. Write the bottom line as `Nothing actionable.`
+followed by what the text is doing instead, in one clause: announcing an
+announcement, restating its own title, or promising detail later.
 
-Skip all three in the normal case.
+Do not manufacture claims to fill the section. An empty **What it claims** is a
+finding, and it is the most useful output this skill produces.
 
-| File | Open it only when |
-| --- | --- |
-| [references/examples.md](references/examples.md) | The source is mostly filler, or heavily hedged, and you want a worked case first. |
-| [references/word-swaps.md](references/word-swaps.md) | You want the full 64 swaps and 49 filler terms. The common ones are already above. |
-| [references/ste-rules.md](references/ste-rules.md) | You need the rationale behind a rule above, or an edge case it does not cover. |
+## Reference
 
-`scripts/check.py <file>` lints a rewrite for sentence length, filler, passives,
-and noun clusters. Run it only when the user asks, or when the rewrite is long
-and the stakes are high. It is a helper, not an authority. Never break a claim to
-silence it.
+Open [references/examples.md](references/examples.md) for four worked cases: an
+empty announcement, one claim buried in filler, a legal clause where the hedges
+carry the meaning, and a hedged research finding. Read it when the source is
+mostly filler, heavily hedged, or when a strength label is genuinely ambiguous.

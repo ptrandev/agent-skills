@@ -107,9 +107,9 @@ Same as `/weekly-launch-summary`, but scoped to the **last 24 hours** (a rolling
 ---
 
 ### `/plain-english`
-Rewrites pasted text into plain English using ASD-STE100 (Simplified Technical English) rules — one idea per sentence, active voice with a named actor, simple tenses, no jargon or noun stacks. Outputs a one-line TL;DR then the rewrite, nothing else. Fidelity is the hard constraint: every hedge, bound, condition, attribution, number, and scope limit survives; only filler is cut, and nothing outside the source is ever added. When the source makes no checkable claim, it says so and lists the questions a reader would need answered instead of producing a polished rewrite of nothing. Ships `scripts/check.py` to lint a rewrite for sentence length, filler, passives, and noun clusters.
+Extracts the signal out of bloated or evasive text. It does not rewrite; it selects. Output is a bottom line, every falsifiable claim with its strength marked (`fact` / `hedged` / `attributed` / `promise` / `opinion`), what the text conspicuously does not say, and what it implies without ever claiming. Hedges, bounds, scope limits, and attribution ride along with the claim they modify, so "up to 40%" never becomes "40%" and "the vendor says X" never becomes "X". Nothing from outside the source is ever added. When a source makes no checkable claim, an empty claims list is the finding.
 
-**Usage:** `/plain-english` then paste the text, or paste the text and ask for plain English.
+**Usage:** `/plain-english` then paste the text, or paste the text and ask what it is actually saying.
 
 ---
 
