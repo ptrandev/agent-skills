@@ -115,7 +115,12 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
     TOTAL_MB=$(free -m 2>/dev/null | awk '/^Mem:/{print $2}'); TOTAL_MB=${TOTAL_MB:-0}
     [ "$TOTAL_MB" -ge 8000 ] && HAVE_RAM=1 || HAVE_RAM=0   # macOS: use sysctl hw.memsize
     ```
-  - `CAN_LIVE_WATCHED` — a **human** can watch live / capture video (OpenCap). **Local only.**
+  - `CAN_VIDEO` — an OpenCap walkthrough video can be recorded. **Local macOS only**, and it is
+    `/ui-walkthrough`'s to produce, not this skill's — see `ui-walkthrough/opencap.md`. This does
+    **not** require a human watching: the capture is scoped to the browser window, so an unattended
+    `/loop` records the same artifact as an attended run and nothing else on screen reaches GitHub.
+    (Formerly `CAN_LIVE_WATCHED`, which conflated "a person is present" with "video is possible" and
+    suppressed the video on exactly the unattended runs that most need the evidence.)
 
 **Refresh the rubric (non-blocking):** invoke `/phillip-sync` once (24 h cooldown makes it usually a
 no-op). If it reports it ADDED lines, **re-Read** the rubric. Then **Read Section 1 of
@@ -435,7 +440,8 @@ When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
   setup projects already write, and skip the login form entirely.
 - Navigate to the affected surface; exercise the **happy path + key error/empty/loading states**;
   capture the browser console + screenshots. Driver: **local** = `browse` (+ OpenCap video if
-  `CAN_LIVE_WATCHED`); **cloud** = headless Playwright.
+  `CAN_VIDEO`, which also means `browse --headed` — see `ui-walkthrough/opencap.md`); **cloud** =
+  headless Playwright.
   - **Cloud Chromium launch (required in the sandbox): `args: ['--ssl-version-max=tls1.2']`.** The
     cloud egress path has a TLS-terminating middlebox that **resets Chromium's TLS 1.3 ClientHello**
     (larger than curl's — GREASE + post-quantum ML-KEM key share), so *every* HTTPS request fails
@@ -632,8 +638,9 @@ Runtime-agnostic by design (capability detection). Two homes:
 - **Cloud Routine (primary)** — [routine.md](routine.md). Managed 16 GB sandbox, hourly schedule;
   runs the full loop including the **Tier-3 dynamic walkthrough** via headless Playwright
   (trial-verify once). Always-on, no machine needed.
-- **Local Mac** — `/loop 2h /review-pr` or `claude -p "/review-pr"`; same loop, plus the
-  human-watchable walkthrough + OpenCap video, and sub-hourly cadence.
+- **Local Mac** — `/loop 2h /review-pr` or `claude -p "/review-pr"`; same loop, plus the OpenCap
+  video and sub-hourly cadence. The video needs no one present — it captures only the browser
+  window, so the loop can run while the machine is being used for something else.
 
 Idempotency (reviews-API `commit_id`) makes repeated runs safe — each only picks up PRs not yet
 reviewed at their current head — and the Phase 8 check-before-post guard closes the in-flight

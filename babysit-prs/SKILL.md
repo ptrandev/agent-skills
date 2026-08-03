@@ -358,9 +358,11 @@ Most fixes are evidenced by the commit SHA alone. A minority — a reviewer aski
 render correctly?" or a fix to a visible surface — are only *truly* evidenced by a screenshot or
 short clip. Handle these by capability:
 
-- **`CAN_VISUAL` (local run):** after the fix, capture proof with the `/full-send` evidence
-  pipeline (start dev server → `browse` screenshot of the affected surface; OpenCap clip only if
-  the flow is interactive). Attach the image to the thread reply, *then* resolve.
+- **`CAN_VISUAL` (local run):** after the fix, capture proof with **`/ui-walkthrough`** (the same
+  pipeline `/full-send` Phase 8 delegates to): screenshots of the affected surface, plus a
+  window-scoped OpenCap video when the flow is interactive. Never hand-roll `opencap` here — the
+  contract, including why the capture must never widen to the whole display, is
+  `ui-walkthrough/opencap.md`. Attach the image to the thread reply, *then* resolve.
 - **`!CAN_VISUAL` (sandbox/Routine):** do **not** resolve on a code-only basis when the reviewer
   explicitly wanted visual confirmation. Push the fix, reply ("Fixed in `$SHA`; visual confirmation
   pending a local capture"), **leave the thread open**, and add it to the Needs-you queue tagged

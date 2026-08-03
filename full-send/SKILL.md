@@ -83,8 +83,12 @@ missing optional tooling surfaces now instead of 20 minutes into Phase 8.
   needs the `browse` binary; without it, Phase 8 degrades to no visual evidence and says so.
 
 **Optional** (note what's missing and how to enable it, then continue — these degrade gracefully):
-- **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor`. If missing →
-  video will be skipped. To enable: install OpenCap and run `opencap login` once.
+- **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor` (which is also
+  what surfaces a missing **macOS screen-recording permission** — a TCC grant no script can make, so
+  it has to be granted once by hand). Missing → video is skipped, never blocks. To enable: install
+  OpenCap, `opencap login` once, then approve screen recording when macOS asks.
+  The recording itself is **owned by `/ui-walkthrough`** (Phase 8) and scoped to the browser window,
+  so a recorded run leaves the rest of the screen — and the machine — free.
 - **Skill dependencies** (`/grilling`, and the Phase 5 `/phillip` + its `/codex` + `/gemini`
   reviewers): **auto-installed when missing**, with any CLI auth walked through interactively — see
   "Skill dependencies — auto-install & setup" just below.
@@ -121,7 +125,8 @@ summary that **no self-review ran** (a notable quality gap).
 **Mode behavior:** Print the summary and proceed — missing optional tools skip their features,
 missing skills auto-install silently. Only pause (attended) to walk through a missing
 `gemini`/`codex` auth; headless never pauses (note the gap, let `/phillip` degrade). If the grill
-will run, fold this summary into that interaction. The operative OpenCap gate is later at Phase 8c.
+will run, fold this summary into that interaction. The operative OpenCap gate is `/ui-walkthrough`'s
+own `CAN_VIDEO` probe (its Phase 0); this preflight only reports what the operator can fix now.
 
 ---
 
@@ -576,8 +581,9 @@ Skip if no files under `apps/agents-portal/src/pages/` or `apps/agents-portal/sr
 
 This phase produces the reviewer's visual context: **screenshots** of every affected surface at
 desktop/tablet/mobile, and a continuous **walkthrough video** of the same flow recorded with
-[OpenCap](https://opencap.dev). The video is **best-effort** — if OpenCap isn't installed or logged
-in, capture screenshots only and never block the PR.
+[OpenCap](https://opencap.dev), scoped to the browser window and indexed by markers. The video is
+**best-effort** — if OpenCap isn't installed, isn't logged in, or lacks the screen-recording
+permission, capture screenshots only and never block the PR.
 
 **Delegate the capture to `/ui-walkthrough`** — do not hand-roll it here. That skill owns surface
 discovery, the three-viewport matrix, the deterministic detectors, and (the part `gh` can't do)
@@ -587,7 +593,7 @@ publishing images to GitHub so they actually render in a comment.
 /ui-walkthrough <PR_NUMBER> --author --embedded --target=dev
 ```
 
-It returns `{blockers, mediums, nits, images, neutralNotes, coverage, markdown}` and **posts
+It returns `{blockers, mediums, nits, images, neutralNotes, video, coverage, markdown}` and **posts
 nothing** — this phase stays the single writer. What you get over the old desktop-only pass:
 
 - **tablet + mobile**, where responsive defects actually live;
@@ -608,25 +614,29 @@ Surfaces with no data render their **empty/fallback state**, which screenshots p
 none of your change. `/ui-walkthrough` derives fixtures from the PR's own e2e specs; if it reports a
 surface as unpopulated, treat that as a real gap to fix before review, not a cosmetic note.
 
-### Step 8c — Record the video around the capture
+### Step 8c — The video comes back with the walkthrough
 
-OpenCap wraps the delegated walkthrough. Start recording before invoking `/ui-walkthrough`, stop
-after it returns, then resolve the artifacts:
+**Do not start a recording here.** `/ui-walkthrough` owns it end to end and returns
+`video: {url, sessionId, markers, truncated} | null`. Read `ui-walkthrough/opencap.md` if you need
+the details; the reason ownership sits there and not here is concrete:
 
-```bash
-if command -v opencap >/dev/null 2>&1 && opencap config doctor >/dev/null 2>&1; then
-  OPENCAP_OK=1; opencap record start --task "$TICKET_ID: $TICKET_TITLE"
-else
-  OPENCAP_OK=0; echo "OpenCap unavailable — screenshots only."
-fi
-# ... invoke /ui-walkthrough ...
-if [ "$OPENCAP_OK" = 1 ]; then
-  opencap record stop
-  SESSION=$(opencap list --json 2>/dev/null | head -1)   # confirm shape via `opencap list --help`
-  VIDEO_LINK=$(opencap share "$SESSION" 2>/dev/null)
-  echo "Video: ${VIDEO_LINK:-see local path}"
-fi
-```
+- The capture is scoped to the **browser window**, and only the walkthrough knows which window that
+  is — it's the one it launched, titled and sized by it. A recording started out here has no window
+  to name, so it would fall back to capturing **the whole display**: the operator's Slack, mail, and
+  other clients' code, published to a PR comment. It also wouldn't contain the app at all, since
+  `browse` is headless unless the walkthrough runs it headed for exactly this purpose.
+- Recording must start **after login** (no credentials on video) and **at the widest viewport**
+  (OpenCap fixes the video's frame size at capture start; starting narrow crops every wider pass).
+  Both are the walkthrough's ordering to get right.
+- The markers that make the video navigable — one per scene, plus an `error` event when a detector
+  fires — can only be emitted from inside the sweep.
+
+So this phase just consumes it: `VIDEO_LINK` is `video.url` from the return, or empty when `video`
+is `null` — in which case the reason is already in `neutralNotes`, and Step 8d prints it rather than
+claiming a video exists.
+
+A recorded run does **not** occupy the machine: the window can be buried or moved to another Space,
+and Playwright drives it over CDP without ever taking focus. Keep working through it.
 
 Use the Read tool on each returned PNG so the screenshots enter the conversation and you can judge
 them yourself before they go on the PR.
@@ -640,7 +650,7 @@ rendering — do not re-upload anything):
 gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
 ## Walkthrough evidence
 
-**Video:** ${VIDEO_LINK:-_(no OpenCap link — see local recording)_}
+**Video:** ${VIDEO_LINK:-_(no video this run — see the neutral note for why)_}
 
 $WALKTHROUGH_MARKDOWN
 EOF
@@ -670,7 +680,9 @@ Report:
 - Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
 - **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
-  attached (Phase 8d) — note the video link, or that video was skipped because OpenCap was unavailable
+  attached (Phase 8d) — the video link, or the specific reason there isn't one (permission not
+  granted, headless `browse` daemon already running, reviewer mode, `--no-video`). "Video skipped"
+  with no reason isn't a report; the operator can't act on it.
 - Alignment context (per "When the up-front grill runs"):
   - **Grill ran:** the clarifications captured during the Phase 0.5 grill.
   - **Grill skipped:** the **Assumptions** block recorded in Phase 0 for anything inferred.
