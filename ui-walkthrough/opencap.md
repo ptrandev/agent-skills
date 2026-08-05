@@ -166,10 +166,16 @@ $B wait --networkidle
 # 3. Resolve the window id (above).
 
 # 4. Start recording. Returns immediately; capture daemonizes.
-SESSION=$(opencap record start \
-            --task "PR #$PR — $PR_TITLE (ui-walkthrough)" \
-            --window "$WIN" --json 2>/dev/null | jq -r '.session_id')
-[ -n "$SESSION" ] && [ "$SESSION" != null ] || CAN_VIDEO=0
+#    ⚠ `record start` takes NO --json (verified against opencap 0.1.3 — it is the ONLY subcommand
+#    in the reference table below that lacks it). Passing --json makes the CLI exit 1 with
+#    "error: unexpected argument '--json' found" and print NOTHING to stdout, so a best-effort
+#    wrapper reads it as "capture unavailable" and silently skips the video. Parse the plain-text
+#    output, which looks like:  recording started / session: <ULID> / pid: … / log: …
+START_OUT=$(opencap record start \
+              --task "PR #$PR — $PR_TITLE (ui-walkthrough)" \
+              --window "$WIN" 2>&1) || CAN_VIDEO=0
+SESSION=$(printf '%s' "$START_OUT" | sed -n 's/^[[:space:]]*session:[[:space:]]*//p' | head -1)
+[ -n "$SESSION" ] || CAN_VIDEO=0
 
 # 5. Sweep, emitting one marker per scene (below).
 
@@ -279,7 +285,15 @@ evidence, the clip is the courtesy.
 
 ## Command reference
 
-Only what these skills use. Full docs: <https://opencap.dev/docs/cli>.
+Only what these skills use. Full docs: <https://opencap.dev/docs/cli>. Flags below re-verified
+against **opencap 0.1.3** (2026-08-05) by running each `--help`; treat them as version-pinned facts,
+not guesses, and re-verify after an upgrade.
+
+**Never swallow the CLI's stderr.** Every call here is best-effort, so the natural wrapper is
+`try { execFileSync(...) } catch { return null }` — which turns a one-word flag error into an
+indistinguishable "video unavailable". Capture `e.stderr` into the neutral note. A whole capture pass
+was lost to this: `config doctor` reported every subsystem healthy while the only actual problem was
+an `--unexpected argument` on `record start`.
 
 | Command | Notes |
 |---|---|
@@ -287,7 +301,7 @@ Only what these skills use. Full docs: <https://opencap.dev/docs/cli>.
 | `opencap whoami` | exit 3 → run `opencap login` |
 | `opencap windows list --json` | `[{id, title}]`; includes menubar items |
 | `opencap record status --json` | `{active, session_id, duration_ms, event_count}` |
-| `opencap record start --task "…" --window <id> --json` | `{session_id}`; daemonizes, returns at once |
+| `opencap record start --task "…" --window <id>` | **NO `--json` — the one exception in this table.** Daemonizes, returns at once; prints plain text (`session: <ULID>`). Passing `--json` exits 1 with "unexpected argument". |
 | `opencap event marker "<label>" --tag <t>` | shortcut for a `session.marker` event |
 | `opencap event '<json>'` | full event; `{type, summary, tags?, data?}` |
 | `opencap record stop --json` | `{share_url}`; blocks on upload |

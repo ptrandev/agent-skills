@@ -72,8 +72,12 @@ fixes what it finds. Findings go to GitHub and to a local report; fixing is `/de
    author-mode, local, attended opt-in. **Never** staging, **never** production, under any role.
 8. **Never touch source, the index, or the PR branch.** Screenshots are published to a *detached
    custom ref* (Phase 7), built through an isolated `GIT_INDEX_FILE` so a dirty clone is safe.
-9. **Never post to a draft PR**, and **never review your own** — re-check both immediately before
-   posting, not just at discovery.
+9. **Never post a REVIEW to a draft PR**, and **never review your own** — re-check both immediately
+   before posting, not just at discovery. **Author mode is exempt from the draft half**: the rule
+   exists to stop unrequested reviewer noise on unready work, and an author commenting evidence on
+   their own draft is neither unrequested nor noise. Blanket-skipping drafts also made this skill a
+   permanent no-op for its biggest caller — `/full-send` Phase 8 *always* opens a draft, so it could
+   never once have produced evidence. Reviewer mode still skips drafts outright.
 
 ### Severity → what happens
 
@@ -113,9 +117,44 @@ so this skill and `/review-pr` agree on it regardless of either process's `$TMPD
 |---|---|---|
 | Browser | `browse` binary (`$ROOT/.claude/skills/gstack/browse/dist/browse`, else `~/.claude/skills/gstack/browse/dist/browse`) | headless Playwright/Chromium |
 | Viewport | `browse viewport WxH` | `page.setViewportSize` |
-| Screenshot | `browse prettyscreenshot` / `screenshot` | `page.screenshot({fullPage:true})` |
-| Video | OpenCap **scoped to the browser window**, author mode only — requires `browse --headed` | none (skip, never block) |
+| Screenshot | `browse prettyscreenshot`, else `browse screenshot` | `page.screenshot({fullPage:true})` |
+| Video | OpenCap **scoped to the browser window**, author mode only — needs a HEADED browser (see below) | none (skip, never block) |
 | Credentials | `dev-credentials.md` | **env vars only** (the file is gitignored → absent) |
+
+**Probe the `browse` build's capabilities — do not assume this table.** `browse` ships in several
+shapes and the local one may be **headless-only**: no `--headed` flag and no `prettyscreenshot`
+subcommand (verified 2026-08-05 — that build's `--help` advertises only `screenshot`, and its banner
+literally reads "Fast **headless** browser for AI coding agents"). Read the help once and branch:
+
+```bash
+BROWSE_HELP=$("$B" --help 2>&1)
+case "$BROWSE_HELP" in *prettyscreenshot*) SHOT=prettyscreenshot;; *) SHOT=screenshot;; esac
+case "$BROWSE_HELP" in *--headed*) BROWSE_CAN_HEAD=1;; *) BROWSE_CAN_HEAD=0;; esac
+```
+
+**When `BROWSE_CAN_HEAD=0`, do NOT drop the video — swap the driver.** Drive a headed Playwright
+browser directly instead of `browse`. This is strictly better than the `browse` path, because one
+launch yields *both* video artifacts:
+
+```js
+const browser = await chromium.launch({ headless: false, args: ['--window-size=1460,1000'] })
+const context = await browser.newContext({
+  storageState: `${WORKDIR}/apps/agents-portal/e2e/.auth/user.json`,  // set by the harness's setup project
+  viewport: { width: 1440, height: 900 },        // widest first — fixes the video frame size
+  recordVideo: { dir: VIDEO, size: { width: 1440, height: 900 } },   // native .webm fallback
+})
+```
+
+Three things this buys that `browse` cannot: a real OS window for OpenCap to scope to, a native
+`.webm` even when OpenCap is unavailable entirely, and `storageState` auth — which **does** restore
+the Firebase session, unlike `browse cookie-import` (Playwright replays `origins[].indexedDB`;
+cookie-import cannot — see Phase 4). Reuse the harness's own `e2e/.auth/*.json` and skip form login.
+
+**The driver script must live INSIDE the workspace.** Node resolves ESM `node_modules` from the
+*script's own path*, not from cwd, so a driver written to `$SCRATCH` throws
+`ERR_MODULE_NOT_FOUND: Cannot find package '@playwright/test'` no matter where you run it from. Write
+it next to the app (e.g. `apps/agents-portal/uiw-drive.mjs`), untracked, and delete it in teardown
+alongside the hold spec — Phase 9's `git status --porcelain` check is what catches a forgotten one.
 
 **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Verified in
 `/review-pr` Phase 6: the cloud egress path has a TLS-terminating middlebox that resets
@@ -149,9 +188,10 @@ The two rules that change how the rest of this phase behaves:
   whatever else is on the operator's screen into a PR comment, and — because `browse` is headless by
   default — wouldn't even contain the app being walked. If the window can't be resolved, **skip the
   video**; never widen the capture to make it succeed.
-- **Video therefore requires `browse --headed`**, which is a daemon-startup setting. A headless
-  daemon already running is a `CAN_VIDEO=0` neutral note, **not** a reason to `browse disconnect`
-  someone else's session.
+- **Video therefore requires a HEADED browser.** With `browse`, that's `--headed`, a daemon-startup
+  setting: a headless daemon already running is a `CAN_VIDEO=0` neutral note, **not** a reason to
+  `browse disconnect` someone else's session. If the local `browse` build has no `--headed` at all,
+  that is *not* `CAN_VIDEO=0` — switch to the headed Playwright driver above and keep the video.
 
 Probe here, carry one boolean, branch in Phase 5. Video is author-mode + local + macOS only, and it
 is **always** best-effort: no `opencap` call may block, fail, or slow the walkthrough.
@@ -252,7 +292,8 @@ PR_JSON=$(gh api "repos/$OWNER/$NAME/pulls/$PR" --jq '{author:.user.login, draft
 - `author != ME` → **reviewer mode**. Reviewer mode does **not** require you to be a requested
   reviewer — a walkthrough is useful commentary either way — but if you aren't, say so in the
   comment body so the author knows why an unrequested review appeared.
-- `draft == true` → **skip** ("PR #N is a draft — re-run when it's ready"). Re-checked in Phase 8.
+- `draft == true` → **reviewer mode skips** ("PR #N is a draft — re-run when it's ready");
+  **author mode proceeds** (invariant 9). Re-checked in Phase 8.
 - `--author`/`--reviewer` override the inference, except that **author mode can never be forced
   into posting a review** — GitHub rejects it.
 
@@ -401,7 +442,8 @@ test('ui-walkthrough hold', async () => {
 ```
 
 ```bash
-env -u VSCODE_CWD UIW_HOLD_SECONDS=900 yarn e2e:stack uiw-hold.spec.ts --project="$PROJ" &
+# Invoke the SCRIPT, not `yarn e2e:stack` — see "backgrounding" below.
+env -u VSCODE_CWD UIW_HOLD_SECONDS=900 bash scripts/e2e-stack.sh uiw-hold.spec.ts --project="$PROJ" &
 ```
 
 **`env -u VSCODE_CWD` is required, not hygiene.** Claude Code runs inside the VSCode extension host,
@@ -420,6 +462,29 @@ session fails**, with an error that looks like a corrupt `node_modules` and invi
 multi-GB reinstall. Verified 2026-07-30. The same fix applies to `/review-pr`'s Tier-3 boot and
 `/full-send`. A terminal-launched `claude` has no `VSCODE_CWD` and is unaffected, which is why this
 reproduces only sometimes.
+
+**Backgrounding: call `bash scripts/e2e-stack.sh`, never `yarn e2e:stack`.** Backgrounding the
+**outer yarn wrapper** kills the run mid-flight — Yarn 3 puts a temp shim dir on `PATH` for its
+children, and when the backgrounded wrapper's environment is torn down the stack dies at the
+Playwright hand-off with
+`scripts/e2e-procgroup.sh: /private/var/folders/…/xfs-*/yarn: No such file or directory`. Invoking
+the script directly skips that wrapper entirely and holds fine. (`nohup … & disown` gets reaped, and
+`setsid` does not exist on macOS — neither is the fix.)
+
+**Pre-warm before you boot, or the hold never happens.** A cold boot is emulators → seed → SDK build
+→ API → `next build` → Playwright, ~15 min — over the Bash tool's hard 600 s per-call ceiling, and a
+`git merge` of the base branch invalidates the caches that would otherwise save you. Run the two
+expensive steps in their own foreground calls first, then boot:
+
+```bash
+npx turbo run build --filter=@atllasinc/sdk           # usually a full cache hit (~1 s)
+set -a; . apps/agents-portal/e2e/.env.e2e; set +a      # build with the same env the stack uses
+yarn workspace agents-portal e2e:build                 # ~2 min cold, and it is the long pole
+```
+
+Then poll `http://localhost:3000` for a 200 and wait for the hold spec's own log line before driving.
+**Poll with `curl`, never `pgrep -f`** — a `pgrep -f` wait loop matches the waiting shell's own
+command line, so the condition can never go false and the loop spins forever.
 
 Pick `$PROJ` at runtime (`npx playwright test --list` in the checkout) — **don't hardcode a project
 name**, they change. Choose a chromium project that **depends on the persona setup project** you
@@ -535,10 +600,10 @@ $B viewport 1440x900
 $B goto "$BASE_URL/<surface>"
 $B wait --networkidle
 $B console --clear                      # so the next read is scoped to THIS surface
-$B prettyscreenshot "$SHOTS/01-agents-desktop.png"
+$B "$SHOT" "$SHOTS/01-agents-desktop.png"
 $B viewport 375x812
 $B reload && $B wait --networkidle      # re-layout, don't just resize a laid-out page
-$B prettyscreenshot "$SHOTS/01-agents-mobile.png"
+$B "$SHOT" "$SHOTS/01-agents-mobile.png"
 ```
 
 **Reload after a viewport change.** Resizing a page that already laid out at 1440 leaves
@@ -575,7 +640,7 @@ last one is what lets a reviewer jump straight to the defect.
 ```bash
 # No shell function here — a `$1` in this file is rewritten by the skill loader (see Phase 0).
 [ "$CAN_VIDEO" = 1 ] && opencap event marker "agents · desktop 1440" >/dev/null 2>&1 || true
-$B prettyscreenshot "$SHOTS/01-agents-desktop.png"
+$B "$SHOT" "$SHOTS/01-agents-desktop.png"
 ```
 
 Non-negotiables, all of them from [opencap.md](opencap.md): window-scoped or nothing (never
@@ -638,6 +703,33 @@ A detector firing is a BLOCKER **only if** the element it names is part of this 
 a pre-existing 44px icon button elsewhere on the page is not this PR's problem. Cross-check
 against the diff, and when in doubt, downgrade to MEDIUM with a note that it may be pre-existing.
 
+**Attribute by MEASURING, not by reading the diff.** A raw detector number says a defect exists, not
+whose it is, and shipping "539px of horizontal scroll" against a PR that caused 3px of it burns the
+author's time and the skill's credibility. Two cheap live probes settle it:
+
+- **Name the outermost offender, not every descendant.** An overflowing ancestor makes all its
+  children report overflow too. Walk the DOM, keep only elements whose `right > innerWidth` that no
+  already-kept element `contains`, and report those — the culprit is usually one node.
+- **Delete this PR's own elements in the live page and re-measure.** If removing every element the
+  diff adds barely moves the number, the defect is inherited and the honest verdict is
+  "pre-existing, PR contributes N px":
+
+  ```js
+  const before = measure()
+  document.querySelectorAll('[data-testid="thing-the-pr-added"]').forEach(e => e.remove())
+  const after = measure()   // ~unchanged ⇒ not this PR's defect
+  ```
+
+Same discipline for the judged pass: **a screenshot is not a style measurement.** A frame can catch a
+MUI ripple or transition mid-animation and look like a contrast failure. Before reporting one, read
+the *resting* `getComputedStyle` in each state (idle / hover / selected / selected+hover) and compute
+the real WCAG ratio. A "low contrast" finding that measures 5.24:1 is a false positive you published
+under the skill's own evidence-bound invariant.
+
+And when the offending element **is** yours but an existing sibling measures **identically** (same
+component, same size prop), say so: it is a MEDIUM about shared styling whose fix moves both, not a
+regression this PR introduced. Report the sibling's measurement as the proof.
+
 ### 6b — Judged pass (designer's eye → never blocks)
 
 **Read the rubric, don't reinvent it.** `~/.claude/skills/design-review/SKILL.md` §*Design Audit
@@ -672,6 +764,17 @@ anything not visible on screen.
 
 GitHub does **not** camo-rewrite `github.com`-hosted URLs (confirmed by reading `body_html` back:
 the `<img src>` came through verbatim), which is what makes this work at all.
+
+**To read `body_html` back you MUST send the HTML media type** — it is absent from the default
+JSON representation, so `gh api <comment> --jq '.body_html'` returns an **empty string**, which
+looks exactly like "the images were stripped" and invites a panicked re-post:
+
+```bash
+gh api -H "Accept: application/vnd.github.full+json" \
+  "repos/$OWNER/$NAME/issues/comments/$ID" --jq '.body_html' > body.html
+grep -c 'camo.githubusercontent' body.html          # expect 0
+grep -o 'src="[^"]*"' body.html | head              # expect your raw/<commit>/ URLs, verbatim
+```
 
 **The assets must live in the PR's own repo.** It is the viewer's read access to *that* repo that
 authorizes the image, so a separate assets repo — even one you own — 404s for everyone else.
@@ -834,7 +937,8 @@ The `Video:` field is never bare. Either a URL with its marker count, or the rea
 Teardown is the EXIT trap from Phase 4 (stack down, lock released) — it must not depend on the
 walkthrough having succeeded. It must leave the machine exactly as it was found:
 
-- [ ] the injected `uiw-hold.spec.ts` **deleted** from the checkout
+- [ ] the injected `uiw-hold.spec.ts` **and any in-workspace driver/probe `.mjs`** (Phase 0 — they
+      cannot live in `$SCRATCH`) **deleted** from the checkout
 - [ ] the user's original branch restored (recorded before checkout)
 - [ ] the local branch `gh pr checkout` created **deleted** (`git branch -D <branch>`) — it's fully
       pushed, and leaving one per reviewed PR silts up their branch list

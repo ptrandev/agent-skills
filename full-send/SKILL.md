@@ -80,7 +80,23 @@ missing optional tooling surfaces now instead of 20 minutes into Phase 8.
 - `gh` CLI, authenticated (`gh auth status`) — needed for the PR and bot review.
 - Linear MCP available — needed to fetch/create/update the ticket.
 - **`/ui-walkthrough`** (Phase 8) — required only if the change touches UI. It owns the capture and
-  needs the `browse` binary; without it, Phase 8 degrades to no visual evidence and says so.
+  its own driver detection; without it, Phase 8 degrades to no visual evidence and says so.
+
+  **Never probe `browse` with `command -v browse`.** It is not on `PATH` — it ships as a binary
+  inside the gstack skill — so a `PATH` probe reports it missing on a machine where it works fine,
+  and the preflight then declares Phase 8 impossible before the run has started. Check the paths:
+
+  ```bash
+  BROWSE=""
+  for p in "$PWD/.claude/skills/gstack/browse/dist/browse" \
+           "$HOME/.claude/skills/gstack/browse/dist/browse"; do
+    [ -x "$p" ] && BROWSE="$p" && break
+  done
+  ```
+
+  And a missing `browse` is **not** a blocked Phase 8 either: `/ui-walkthrough` falls back to a
+  headed Playwright driver, which still produces screenshots *and* video. Report the driver it will
+  use, not a bare ✗.
 
 **Optional** (note what's missing and how to enable it, then continue — these degrade gracefully):
 - **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor` (which is also
@@ -96,7 +112,7 @@ missing optional tooling surfaces now instead of 20 minutes into Phase 8.
 Print a compact summary, e.g.:
 
 ```
-Preflight:  gh ✓   Linear ✓   browse ✓   phillip ✓   grilling ✓   codex ✓   gemini ✗ (CLI ok, needs GEMINI_API_KEY → /phillip runs Claude+Codex)   OpenCap ✗ (run `opencap login` to enable video)
+Preflight:  gh ✓   Linear ✓   driver: browse ✓ (headless → Phase 8 uses headed Playwright for video)   phillip ✓   grilling ✓   codex ✓   gemini ✗ (CLI ok, needs GEMINI_API_KEY → /phillip runs Claude+Codex)   OpenCap ✓
 ```
 
 ### Skill dependencies — auto-install & setup
@@ -593,6 +609,11 @@ publishing images to GitHub so they actually render in a comment.
 /ui-walkthrough <PR_NUMBER> --author --embedded --target=dev
 ```
 
+**The PR being a draft is expected and must not skip the walkthrough.** full-send always opens
+drafts, so the walkthrough's draft gate is scoped to *reviewer* mode (`ui-walkthrough` invariant 9);
+in `--author` mode it proceeds. If a run reports "skipped — PR is a draft", the walkthrough is on a
+stale copy of that invariant and Phase 8 has silently produced nothing.
+
 It returns `{blockers, mediums, nits, images, neutralNotes, video, coverage, markdown}` and **posts
 nothing** — this phase stays the single writer. What you get over the old desktop-only pass:
 
@@ -623,8 +644,10 @@ the details; the reason ownership sits there and not here is concrete:
 - The capture is scoped to the **browser window**, and only the walkthrough knows which window that
   is — it's the one it launched, titled and sized by it. A recording started out here has no window
   to name, so it would fall back to capturing **the whole display**: the operator's Slack, mail, and
-  other clients' code, published to a PR comment. It also wouldn't contain the app at all, since
-  `browse` is headless unless the walkthrough runs it headed for exactly this purpose.
+  other clients' code, published to a PR comment. It also wouldn't contain the app at all, since the
+  browser is headless unless the walkthrough launches a headed one for exactly this purpose (and
+  when the local `browse` build can't go headed at all, the walkthrough swaps in a headed Playwright
+  driver — another decision that needs the walkthrough's context, not this phase's).
 - Recording must start **after login** (no credentials on video) and **at the widest viewport**
   (OpenCap fixes the video's frame size at capture start; starting narrow crops every wider pass).
   Both are the walkthrough's ordering to get right.
@@ -680,9 +703,11 @@ Report:
 - Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
 - **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
-  attached (Phase 8d) — the video link, or the specific reason there isn't one (permission not
-  granted, headless `browse` daemon already running, reviewer mode, `--no-video`). "Video skipped"
-  with no reason isn't a report; the operator can't act on it.
+  attached (Phase 8d) — the video link, or the specific reason there isn't one (screen-recording
+  permission not granted, OpenCap not installed/logged in, reviewer mode, `--no-video`). "Video
+  skipped" with no reason isn't a report; the operator can't act on it. **A headless `browse` is
+  no longer a valid reason** — `/ui-walkthrough` switches to a headed Playwright driver and records
+  anyway, so that excuse in a report means the walkthrough took a stale path.
 - Alignment context (per "When the up-front grill runs"):
   - **Grill ran:** the clarifications captured during the Phase 0.5 grill.
   - **Grill skipped:** the **Assumptions** block recorded in Phase 0 for anything inferred.
