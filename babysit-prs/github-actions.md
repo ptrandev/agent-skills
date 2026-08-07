@@ -1,18 +1,10 @@
-# babysit-prs — GitHub Actions bot (the comment-driven option)
-
-> **Routine vs. Actions — pick by latency need:**
-> - A **Routine** ([routine.md](routine.md)) is the managed, lower-maintenance choice, but its
->   GitHub triggers cover only `pull_request.*` / `release.*` — there is **no review-comment
->   event**, so the best it does for comments is an **hourly schedule sweep**.
-> - This **Actions workflow** is the *only* option that fires the instant a review comment lands
->   (it triggers on `pull_request_review_comment` / `issue_comment`). Use it when sub-hour response
->   to comments matters, or when you want the automation versioned in the repo's own CI.
->
-> Many teams run **both**: the Actions bot for instant comment response, the Routine's hourly sweep
-> as a backstop. Idempotency keeps them from colliding.
+# babysit-prs: GitHub Actions bot (the comment-driven option)
 
 This is an autonomous, event-driven bot that lives in the repo and fires the instant a review
-comment lands — covering the whole team, no machine required.
+comment lands, covering the whole team, no machine required. Pick it over a Routine per the runtime
+table in "Running it unattended" in [SKILL.md](SKILL.md). Running **both** is fine: the Actions bot
+for instant comment response, the Routine's hourly sweep as a backstop. Idempotency keeps them from
+colliding.
 
 **Do not enable this until the Phase 1 loop's resolution quality is trusted.** A bot that pushes
 commits and resolves threads on every PR, unsupervised, is only safe once you've watched the same
@@ -28,10 +20,8 @@ judgment work by hand.
 | Latency | Next scheduled pass | Seconds after the comment |
 | Supervision | You read each report | Fully autonomous |
 
-The **logic is identical** — fetch unresolved threads, classify, fix the safe ones, reply with the
-fixing commit as evidence, resolve only what's earned, leave judgment calls open. Phase 2 just
-changes *what runs it* and *when*. The skill body (`SKILL.md`) is the spec the headless prompt
-points at, so the two stay in sync.
+Everything outside those rows is identical, and `SKILL.md` stays the spec the headless prompt
+points at.
 
 ## Safety deltas to add for unattended CI
 
@@ -40,21 +30,21 @@ The three Phase-1 invariants still hold, plus:
 - **Guard against loops.** Skip events authored by the bot itself (`github.actor == <bot login>`)
   or you'll trigger on your own replies forever.
 - **Branch contention.** The bot must not push to a branch a human is actively editing. Push with
-  `--force-with-lease` is *not* a fix here — instead, rebase onto the latest head and bail (reply
+  `--force-with-lease` is *not* a fix here. Instead, rebase onto the latest head and bail (reply
   "your branch moved, leaving this for you") if it can't fast-forward cleanly.
 - **Permissions.** `contents: write` + `pull-requests: write` only. Resolving threads needs the
   GraphQL `resolveReviewThread` mutation, available with `pull-requests: write`.
 - **Rate / cost.** Concurrency-group per PR so rapid-fire comments collapse into one run.
-- **Fork PRs.** `pull_request_review_comment` from forks has a read-only token — detect and skip
+- **Fork PRs.** `pull_request_review_comment` from forks has a read-only token. Detect and skip
   (triage-only) rather than failing.
 
 ## Reference workflow
 
-The workflow is **per-repo** — it lives in each repo's `.github/workflows/`. Drop the same file
+The workflow is **per-repo**: it lives in each repo's `.github/workflows/`. Drop the same file
 into **both** `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues` (and any future target). The only
 per-repo differences are the install/test steps and the secrets each repo holds.
 
-`.github/workflows/babysit-prs.yml` — illustrative; adapt secrets, paths, and the run command to
+`.github/workflows/babysit-prs.yml`, illustrative. Adapt secrets, paths, and the run command to
 however you invoke Claude Code headless in CI.
 
 ```yaml
@@ -108,11 +98,11 @@ jobs:
 
 ## Token / identity options
 
-- **PAT of a dedicated bot account** (`atllas-babysit-bot`) with `repo` scope — simplest; commits
+- **PAT of a dedicated bot account** (`atllas-babysit-bot`) with `repo` scope: simplest; commits
   and resolutions show as that account. Store as `BABYSIT_BOT_TOKEN`.
-- **GitHub App** — cleaner identity, per-repo install, finer permissions, higher rate limits.
+- **GitHub App**: cleaner identity, per-repo install, finer permissions, higher rate limits.
   More setup. Preferred if this graduates to org-wide use.
-- **Not the default `GITHUB_TOKEN`** — its pushes don't re-trigger downstream workflows (so CI
+- **Not the default `GITHUB_TOKEN`**: its pushes don't re-trigger downstream workflows (so CI
   wouldn't re-run on the bot's fix commit), and cross-PR thread resolution is awkward. Use a real
   bot token/App.
 
