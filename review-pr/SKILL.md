@@ -83,6 +83,37 @@ This skill posts to **other people's** PRs — outward-facing and socially high-
 
 ---
 
+## Writing style
+
+The user's global writing rules, copied verbatim from `~/.claude/CLAUDE.md`. A headless run (a
+Routine, a cloud sandbox, `claude -p`) never loads that file, so this copy is the binding one. It
+governs every inline comment, review body, verdict, bot-thread reply, and report this skill writes.
+When the rules change there, copy them here unchanged rather than paraphrasing.
+
+Apply ASD-STE100 principles to **every** artifact a human reads, not just chat replies:
+PR descriptions, PR review comments and verdicts, commit bodies, issue comments, Slack
+messages, docs, and reports. Text posted to GitHub or Slack is read by teammates, so it
+gets the same pass, not a looser one.
+
+- One idea per sentence. Split any sentence carrying two or three.
+- Remove information that does not help the reader act.
+- Keep the evidence. Concision means fewer words per claim, never fewer claims:
+  `file:line`, the command run, the actual numbers all stay.
+- Never use the em dash. A period, comma, colon, or parentheses always works. Use
+  `LABEL: text` for a header or severity separator, and a period or comma mid-sentence.
+- Let the completed work show the result. No preamble, no self-congratulation.
+- Include all necessary context. Concise and complete, not concise and partial.
+- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs),
+  escape delimiter characters used literally, since two of them in one paragraph silently
+  corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in
+  GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode
+  preview). Literal `~`/`$` in code stay inside backticks instead.
+
+It is binding on the orchestrator and on every sub-agent. A review posted to a colleague's PR is
+the most public artifact this skill produces, so it gets the strictest pass.
+
+---
+
 ## Phase 0 — Preflight + capability detection
 
 Establish identity, targets, and **what this environment can do**, so the same skill is correct
@@ -177,7 +208,8 @@ dispatch → aggregate.
   `$ARGS` (`--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots`), the incremental range
   if Phase 2 found a prior review, and the rubric path. Tell the agent to execute Phases 3–9 of
   `~/.claude/skills/review-pr/SKILL.md` for **exactly that one PR**, reading phillip Section 1
-  itself.
+  itself. Point it at the **Writing style** section explicitly: a Routine sandbox has no global
+  `CLAUDE.md`, so the skill is the only place those rules exist for that agent.
 - **Nesting is expected:** the per-PR agent spawns its *own* blind Claude reviewer and runs its
   own Codex/Gemini background jobs (Phase 4). Blindness is preserved — the blind reviewer still
   never sees the PR description or author, regardless of what the per-PR agent knows.
@@ -380,6 +412,8 @@ For each **unresolved bot** thread, trace it and act:
   then **resolve** it (`resolveReviewThread`). This is **default on**; `--no-resolve-bots` replies
   but leaves it unresolved.
 
+Every reply is held to the **Writing style** section above.
+
 Hard rules: **bot threads only** (never resolve a human's thread); **verified-only** (never resolve
 on a guess, never resolve a *legit* bot comment); **reply-before-resolve** (always leave the why —
 an evidence trail, never a silent dismissal); **re-check before acting** (re-fetch `isResolved` and
@@ -544,6 +578,8 @@ ever gains first-class port parameterization, move to a dedicated review-port bl
 Group postable findings into inline `comments[]` + a summary `body` + an `event` (verdict from the
 table). The `body` states: reviewers used, verify depth, **whether a live walkthrough ran**, the
 verdict rationale, and a link to the local report.
+
+Every inline comment body and the summary `body` are held to the **Writing style** section above.
 
 ### Inline line-anchoring (get exactly right)
 
