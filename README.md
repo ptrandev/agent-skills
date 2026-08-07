@@ -134,6 +134,9 @@ ln -s ~/Git/claude-skills/plain-english ~/.claude/skills/plain-english
 ln -s ~/Git/claude-skills/ui-walkthrough ~/.claude/skills/ui-walkthrough
 ln -s ~/Git/claude-skills/weekly-launch-summary ~/.claude/skills/weekly-launch-summary
 ln -s ~/Git/claude-skills/daily-launch-summary ~/.claude/skills/daily-launch-summary
+
+# Global instructions (not a skill). See "Global CLAUDE.md" below.
+ln -s ~/Git/claude-skills/global/CLAUDE.md ~/.claude/CLAUDE.md
 ```
 
 > **Note:** `full-send/dev-credentials.md` is gitignored — create it manually after cloning if needed.
@@ -147,6 +150,29 @@ CLIs and their auth, `gh`, and these symlinks — paste the entire contents of
 it runs the whole setup itself, stopping only for the few interactive bits (password installers,
 API keys, `gh auth login`). See [`docs/phillip-agent-usage.md`](docs/phillip-agent-usage.md) for
 day-to-day use. Updating later is just `cd ~/Git/claude-skills && git pull`.
+
+## Global `CLAUDE.md`
+
+`global/CLAUDE.md` is the user-level instruction file that Claude Code loads for every session on
+this machine. It is symlinked to `~/.claude/CLAUDE.md`, so it is versioned here and survives a
+machine rebuild. It is not a skill, so it has no `SKILL.md` and is never invoked.
+
+Its **Writing style** section is reproduced **verbatim** inside `babysit-prs/SKILL.md`,
+`full-send/SKILL.md`, and `ui-walkthrough/SKILL.md`. Those three skills post text that teammates
+read, and they run in cloud Routines and headless sandboxes that never load `~/.claude/CLAUDE.md`,
+so the in-skill copy is the binding one there. The duplication is deliberate: a reference to a
+file the sandbox does not have would silently drop the rules in the one place they matter most.
+
+When the section changes here, copy it into all three unchanged instead of paraphrasing. Rewording
+one copy is how they drifted apart the first time. Verify no copy has drifted:
+
+```bash
+for f in babysit-prs full-send ui-walkthrough; do
+  diff <(sed -n '/^Apply ASD-STE100/,/backticks instead\.$/p' global/CLAUDE.md) \
+       <(sed -n '/^Apply ASD-STE100/,/backticks instead\.$/p' $f/SKILL.md) >/dev/null \
+    && echo "$f ok" || echo "$f DRIFTED"
+done
+```
 
 ## Adding a new skill
 
