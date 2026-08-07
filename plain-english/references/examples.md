@@ -1,7 +1,6 @@
 # Worked cases
 
-Four sources and the output each should produce. The commentary under each names
-the judgment call the case exists to demonstrate. Commentary is never part of the
+Four sources and the output each should produce. Commentary is never part of the
 output.
 
 ---
@@ -65,14 +64,11 @@ our platform" into a claim. It is not one, since nothing about it could be false
 > - What breaks, and how a customer knows whether they are affected
 > - Whether they will notify affected customers directly
 > - Which TLS versions stay supported
->
-> No implication gap. The text is padded, not steering.
 
 **Commentary.** 96 words carry one date. The bottom line states the consequence
 for the reader, not the topic. "Customers are encouraged to review" is not a claim
 about the world and does not earn a bullet, though the deadline it depends on
-does. The closing line shows how to note an absent section without printing an
-empty heading. It is optional and can be dropped.
+does.
 
 ---
 
@@ -130,7 +126,7 @@ visible.
 > **Bottom line:** An unvalidated internal analysis hints at a possible improvement of at most 30%. Nothing is established.
 >
 > **What it claims**
-> - **attributed:** Their own preliminary internal analysis suggests adopters of the new onboarding flow *may* see *up to* a 30% improvement in time-to-first-value.
+> - **attributed:** Their own preliminary internal analysis suggests adopters of the new onboarding flow may see up to a 30% improvement in time-to-first-value.
 > - **fact:** The results are not validated across all segments, and the sample was limited.
 > - **opinion:** They believe this points to a meaningful opportunity.
 >

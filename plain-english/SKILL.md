@@ -5,20 +5,20 @@ description: Extracts the signal from bloated or evasive text and shows it as a 
 
 # Plain English
 
-Pull the signal out of the noise. The reader wants to know what the text says,
-what it avoids saying, and what it is steering them toward. Do not rewrite the
-text. Select from it.
+Pull the signal out of the noise. Do not rewrite the text. Select from it.
 
-This file is self-contained. Open a reference only when a trigger at the bottom
-fires.
+The reader is someone who has to act on this text. The bottom line is the
+consequence for the reader, not the topic of the text.
+
+This file is self-contained. Open the reference only when the trigger at the
+bottom fires.
 
 ## The guarantee
 
 > Add nothing. Drop nothing that would change the reader's take.
 
-Dropping noise is the job, so "preserve everything" is the wrong rule. This one
-replaces it. A hedge, bound, condition, scope limit, or attribution is never
-carried forward as text; it rides along as part of the claim it modifies.
+A hedge, bound, condition, scope limit, or attribution is never carried forward
+as text. It rides along as part of the claim it modifies.
 
 ## Output contract
 
@@ -29,6 +29,7 @@ Nothing before the bottom line. No preamble, no "Here's the breakdown".
 
 **What it claims**
 - **<strength>:** <the claim, with its hedge, number, and scope attached>
+  <optional: one sentence naming what the hedge costs, only when the label alone does not show it>
 
 **Not stated**
 - <what a reader needs and does not get>
@@ -40,22 +41,22 @@ Nothing before the bottom line. No preamble, no "Here's the breakdown".
 Rules for the shape:
 
 - Length tracks real content, not input length. Three sentences of substance
-  produce three bullets. A 2,000-word post with one claim gets one.
+  produce three bullets. A 2,000-word post with one claim gets one. Never pad a
+  section to make the output look proportionate to the input.
 - Drop **Not stated** only when nothing material is missing. That is rare.
 - Drop **What it implies but never claims** whenever there is no gap. That is
   common, and an empty section is worse than none.
-- Never pad a section to make the output look proportionate to the input.
 
 ## Strength labels
 
-Every claim gets exactly one. This is the point of the skill: slop's main trick
-is making a soft thing feel firm, and the label makes that visible at a glance.
+Every claim gets exactly one. Slop's trick is making a soft thing feel firm. The
+label exposes it.
 
 | Label | Means | Trigger words |
 | --- | --- | --- |
 | `fact` | Asserted flatly, checkable now | none needed |
-| `hedged` | Asserted with an escape hatch | may, might, could, should, expects, aims to, is designed to |
-| `attributed` | Someone else's assertion, not the author's | according to, X says, reportedly, per, sources indicate |
+| `hedged` | Asserted with an escape hatch | the **Hedges** row under [What must ride along](#what-must-ride-along-with-a-claim) |
+| `attributed` | Someone else's assertion, not the author's | the **Attribution** row under [What must ride along](#what-must-ride-along-with-a-claim) |
 | `promise` | A future act the author commits to | will, plans to, by <date>, in the coming weeks |
 | `opinion` | A value judgment, not falsifiable | best, critical, exciting, industry-leading |
 
@@ -74,19 +75,16 @@ Judgment calls:
 Losing one of these changes what the text asserts. Each stays attached to its
 bullet, in plain words.
 
-- **Hedges:** may, might, could, should, we believe, we expect, estimated,
-  projected, planned, targeted.
-- **Attribution:** according to, reportedly, said, per.
-- **Bounds:** about, roughly, up to, at least, at most, more than, fewer than.
-  "up to 40%" is not "40%". "at least 7 days" is not "7 days".
-- **Quantifiers:** all, most, many, some, few, none, only.
-- **Conditions and exceptions:** if, unless, until, provided that, subject to,
-  except, excluding, other than.
-- **Negation:** not, no, never, cannot.
-- **Time and scope limits:** as of <date>, in <year>, so far, in <region>, for
-  <group>, on <platform>.
-- **Numbers, units, dates, currency, versions, names, percentages,** copied
-  verbatim. Convert nothing, round nothing.
+| Carry | Words and test |
+| --- | --- |
+| **Hedges** | may, might, could, should, expects, aims to, is designed to, we believe, we expect, estimated, projected, planned, targeted |
+| **Attribution** | according to, X says, reportedly, per, sources indicate, said |
+| **Bounds** | about, roughly, up to, at least, at most, more than, fewer than. "up to 40%" is not "40%". "at least 7 days" is not "7 days". |
+| **Quantifiers** | all, most, many, some, few, none, only |
+| **Conditions and exceptions** | if, unless, until, provided that, subject to, except, excluding, other than |
+| **Negation** | not, no, never, cannot |
+| **Time and scope limits** | as of `<date>`, in `<year>`, so far, in `<region>`, for `<group>`, on `<platform>` |
+| **Numbers, units, dates, currency, versions, names, percentages** | copied verbatim. Convert nothing, round nothing. |
 
 Judge these by meaning: `essentially` and `effectively` are hedges when they mean
 "close but not exactly"; `only` is a bound in "only 3 users" and filler in "just
@@ -95,8 +93,7 @@ when it does not.
 
 ## Add nothing
 
-Selection makes invention easy to hide, so this is stricter than it was under
-rewriting.
+Selection makes invention easy to hide.
 
 - No context, examples, definitions, or corrections from your own knowledge,
   however right. If the source is wrong, say the source claims it and put the
@@ -111,8 +108,7 @@ rewriting.
 
 ## Finding what is not stated
 
-Read as someone who has to act on this. The absences that matter are the ones
-that block a decision.
+List only absences that block the reader's decision.
 
 - Who acts, decides, or is accountable. Passive voice and "it was determined"
   are the tell.
@@ -147,10 +143,10 @@ bullet you cannot point at a specific sentence for.
 
 ## When the source says nothing
 
-Not a special case any more. **What it claims** comes out thin or empty, and
-**Not stated** comes out long. Write the bottom line as `Nothing actionable.`
-followed by what the text is doing instead, in one clause: announcing an
-announcement, restating its own title, or promising detail later.
+**What it claims** comes out thin or empty, and **Not stated** comes out long.
+Write the bottom line as `Nothing actionable.` followed on the same line by what
+the text is doing instead, in one clause: announcing an announcement, restating
+its own title, or promising detail later.
 
 Do not manufacture claims to fill the section. An empty **What it claims** is a
 finding, and it is the most useful output this skill produces.
@@ -159,5 +155,6 @@ finding, and it is the most useful output this skill produces.
 
 Open [references/examples.md](references/examples.md) for four worked cases: an
 empty announcement, one claim buried in filler, a legal clause where the hedges
-carry the meaning, and a hedged research finding. Read it when the source is
-mostly filler, heavily hedged, or when a strength label is genuinely ambiguous.
+carry the meaning, and a hedged research finding. Read it for four calls only:
+`may` as granted permission versus `may` as a hedge, the author as their own
+source, stacked qualifiers on one claim, and an empty claims list.

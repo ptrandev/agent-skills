@@ -8,32 +8,34 @@ description: |
 
 # merge-master
 
-Bring the current branch up to date with `master` and push. Never run on
-`master`/`main` itself — if that's the current branch, stop and tell the user.
+Bring the current branch up to date with `master` and push.
 
 ## Steps
 
 1. **Preflight.** `git status --porcelain`. If the tree is dirty, stop and ask
-   whether to stash or commit first — never clobber uncommitted work. Capture
-   the current branch: `git rev-parse --abbrev-ref HEAD`.
+   whether to stash or commit first. Never clobber uncommitted work. Stashing
+   is the user's job before re-invoking this skill: do not stash for them, and
+   do not run `git stash pop` afterwards. Capture the current branch:
+   `git rev-parse --abbrev-ref HEAD`. If the branch is `master` or `main`, stop
+   and tell the user.
 2. **Fetch.** `git fetch origin master`.
-3. **Merge.** `git merge origin/master`. If it merges cleanly, skip to step 5.
+3. **Merge.** `git merge origin/master`. If it merges cleanly, skip to step 6.
 4. **Resolve conflicts.** For each conflicted file (`git diff --name-only
    --diff-filter=U`):
-   - Read the file, understand both sides. Keep the intent of *both* changes —
-     don't blindly take one side.
+   - Read the file, understand both sides. Keep the intent of *both* changes.
    - Edit to remove all `<<<<<<<`, `=======`, `>>>>>>>` markers.
    - `git add <file>` once resolved.
-   - If any conflict is genuinely ambiguous (a real semantic clash where either
-     choice changes behavior), stop and ask the user rather than guessing.
-   - When all are staged, finalize with `git commit --no-edit` (keeps the
-     default merge message).
-5. **Verify.** `git status` — confirm no unmerged paths remain. If the repo has
-   an obvious quick check (typecheck/lint/build), run it to confirm the merge
-   didn't break the build; report failures, don't hide them.
-6. **Push.** `git push`.
+   - If either choice changes behavior, stop and ask the user.
+5. **Commit the merge.** Once every conflicted file is staged, run
+   `git commit --no-edit` (keeps the default merge message). This runs once per
+   merge, not once per file.
+6. **Verify.** `git status`. Confirm no unmerged paths remain. Run the repo's
+   typecheck, lint, or build if one is configured. If it fails, stop before
+   step 7. Report the failure and ask whether to push.
+7. **Push.** `git push`. If push reports no upstream, use
+   `git push -u origin <branch>` with the branch captured in step 1.
+8. **Report.** State what conflicted and how you resolved each one.
 
 ## Notes
 
-- Prefer `git merge`, not rebase — the user asked to merge.
-- Report what conflicted and how you resolved each one before finishing.
+- Prefer `git merge`, not rebase. The user asked to merge.
