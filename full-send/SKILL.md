@@ -79,11 +79,6 @@ governs every artifact this run produces: commit messages, the PR body, replies 
 review threads, recorded assumptions, and the final report. When the rules change there, copy them
 here unchanged rather than paraphrasing.
 
-- Instead of using the em dash, prefer other punctuation like periods and commas. Only use the em dash if it's really the best choice.
-- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs), escape delimiter characters used literally, since two of them in one paragraph silently corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode preview). Literal `~`/`$` in code stay inside backticks instead.
-
-### Writing style (ASD-STE100)
-
 Apply ASD-STE100 principles to **every** artifact a human reads, not just chat replies:
 PR descriptions, PR review comments and verdicts, commit bodies, issue comments, Slack
 messages, docs, and reports. Text posted to GitHub or Slack is read by teammates, so it
@@ -93,10 +88,15 @@ gets the same pass, not a looser one.
 - Remove information that does not help the reader act.
 - Keep the evidence. Concision means fewer words per claim, never fewer claims:
   `file:line`, the command run, the actual numbers all stay.
-- Prefer periods, commas, and colons over the em dash. A `LABEL — text` header
-  separator is fine; a mid-sentence em dash is not.
+- Never use the em dash. A period, comma, colon, or parentheses always works. Use
+  `LABEL: text` for a header or severity separator, and a period or comma mid-sentence.
 - Let the completed work show the result. No preamble, no self-congratulation.
 - Include all necessary context. Concise and complete, not concise and partial.
+- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs),
+  escape delimiter characters used literally, since two of them in one paragraph silently
+  corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in
+  GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode
+  preview). Literal `~`/`$` in code stay inside backticks instead.
 
 ---
 
@@ -353,7 +353,7 @@ without needing the others in-context. Aim for ~30-minute chunks. A unit's tests
 task as the unit (or the immediately following task), so nothing merges unexercised.
 
 ```markdown
-# AP-1234 — <title>
+# AP-1234: <title>
 
 - [ ] 1. Add `Foo` types to packages/sdk (types only)
 - [ ] 2. API: POST /foo endpoint + service + test
@@ -702,7 +702,7 @@ rendering — do not re-upload anything):
 gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
 ## Walkthrough evidence
 
-**Video:** ${VIDEO_LINK:-_(no video this run — see the neutral note for why)_}
+**Video:** ${VIDEO_LINK:-_(no video this run, see the neutral note for why)_}
 
 $WALKTHROUGH_MARKDOWN
 EOF

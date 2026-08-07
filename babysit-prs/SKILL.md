@@ -72,11 +72,6 @@ Routine, a cloud sandbox, `claude -p`) never loads that file, so this copy is th
 governs every thread reply this skill posts and the Phase 7 report. When the rules change there,
 copy them here unchanged rather than paraphrasing.
 
-- Instead of using the em dash, prefer other punctuation like periods and commas. Only use the em dash if it's really the best choice.
-- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs), escape delimiter characters used literally, since two of them in one paragraph silently corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode preview). Literal `~`/`$` in code stay inside backticks instead.
-
-### Writing style (ASD-STE100)
-
 Apply ASD-STE100 principles to **every** artifact a human reads, not just chat replies:
 PR descriptions, PR review comments and verdicts, commit bodies, issue comments, Slack
 messages, docs, and reports. Text posted to GitHub or Slack is read by teammates, so it
@@ -86,10 +81,15 @@ gets the same pass, not a looser one.
 - Remove information that does not help the reader act.
 - Keep the evidence. Concision means fewer words per claim, never fewer claims:
   `file:line`, the command run, the actual numbers all stay.
-- Prefer periods, commas, and colons over the em dash. A `LABEL — text` header
-  separator is fine; a mid-sentence em dash is not.
+- Never use the em dash. A period, comma, colon, or parentheses always works. Use
+  `LABEL: text` for a header or severity separator, and a period or comma mid-sentence.
 - Let the completed work show the result. No preamble, no self-congratulation.
 - Include all necessary context. Concise and complete, not concise and partial.
+- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs),
+  escape delimiter characters used literally, since two of them in one paragraph silently
+  corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in
+  GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode
+  preview). Literal `~`/`$` in code stay inside backticks instead.
 
 ---
 
@@ -263,7 +263,7 @@ concern still applies:
 
 - **Already addressed** (verified against the current head — the flagged code was rewritten;
   find the commit with `git log --oneline -3 -- <path>`): reply with the evidence
-  (`Addressed by <sha> — <one line on what changed>`), then resolve **only if bot-authored**.
+  (`Addressed by <sha>: <one line on what changed>`), then resolve **only if bot-authored**.
   Human-authored → reply with the same evidence, leave open for them to resolve.
 - **Still applies** (the line moved but the issue persists): classify normally below.
   Outdated is a hint to check, never a reason to dismiss.
@@ -340,7 +340,7 @@ rather than resolving it on a compile alone.
   and report the PR as `skipped (concurrent push)`. **Never force-push.**
 - **A fix breaks verification and can't be made green with a small, in-scope correction** →
   **revert that specific fix** (`git checkout -- <file>` / `git restore`), and **downgrade that
-  thread to QUESTION**: it will be replied-to ("attempted a fix but it broke <X> — leaving for
+  thread to QUESTION**: it will be replied-to ("attempted a fix but it broke <X>, leaving for
   you") and left open. Do not push broken code. Do not let one bad fix block the good ones.
 
 > CI watch is **best-effort** in this loop. Pushing re-triggers the PR's checks; you don't need to
@@ -371,7 +371,7 @@ on every sub-agent.
 
 Reply content by disposition:
 - **SAFE-FIX (pushed, green)** → state what changed and link the proof, e.g.
-  `Fixed in $SHA — added a null guard before \`x.foo\` so the empty-list case returns early. ✅`
+  `Fixed in $SHA: added a null guard before \`x.foo\` so the empty-list case returns early. ✅`
   Then **resolve** the thread:
   ```bash
   gh api graphql -f query='mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ isResolved } } }' \

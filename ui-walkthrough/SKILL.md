@@ -97,11 +97,6 @@ Routine, a cloud sandbox, `claude -p`) never loads that file, so this copy is th
 governs every body posted in Phase 8, both modes, and the Phase 9 report. When the rules change
 there, copy them here unchanged rather than paraphrasing.
 
-- Instead of using the em dash, prefer other punctuation like periods and commas. Only use the em dash if it's really the best choice.
-- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs), escape delimiter characters used literally, since two of them in one paragraph silently corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode preview). Literal `~`/`$` in code stay inside backticks instead.
-
-### Writing style (ASD-STE100)
-
 Apply ASD-STE100 principles to **every** artifact a human reads, not just chat replies:
 PR descriptions, PR review comments and verdicts, commit bodies, issue comments, Slack
 messages, docs, and reports. Text posted to GitHub or Slack is read by teammates, so it
@@ -111,10 +106,15 @@ gets the same pass, not a looser one.
 - Remove information that does not help the reader act.
 - Keep the evidence. Concision means fewer words per claim, never fewer claims:
   `file:line`, the command run, the actual numbers all stay.
-- Prefer periods, commas, and colons over the em dash. A `LABEL — text` header
-  separator is fine; a mid-sentence em dash is not.
+- Never use the em dash. A period, comma, colon, or parentheses always works. Use
+  `LABEL: text` for a header or severity separator, and a period or comma mid-sentence.
 - Let the completed work show the result. No preamble, no self-congratulation.
 - Include all necessary context. Concise and complete, not concise and partial.
+- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs),
+  escape delimiter characters used literally, since two of them in one paragraph silently
+  corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in
+  GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode
+  preview). Literal `~`/`$` in code stay inside backticks instead.
 
 ---
 
@@ -248,7 +248,7 @@ TARGET="${UIW_TARGET:-$( [ "$ROLE" = author ] && [ "$ENVIRONMENT" = local ] && e
 
 **The posted comment always names the target**, so a reader can weigh the evidence:
 `Stack: e2e (emulators, stubbed, seeded)` or
-`Stack: local dev (real atllas-dev data — not reproducible)`.
+`Stack: local dev (real atllas-dev data, not reproducible)`.
 
 `--target=dev` in an **unattended** run (`/loop`, routine) is refused even in author mode: firing
 real external calls with nobody watching is not a thing this skill does.
@@ -909,7 +909,7 @@ gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" --method POST --input "$SCRATCH/pa
 **Author mode** — one comment (`gh pr comment`), structured for the reviewer's benefit:
 
 ```markdown
-## UI walkthrough — <n> surfaces × <viewports>
+## UI walkthrough: <n> surfaces × <viewports>
 
 <!-- ui-walkthrough head=<sha> viewports=... personas=... -->
 
@@ -923,10 +923,10 @@ gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" --method POST --input "$SCRATCH/pa
 <states, if any>
 
 ### Self-caught issues
-- **BLOCKER** `/agents` mobile — horizontal scroll, 41px overflow (detector output attached)
+- **BLOCKER** `/agents` mobile: horizontal scroll, 41px overflow (detector output attached)
 
 ### Coverage
-Personas: premium. Surfaces walked: 8 of 11 — dropped `/x`, `/y`, `/z` (cap).
+Personas: premium. Surfaces walked: 8 of 11, dropped `/x`, `/y`, `/z` (cap).
 Stack: locally booted at <sha>, externally stubbed. Video: <link|skipped>
 ```
 
@@ -953,7 +953,7 @@ Stack: booted ✓ identity-asserted ✓
 | # | Class | Surface | Viewport | Finding | Evidence | Posted |
 |---|-------|---------|----------|---------|----------|--------|
 
-NEUTRAL NOTES (infra — never findings):
+NEUTRAL NOTES (infra, never findings):
 - <e.g. tablet pass skipped: stack died mid-sweep>
 
 COVERAGE: 8/11 surfaces (dropped: …). Assets: refs/ui-walkthrough/pr-1773-<head-sha> @ <commit>
