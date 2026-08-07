@@ -1,22 +1,22 @@
-# review-pr — Routine (cloud) setup
+# review-pr: Routine (cloud) setup
 
 The primary way to run `/review-pr` unattended. A Claude Code **Routine** runs in a managed cloud
 sandbox (Ubuntu, ~16 GB RAM / 30 GB disk / 4 vCPU) that **clones your repos and runs a setup step**,
 so it has the real code + toolchain to verify findings, and enough memory to run the **Tier-3
 dynamic walkthrough** headlessly. No machine on, no open session.
 
-> Source of truth: <https://code.claude.com/docs/en/routines> (research preview — labels/limits may
-> change). Configure at **claude.ai/code/routines**, the Desktop app (**Routines → New routine →
-> Remote**), or `/schedule` in the CLI.
+> Source of truth: <https://code.claude.com/docs/en/routines> (research preview, so labels and limits
+> may change). Configure at **claude.ai/code/routines**, the Desktop app (**Routines -> New routine
+> -> Remote**), or `/schedule` in the CLI.
 
 ## How it differs from babysit-prs' Routine
 
 - **No "unrestricted branch pushes" toggle needed.** `/review-pr` checks out PR branches **read-only**
-  and never commits/pushes — it only POSTs reviews. It still needs GitHub **write** scope (the
+  and never commits or pushes. It only POSTs reviews. It still needs GitHub **write** scope (the
   connected identity provides it) to submit reviews + inline comments.
 - **It calls other skills**, so the setup script must install them into the sandbox: `phillip`
-  (the rubric it reads), `phillip-sync`, `codex`, `gemini`.
-- **It can run Tier-3 headlessly** (16 GB is enough for the stack) — install Playwright in setup.
+  (whose `RUBRIC.md` it reads), `phillip-sync`, `codex`, `gemini`.
+- **It can run Tier-3 headlessly** (16 GB is enough for the stack). Install Playwright in setup.
 
 ## 1. Connect GitHub (no PAT)
 
@@ -26,21 +26,21 @@ Use the connected GitHub identity, not a pasted token. Either `/web-setup` (gran
 
 ## 2. Create the routine (web form)
 
-At **claude.ai/code/routines → New routine**:
+At **claude.ai/code/routines -> New routine**:
 
-1. **Name + prompt** — name `review-pr`; prompt in §4. Pick your model in the selector.
-2. **Select repositories** — `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues` (cloned fresh from
+1. **Name + prompt.** Name `review-pr`; prompt in §4. Pick your model in the selector.
+2. **Select repositories.** `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues` (cloned fresh from
    the default branch each run).
-3. **Select an environment** — see §3.
-4. **Select a trigger** — see §5.
-5. **Connectors / Permissions tabs** — strip connectors this routine doesn't need. **No branch-push
+3. **Select an environment.** See §3.
+4. **Select a trigger.** See §5.
+5. **Connectors / Permissions tabs.** Strip connectors this routine doesn't need. **No branch-push
    toggle required** (read-only checkout).
 6. **Create**, then **Run now** for the validation pass (§6).
 
 ## 3. Environment + setup script
 
 Default **Trusted** network is fine (github.com + package registries reachable). Setup script (runs
-once, cached). **The two repos differ — codebase is Yarn 3 Berry, aicc-queues is Gradle/JVM:**
+once, cached). **The two repos differ: codebase is Yarn 3 Berry, aicc-queues is Gradle/JVM.**
 
 ```bash
 # (a) install the skills this one reads/calls (public repo, no auth).
@@ -55,31 +55,28 @@ CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
 AICC_DIR="${AICC_DIR:-./aicc-queues}"
 if [ -f "$CODEBASE_DIR/package.json" ]; then
   ( cd "$CODEBASE_DIR" && corepack enable && yarn install --immutable ) \
-    || echo "codebase: yarn install failed — verify degrades to diff-only (no posting)"
+    || echo "codebase: yarn install failed. Verify degrades to diff-only (no posting)"
 fi
 if [ -f "$AICC_DIR/build.gradle" ]; then
   ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) \
-    || echo "aicc-queues: gradle compile failed — verify degrades to diff-only"
+    || echo "aicc-queues: gradle compile failed. Verify degrades to diff-only"
 fi
 
 # (c) headless browser for the Tier-3 dynamic walkthrough (trial-verify on first run).
 npx --yes playwright install --with-deps chromium \
-  || echo "playwright install failed — dynamic walkthrough disabled (static review only)"
+  || echo "playwright install failed. Dynamic walkthrough disabled (static review only)"
 ```
 
 Notes:
-- **No credentials to provision for the walkthrough.** The Tier-3 walkthrough drives the sealed e2e
-  stack and logs in as a **seeded** persona (`e2e-agent@e2e.test`), created per run by
-  `apps/agents-portal/e2e/seed/seed.mjs` with credentials committed in
-  `apps/agents-portal/e2e/.env.e2e`. Nothing needs to go in **Environment variables**, and nothing
-  is gitignored — which matters, because step (a) clones the **public** skills repo, so any
-  gitignored credential file is absent here by construction. (A real dev account such as
-  `phillip+premium@atllas.com` would fail anyway: it doesn't exist in the per-run emulator.)
+- **No credentials to provision for the walkthrough.** Step (a) clones the **public** skills repo, so
+  any gitignored credential file is absent here by construction, and nothing needs it: the Tier-3
+  walkthrough logs in as a seeded e2e persona. Details in SKILL.md Phase 6.
 - `codex` / `gemini` also need their CLIs + auth in the sandbox to actually run (set keys via
-  **Environment variables**); without them the skill degrades to fewer reviewers and says so.
-- The `codex`/`gemini` review CLIs and any non-default registries must be reachable — if a host is
-  outside the Trusted allowlist, add it under **Network access → Custom**.
-- `--frozen-lockfile` is a Yarn 1 flag; codebase is **Berry → `--immutable`**.
+  **Environment variables**); without them the skill degrades to fewer reviewers, says so, and caps
+  the verdict at `COMMENT`.
+- The `codex`/`gemini` review CLIs and any non-default registries must be reachable. If a host is
+  outside the Trusted allowlist, add it under **Network access -> Custom**.
+- `--frozen-lockfile` is a Yarn 1 flag; codebase is **Berry -> `--immutable`**.
 
 ## 4. The prompt
 
@@ -88,32 +85,32 @@ The docs stress a **self-contained** prompt. Invoke the skill and state the guar
 ```
 Run the /review-pr skill. Review every open PR on Atllas-Inc/codebase and Atllas-Inc/aicc-queues
 where I am the requested reviewer (and not the author). Apply Phillip's engineering bar: read
-phillip Section 1, run the three-reviewer pass, and VERIFY every finding against the checked-out
-head before it can post. Post the review autonomously (inline comments + verdict) — REQUEST_CHANGES
-only on a verified HIGH, APPROVE only on a clean fully-verified pass, else COMMENT. NEVER post an
-unverified finding (route those to the report). The session starts on the default branch, so
-`gh pr checkout <PR>` onto each PR head first. Be idempotent: skip PRs already reviewed at the
-current head SHA. For UI PRs, run the Tier-3 headless walkthrough (externally stubbed — no real
-external calls). End with the report and a "needs your eyes" list.
+~/.claude/skills/phillip/RUBRIC.md, run the three-reviewer pass, and VERIFY every finding against
+the checked-out head before it can post. Post the review autonomously (inline comments + verdict).
+REQUEST_CHANGES only on a verified HIGH, APPROVE only on a clean fully-verified pass, else COMMENT.
+NEVER post an unverified finding (route those to the report). The session starts on the default
+branch, so `gh pr checkout <PR>` onto each PR head first. Be idempotent: skip PRs already reviewed
+at the current head SHA. For UI PRs, run the Tier-3 headless walkthrough (externally stubbed, no
+real external calls). End with the report and a "needs your eyes" list.
 ```
 
 Keep it pointed at the skill so cloud and local stay identical. (For the first cycle or two, append
-`--draft` so it assembles and reports **without** posting while you validate — see §6.)
+`--draft` so it assembles and reports **without** posting while you validate. See §6.)
 
 ## 5. Triggers
 
 - **Schedule (primary):** **Hourly** (the minimum). `/schedule update` in the CLI for an off-minute
-  cron like `23 * * * *`. The hourly sweep is the workhorse — idempotent via the reviews-API
+  cron like `23 * * * *`. The hourly sweep is the workhorse, idempotent via the reviews-API
   `commit_id`.
 - **GitHub event (optional):** a `pull_request` trigger fires on PR updates, but its filters don't
-  expose "which reviewer," and there's **no review-requested filter** — so it can't reliably mean
+  expose "which reviewer," and there's **no review-requested filter**, so it can't reliably mean
   "I was just added." The skill self-filters every run regardless; treat the event trigger as a
   best-effort accelerator and rely on the schedule. *(Whether `pull_request` exposes the
-  `review_requested` action is research-preview-dependent — confirm in the UI.)*
+  `review_requested` action is research-preview-dependent. Confirm in the UI.)*
 
 ## 6. First-run validation (before trusting it to post)
 
-`green` only means the session didn't crash — **open the transcript**. Run the prompt with `--draft`
+`green` only means the session didn't crash. **Open the transcript.** Run the prompt with `--draft`
 first and confirm:
 
 1. **Discovery** lists the right PRs (requested-of-me, not authored-by-me).
@@ -134,5 +131,28 @@ Drop `--draft` once the drafts look right.
 - **1-hour minimum** schedule cadence; per-account daily routine-run cap; runs may start a few
   minutes late (consistent stagger).
 - Requires a **Pro/Max/Team/Enterprise** plan with **Claude Code on the web** enabled.
-- The cloud session is **headless** — it produces screenshots (attached to the PR), not a
+- The cloud session is **headless**. It produces screenshots (attached to the PR), not a
   human-watchable live browser or video. For that, run `/review-pr` locally.
+
+## 8. Codex and Gemini in the sandbox
+
+SKILL.md Phase 4 launches both CLIs as concurrent background jobs. Their headless invocation differs
+from a local, OAuth-authed run:
+
+- **Codex, API-key environments.** When Codex is authed by API key (`OPENAI_API_KEY` /
+  `CODEX_API_KEY`, e.g. this routine) rather than ChatGPT-plan OAuth, invoke it as
+  `codex exec -s read-only -c model_reasoning_effort=high` with the **diff embedded in the prompt**
+  (feed `/tmp/review-pr-$NAME-$PR.diff`). Do **not** use `/codex review` or `codex review` there: it
+  requires OAuth (401s on an API key) and it reviews the **working tree**, which is empty in a
+  detached read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure,
+  use `codex exec`.
+- **Codex auth.** `codex exec` needs a materialized credential. An API key in the env is **not**
+  enough: it 401s until a login writes `~/.codex/auth.json`. Run
+  `printenv OPENAI_API_KEY | codex login --with-api-key` once. Bake it into the setup script in §3
+  so it isn't re-discovered per run.
+- **Gemini, headless.** Pass the diff **inline in the `-p` prompt**. Gemini's `-p` mode does not read
+  file-path arguments and cannot reach paths outside its workspace, so a `/tmp/...` diff file is
+  invisible to it, and it has no shell tool in the cloud sandbox. Embed the diff text directly (the
+  `/gemini` skill's review mode already does this). On `RESOURCE_EXHAUSTED` or quota errors it
+  degrades to a thinner voice. Say so in the report; the fix is enabling billing on the
+  `GEMINI_API_KEY` project (the free tier is rate-capped).
