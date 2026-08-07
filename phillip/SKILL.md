@@ -38,33 +38,24 @@ arrows, not em dashes.
 
 ## 0. Setup for this run
 
-Operate at full strength. Do NOT hardcode a model version -> names change, and Claude has no
-rolling "latest" alias. The rule is "most capable model available, highest reasoning effort."
-The model is whatever this Claude Code session runs (chosen by the human in `/model`, not a
-string this skill sets):
-- Model: confirm you are on the most capable model available. If not, tell the user to run
-  `/model` and choose the most capable option offered. (As of 2026-06-17: Opus 4.8 is the
-  strongest coding/agentic model and the Claude Code default; Fable 5 is the most intelligent
-  overall at ~2x cost. Prefer whatever is newest and most capable when this note is stale ->
-  verify, do not trust this line.)
-- Effort: set the highest reasoning effort your build offers. If `/effort` exists, use its top
-  level (today `ultracode`); if not, proceed at default -> do not loop telling the user to run
-  an unavailable command.
-- If multi-agent orchestration is available, begin your reasoning with the keyword `ultracode`.
-  Review fans out naturally across reviewers and files, so it helps.
+- Model: confirm this session runs the most capable model this build offers. If not, tell the
+  user to run `/model` and pick it. Do NOT hardcode a version, names change and Claude has no
+  rolling "latest" alias.
+- Effort: if `/effort` exists, use its top level. If not, proceed at default.
+- Multi-agent orchestration is available when the `Agent` tool is in your tool list. When it
+  is, open your reasoning with the keyword `ultracode`.
 
 ### Mode
 
 - `/phillip` (default) -> full multi-round loop, all three reviewers.
-- `/phillip quick` -> one round, Claude-only (or Claude + one external if the diff is
-  substantial). Use for small or low-risk diffs to avoid overkill. "Claude-only" still means
-  the blind sub-agent (reviewer #3), not an in-session pass -> keep the reviewer independent
-  even when you skip the externals.
-- Auto-scale by diff size: if the diff is trivial (docs-only, or under ~30 changed
-  lines with no logic change), run Claude-only and say so -> do not spin up 12 external
-  CLI calls to confirm a one-line change. On a truly trivial diff, spawning a sub-agent is
-  also overkill -> reviewing inline is fine, but then label it `Claude (inline, not blind)`
-  in the report so the independence claim stays honest.
+- `/phillip quick` -> one round. Claude-only under 200 changed lines. At 200+ changed lines,
+  or on any diff touching auth, payments, or a data migration, add Codex as the one external.
+  "Claude-only" still means the blind sub-agent (reviewer #3), not an in-session pass.
+- Auto-scale by diff size: if the diff is docs-only, or under \~30 changed lines with no logic
+  change, run Claude-only and say so -> do not spin up 12 external CLI calls to confirm a
+  one-line change.
+- Under 10 changed lines, spawning a sub-agent is also overkill -> review inline, but then
+  label it `Claude (inline, not blind)` in the report so the independence claim stays honest.
 
 ### Capture the diff under review
 
@@ -82,10 +73,8 @@ DEFAULT=${DEFAULT:-$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branc
 [ -z "$DEFAULT" ] && for b in main master; do git rev-parse --verify --quiet "$b" >/dev/null && DEFAULT=$b && break; done
 DEFAULT=${DEFAULT:-master}
 BASE=$(git merge-base HEAD "origin/$DEFAULT" 2>/dev/null || git merge-base HEAD "$DEFAULT" 2>/dev/null)
-# `git diff "$BASE"` compares BASE -> working tree (committed + staged + unstaged, tracked
-# files). With a clean tree (e.g. full-send commits in Phase 4 first) this equals
-# BASE...HEAD; with uncommitted work it also captures what you're about to ship. Guard the
-# empty-BASE case (shallow/disconnected history) so the diff never expands to `...HEAD`.
+# `git diff "$BASE"` = BASE -> working tree: committed + staged + unstaged tracked files.
+# Guard empty BASE (shallow/disconnected history) so the diff never expands to `...HEAD`.
 if [ -n "$BASE" ]; then
   git diff --stat "$BASE"; git diff "$BASE"
 else
@@ -100,204 +89,76 @@ anything the linter or formatter already handles (Prettier/ESLint own style).
 
 ### Refresh the rubric first (non-blocking)
 
-Before the review loop, invoke the `phillip-sync` skill once to fold this repo's recent
-resolved PR-review lessons into the rubric below:
+Before the review loop, invoke the `phillip-sync` skill once (e.g. `/phillip-sync`) to fold
+this repo's recent resolved PR-review lessons into the rubric.
 
-- Run the `phillip-sync` skill (e.g. `/phillip-sync`).
 - It self-guards: a 24h per-repo cooldown makes most runs an instant no-op, and it
   degrades to a single warning line if `gh` is missing/unauthenticated/offline or anything
   errors.
 - PROCEED REGARDLESS of its outcome. Never block, fail, or retry the review because sync
-  warned or did nothing -> the existing rubric in section 1 is always good enough to review
-  against. Sync is an enhancement, not a gate.
-- If sync reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read this file
-  (`~/.claude/skills/phillip/SKILL.md`) section 1 NOW. The rubric you were loaded with
-  predates sync's edit THIS run, so the just-synced lines only take effect if you reread
-  them. On a cooldown/empty no-op (the common case) skip the reread -> the in-context rubric
-  is already current.
+  warned or did nothing. Sync is an enhancement, not a gate.
+- If sync reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read
+  `~/.claude/skills/phillip/RUBRIC.md` NOW. The rubric you were loaded with predates sync's
+  edit THIS run, so the just-synced rows only take effect if you reread them. On a
+  cooldown/empty no-op (the common case) skip the reread.
 
-Then continue with section 1 using the (possibly just-updated) rubric.
+## 1. The review standard
 
-## 1. The review standard (seeded from Phillip's bar, auto-expanded from this repo's PR reviews)
+The rubric lives in `~/.claude/skills/phillip/RUBRIC.md`. READ IT NOW, in full, before any
+reviewer runs. It carries the auto-synced rules, the do-not-flag rules, the curated
+categories, the Atllas-monorepo-only categories, the severity taxonomy (HIGH / MEDIUM / low),
+and the verification discipline plus the HONESTY RULE that the rest of this file references.
 
-This rubric is the single source of truth and it self-maintains. It started from Phillip's
-engineering bar and now grows from the whole team's resolved PR-review comments in whatever
-repo you run in: the `phillip-sync` skill mines recent, accepted-and-acted-on review threads
-and appends recurring, generalizable lessons here automatically. There is NO separate
-canonical copy to chase down -> this file IS it. Treat every line below as "what to catch."
-
-The two anchored blocks just below are written automatically by `phillip-sync`. Hand-edit
-around them freely, but leave the `<!-- phillip-sync:... -->` markers in place so sync can
-keep writing deterministically.
-
-<!-- phillip-sync:auto START -->
-<!-- Auto-synced rubric lines land here: recurring + acted-on + generalizable patterns
-     mined from this repo's resolved PR reviews. Each is tagged with the date it was added.
-     Promote anything especially important up into the curated categories below. -->
-- Unhandled promise rejection: a fire-and-forget async chain (`void fn().then(...)`, an un-awaited write, or `Promise.all([...])` with no `.catch`) throws into the void on failure (RN redbox / a screen stuck on its skeleton), not a handled error -> attach `.catch` or await inside try/catch.  _(auto-synced from PR reviews 2026-06-19)_
-- Inconsistent numeric basis: two related figures derived from different sources (a usage bar on plan-cap math vs an "X left" line that also counts purchased credits), or a count/total that excludes a category another view includes (cold leads under "all"; a rollup summing only the stuck subset) -> the numbers visibly contradict. Drive both from one source of truth.  _(auto-synced from PR reviews 2026-06-19)_
-- Persisted/validated field != the field the user edits: a setup/save path drops an override the form collected (`performSetup` drops `smsSenderName`/`smsMeetingLink`), or validation gates on the shared DEFAULT while the user edited a per-agent OVERRIDE -> the change appears to save but silently never takes effect, or a feature enabled with its required field left blank saves then never fires. Drive validation AND persistence off the exact field bound to the input.  _(auto-synced from PR reviews 2026-06-25)_
-- Nullish/falsy coalescing eats a legitimate `0` or `null`: a truthy check (`tokensAvailable ? ...`) hides the UI at exactly 0, or `input.x ?? existing.x` / `?? default` blocks the user clearing a field to null (e.g. a calling-window `schedule`) -> the edit looks saved but the zero/cleared state is silently dropped. Use explicit `!= null` / `!== undefined`.  _(auto-synced from PR reviews 2026-06-30)_
-- Empty/blank dynamic path segment: an id (`userId`, `owner`, `appUserId`, `projectId`) used as a Firestore doc-path segment or REST URL segment without a non-empty/non-whitespace guard -> Firestore throws on empty path, URLs get `//` and 404 -> guard at entry and fail closed (return null/[]/skip+count).  _(auto-synced from PR reviews 2026-07-27)_
-- `value <= 0` guard bypassed by undefined: `undefined <= 0` is false, so a missing numeric field in an API/SWR payload slips past and renders `NaN%` -> use `!(value > 0)` for fail-closed numeric guards.  _(auto-synced from PR reviews 2026-07-27)_
-- Async cache stores the resolved value, not the promise: concurrent callers for the same key all miss before the first resolve -> N duplicate expensive reads (cache stampede). Cache the promise itself.  _(auto-synced from PR reviews 2026-07-27)_
-- Expensive formatter/regex rebuilt per call on a render path: `new Intl.DateTimeFormat(...)` (or a compiled regex) constructed inside a helper invoked once per table/feed row -> hoist to a module-level constant.  _(auto-synced from PR reviews 2026-07-29)_
-- Stale state survives a re-open/discard: a dialog or panel that fetches on open keeps the PREVIOUS session's value until the new request resolves (so a fail-closed gate briefly renders open), or a discard resets to `undefined` instead of the last SAVED value -> clear/restore at the START of the open, not on resolve.  _(auto-synced from PR reviews 2026-07-29)_
-- Vacuous / inert guard: a condition meant to exclude a case is satisfied *by construction* on the writer paths that actually produce the shape it guards (`collectedValue === planAmount x quantity` where one backfill stamps both from one value), or is written only by a rail that can never reach the predicate (`offerPercent` set only by Stripe helpers, on a predicate requiring RevenueCat-only fields) -> the gate carries no information and the excluded case ships. Same family: `a === '' || a === b` passes when `b` also normalizes to `''`. Trace every writer of each field a predicate reads before trusting the gate.  _(auto-synced from PR reviews 2026-08-04)_
-- Docs drift: a user-facing doc states a navigation path, policy, or number that no longer matches the product or a sibling doc ("AI Calling -> Integrations" after Integrations moved under General; "one credit per connected call" where billing docs say per network attempt) -> when a change moves a surface or alters a policy, grep the docs for the old path/claim in the same PR.  _(auto-synced from PR reviews 2026-08-04)_
-- Do NOT flag redundant nullish guards on required, type-checked parameters (`if (!cohort)` on a non-optional param, `req.query?.` where Express guarantees the object) -> it creates unreachable code and implies the type system is untrustworthy. Verify the declared type before proposing a defensive guard; this is the single most-declined class of review comment in this repo.  _(auto-synced from PR reviews 2026-08-04)_
-- Playwright navigation idiom: `page.goto()` with no following `page.waitForURL()` races client-side redirects against the next assertion -> flaky spec. Pair every `goto` with a `waitForURL` on the expected path.  _(auto-synced from PR reviews 2026-08-04)_
-- Sequential `await` in a `for...of` over independent lookups: slow, and one rejection throws into the *outer* scope and kills the whole batch -> fan out with **bounded** concurrency (chunks, not unbounded `Promise.all`, to respect external rate limits) and a per-item `.catch` so one failure degrades to null instead of aborting. Independent reads on the same account should also be issued together rather than round-trip-per-call.  _(auto-synced from PR reviews 2026-08-04)_
-<!-- phillip-sync:auto END -->
-
-### Severity taxonomy (use these exact markers)
-
-- HIGH (red) -> must-fix before merge. Correctness bugs, security holes, data loss,
-  cross-account data leaks, cold-start navigation bugs, anything a real user hits.
-  Real example: "bridging has no logout counterpart -> cross-account leak; the
-  previous user's hot-lead pushes (lead names + call summaries) are delivered to the
-  new user's device."
-- MEDIUM (yellow) -> should-fix. Silent failures (fetch not checking `response.ok`),
-  inaccurate code comments, reachable races, latent footguns reachable in practice.
-  Real example: "silent registration failure. fetch does not reject on HTTP 401/500,
-  so a failed PATCH is treated as success."
-- low / nit (green) -> display-only, style, theoretical-but-not-reachable, polish.
-  Real example: "`substring(0,140)` slices by UTF-16 code units, so the cut can split
-  an emoji/grapheme."
-
-(`[P1]/[P2]/[P3]` map to HIGH/MEDIUM/LOW if a reviewer uses them.)
-
-Only HIGH and MEDIUM get implemented. LOW/nits are listed but optional.
-
-### Verification discipline (non-negotiable -> this is the signature)
-
-NEVER assert a finding without checking it against reality:
-- Verify against the actual code path -> open the file, read the function, trace the flow.
-- Verify against production data when the claim is about data ("of 127,925 records,
-  only 110,986 match...").
-- Verify against live third-party API/SDK behavior when the claim is about an external
-  contract ("Verified against the live OpenAI API: `reasoning_effort: 'none'` is
-  accepted by gpt-5.4...").
-- Distinguish TYPE-level problems from RUNTIME problems ("won't actually throw today,
-  but the SDK type was the real issue").
-- Cite exact `file:line` for every finding, and the fix commit SHA once fixed.
-
-HONESTY RULE (this is the whole point of the discipline): a "Verified against the live
-API" or "Confirmed against production" line is a claim of PROOF. Only write it if you
-actually ran that check THIS session. To hit a live API/SDK contract, use WebFetch or
-WebSearch. To check production data, use the project's CLI via Bash (e.g. the Firebase
-CLI for Firestore/RTDB) when it is available and you have access. If you CANNOT verify
-a claim -> no tool, no access, no time -> say so explicitly, downgrade your confidence,
-and route the finding as "needs human verification." Never fabricate a verification you
-did not perform. A claimed-but-fake verification is worse than an honest "unverified."
-
-### Categories Phillip reliably catches (language-agnostic core)
-
-- Security: cross-account data leaks, missing token de-registration on logout,
-  auth/permission gaps. Check that every access path enforces the right permission.
-- Races: in-flight request repopulating a cache after a session switch; multi-write
-  races; cold vs warm start ordering; login/logout sequencing.
-- Silent failures: `fetch` not checking `response.ok`; swallowed errors; a failed
-  write treated as success.
-- Inaccurate code comments (the comment lies about what the code does).
-- Regex edge cases; UTF-16 / emoji / grapheme slicing.
-- Root-cause over band-aid: prefer one root-cause fix; note when it resolves multiple
-  raised points.
-
-### Categories -> Atllas codebase monorepo only (SKIP if this repo isn't it)
-
-Apply these only when reviewing the Atllas `codebase` monorepo. On any other project
-they are noise -> do not hunt for Firestore indexes or a privs package that don't exist.
-
-- Permissions: route all access checks through `packages/privs`.
-- Firestore correctness: every compound query (equality + range, multiple equalities,
-  or orderBy on a different field) needs a matching composite index in
-  `_firebase/firestore.indexes.json`. Missing index = silent prod failure. Never put
-  `__name__` in that file.
-
-### Things Phillip does NOT do (so don't do them either)
-
-- Does not bikeshed style the formatter owns.
-- Does not force changes on deliberate tradeoffs. If a choice is intentional, mark it
-  `[note - accepted tradeoff]` and request no change.
-- Does not invent work. If something real should be deferred, file a Linear ticket for
-  it (see report section) rather than dropping it silently.
-- Does not review-theater. Stop when the diff is clean (see stopping rule).
-
-## Candidates (auto-detected -> promote into the rubric above, or delete)
-
-Lower-confidence patterns `phillip-sync` spotted but did not auto-add to the rubric: seen
-once, only from a single senior comment, or possibly already covered. Review periodically ->
-promote the real ones into a category above, delete the noise. Sync never auto-promotes
-from here.
-
-<!-- phillip-sync:candidates START -->
-<!-- Candidate lines land here. Human-gated: promote or delete. -->
-- Async try/finally cleanup race: `return thisAsyncCall()` inside `try { } finally { releaseLock() }` runs the finally BEFORE the returned promise settles, so the lock/cleanup fires while the async work is still running -> use `return await`. (PR #1632, 2026-06-19)
-- React state update during render: calling a setter (e.g. `setTick`) inside a `useMemo` or the render body is a render-phase side effect (double-fires under StrictMode, unsupported going forward) -> move it to `useEffect`. (PR #1710, 2026-06-19)
-- Firestore query treated as ordered without `orderBy`: `where('x','==',v).get()` then taking `docs[0]` as the "most recent" -> result order is by document id, not time. Add an explicit `orderBy(...).limit(1)`. (PR #1700, 2026-06-25)
-- Access-level downgrade on route consolidation: merging two product pages into one unified route picks the looser guard (`OH Premium` -> `OH Free`), silently widening access to a paid surface. Re-check the access level whenever routes are merged. (PR #1700, 2026-06-25)
-- Expensive object allocated per-render/per-call: `new Intl.DateTimeFormat(...)` (or a regex/formatter) built inside a frequently re-evaluated view, method, or row loop -> hoist to a module/static cache keyed by its args. (PR #1782, 2026-06-30)
-- First-page-only pagination used as a gate: an external list API fetched with no `limit`/`paging.next` follow (Graph `/leadgen_forms` ~25/page) then treated as the complete set -> items past page 1 silently excluded (forms 26+ can't be enabled -> leads never called). Page through fully when the list gates behavior. (PR #1743, 2026-06-30)
-- `in` operator / property access on a field that can be a string/null at runtime (`'phone' in call.recipient`) throws TypeError -> guard `typeof x === 'object' && x !== null` first. (PR #1863, 2026-07-27)
-- Overwriting an array field that merges external state (Stripe `discounts: [{coupon}]`) silently deletes existing entries (referral/partner discounts) -> retrieve with expand and merge instead. (PR #1854, 2026-07-27)
-- Many-to-one enum -> display-label collapse used as a filter key: N raw outcomes render as one label, but the filter option carries only ONE representative key -> selecting the label matches half the rows. Filter on the label (or the full key set behind it). (PR #1890, 2026-07-29)
-- Error response field name diverges from what the client reads: a route returns `{error}` while the shared Axios interceptor surfaces `message` -> the user sees a generic failure instead of the server's reason. (PR #1905, 2026-07-29)
-- Bulk variant diverges from single-item semantics: `addXBulk` overwrites `createdAt` on existing rows while `addX` preserves it -> silent data mutation at scale. Diff bulk vs single before shipping either. (PR #1781, 2026-07-29)
-- Backfill/migration skips a sentinel value: `if (existing) skip` treats `'unknown'` as already-populated, so exactly the rows needing the backfill never get it. Skip on real values only. (PR #1652, 2026-07-29)
-- Timezone basis inconsistency within one card: a new caption/`aria-label` formats dates in the VIEWER's timezone (`toLocaleDateString` with no `timeZone`, local-time `getDate()`) while the axis/tooltips beside it are pinned to a fixed zone -> the caption names days absent from the chart, and a screen reader hears the card contradict itself. (PR #1909, 2026-08-04)
-- Derived array/object rebuilt every render and passed as a prop (`buildColumns(flag)` called inline in the component body) -> re-renders the child table on every parent render. `useMemo` it, keyed on a primitive. (PR #1892, 2026-08-04)
-- New card/row in an existing group uses a fixed `display:flex` with no responsive `flexDirection` while its sibling cards stack at `xs` -> reads as a different component family on mobile, on the page the user is meant to act on. (PR #1922, 2026-08-04)
-<!-- phillip-sync:candidates END -->
+Skip every rubric row whose `Repo` column names a repo other than the one under review.
+`phillip-sync` maintains that file; there is no separate canonical copy to chase down.
 
 ## 2. The multi-round adversarial loop
 
 Run rounds until convergence. Each round uses three independent reviewers: Codex, Gemini,
-and a BLIND Claude sub-agent. You (the orchestrating session) are NOT a reviewer -> you are
-the integrator/verifier. The Claude voice that counts as reviewer #3 is a fresh sub-agent
-spawned via the Agent tool, because the orchestrating session has author bias: it carries
-this conversation, the implementation reasoning, and (in self-review / full-send flows) the
-fact that it wrote the code under review. A blind sub-agent starts with none of that, so it
-is structurally as independent as the two external CLIs. That blindness is the whole point ->
-do not collapse it back into an in-session pass.
+and a BLIND Claude sub-agent spawned via the Agent tool. You (the orchestrating session) are
+NOT a reviewer -> you are the integrator/verifier, and you carry author bias. Do not collapse
+reviewer #3 back into an in-session pass.
 
 ### Per round (run the three reviewers in PARALLEL)
 
-The reviewers are independent and the external CLIs are the slow part (each pass is
-~1-5 min). Do NOT run them one-after-another -> start all three AT THE SAME TIME. This cuts a
-round from the sum of all passes down to roughly the slowest single pass.
+Each external pass is \~1-5 min. Do NOT run them one-after-another -> start all three AT THE
+SAME TIME.
 
-1. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
-   true`, one job per model). Group each model's review + challenge into its OWN job so that
-   model runs its two passes back-to-back while the OTHER model runs in parallel:
+1. FIRST, Read `~/.claude/skills/codex/SKILL.md` and `~/.claude/skills/gemini/SKILL.md`. This
+   read is MANDATORY, not optional. They are the source of truth for the exact CLI flags, the
+   filesystem-boundary prompt, the diff-scope prompt, and auth handling. A wrong flag writes
+   an empty output file, which reads as a dry round when it is not one.
+2. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
+   true`, one job per model), mirroring the review/challenge CLI calls you just read. Group
+   each model's review + challenge into its OWN job so that model runs its two passes
+   back-to-back while the OTHER model runs in parallel:
    - Codex job  -> `codex review` then `codex` adversarial challenge -> `/tmp/phillip-codex.out`.
    - Gemini job -> `gemini` review then `gemini` adversarial challenge -> `/tmp/phillip-gemini.out`.
 
    Call the CLIs DIRECTLY (backgrounded) so both run at once -> nested `/codex` and `/gemini`
-   Skill invocations CANNOT parallelize, because skill calls are sequential. The `codex` and
-   `gemini` skills remain the source of truth for the exact CLI flags, the filesystem-boundary
-   prompt, the diff-scope prompt, and auth handling -> mirror their review/challenge CLI calls
-   here as background processes. (Read those skills once if you need the precise invocation.)
-2. Reviewer #3 is a BLIND Claude sub-agent, launched via the Agent tool right after the two
-   background jobs are running. The two CLIs keep working while the sub-agent works -> all
-   three overlap, zero idle time. The sub-agent must derive everything from the repo, never
+   Skill invocations CANNOT parallelize, because skill calls are sequential.
+
+   ALL THREE reviewers review against the rubric, not a generic bar. Add this line to the
+   Codex prompt and the Gemini prompt: "Read `~/.claude/skills/phillip/RUBRIC.md` and apply
+   it, skipping any row whose Repo column names a repo other than this one."
+3. Reviewer #3 is a BLIND Claude sub-agent, launched via the Agent tool right after the two
+   background jobs are running. The sub-agent must derive everything from the repo, never
    from you. Feed it ONLY:
    - the role: "You are an independent code reviewer. You have NO prior context on this change
      and no knowledge of who wrote it or why -> review only what the diff shows."
    - instructions to capture the diff ITSELF using the section-0 "Capture the diff under
      review" commands (it has Bash + Read), so it sees exactly the diff under review.
-   - instructions to Read section 1 (the review standard) of this file
-     (`~/.claude/skills/phillip/SKILL.md`) and apply it -> including the severity taxonomy,
-     the verification discipline, and the HONESTY RULE.
+   - instructions to Read `~/.claude/skills/phillip/RUBRIC.md` and apply it -> including the
+     severity taxonomy, the verification discipline, and the HONESTY RULE, and to skip any
+     row whose Repo column names a repo other than this one.
    - the output contract: return a findings list, one per line, each as
      `SEVERITY | file:line | one-line finding | one-line why-it-is-real`. It REVIEWS only; it
      does not edit, fix, or commit anything.
 
    Do NOT paste the conversation, the ticket, the implementation rationale, or any "what this
-   is supposed to do" narrative into the sub-agent prompt -> that reintroduces the author bias
-   the blindness exists to remove. Run it at full strength (it inherits this session's model;
-   do not downgrade it).
-3. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
+   is supposed to do" narrative into the sub-agent prompt. Run it at full strength (it
+   inherits this session's model; do not downgrade it).
+4. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
    `/tmp/phillip-gemini.out`, and take the blind sub-agent's returned findings. Combine every
    finding from all three reviewers into one list with proposed severity. You did NOT review;
    from here on you de-dupe, verify, adjudicate, and implement. If YOU notice a genuine bug
@@ -321,12 +182,10 @@ the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it's 
 
 ### Verification gate (run BEFORE changing any code)
 
-For EACH finding, run TWO checks -> verifying the finding is NOT the same as verifying
-the fix:
+For EACH finding, run TWO checks. Verifying the finding is NOT the same as verifying the fix:
 
-1. Is the FINDING real? Open the cited `file:line`. Trace the actual flow. Does the bug
-   really occur? If the claim is about data, check the data. If about an external
-   API/SDK contract, check the real contract (and obey the HONESTY RULE above).
+1. Is the FINDING real? Apply the verification discipline in `RUBRIC.md` to the cited
+   `file:line`.
 2. Is the proposed FIX correct and side-effect-free? A reviewer can be right about the
    bug and wrong about the patch.
 
@@ -337,11 +196,10 @@ Then classify:
     document the rejected reviewer fix with a reason, e.g.: "Gemini #1 (race) is valid,
     but its suggested patch is rejected -> that predicate also fires on a status-only
     transition -> duplicate push. Fixed with a guard on the transition source instead."
-  - Finding valid + LOW/nit -> list it, do not implement (unless trivial and adjacent).
+  - Finding valid + LOW/nit -> list it, do not implement. One exception: the fix is under 5
+    changed lines AND lands in a file this diff already touches.
 
 Never silently drop a finding; every one ends as Fixed, Listed, or Rejected-with-reason.
-Killing bad fixes before they touch the tree is what reduces churn AND reduces Phillip's
-PR comments.
 
 ### Cross-model disagreement
 
@@ -365,9 +223,9 @@ re-raises something you believed fixed, treat the prior fix as incomplete (the r
 NOT dry) and re-fix.
 
 - Loop until one dry round AFTER the last fix.
-- The confirmation/dry round may be scoped to the lines changed by fixes applied since
-  the last round (a delta re-check) rather than a full re-review of the whole diff ->
-  but keep the full fan-out for any round that is still finding issues.
+- The confirmation/dry round IS scoped to the lines changed by fixes applied since the last
+  round (a delta re-check), and it still fans out to ALL THREE reviewers. Keep the full-diff
+  scope for any round that is still finding issues.
 - Hard cap at 3 rounds. If round 3 still surfaces verified HIGH/MEDIUM issues, stop,
   implement them, and flag in the report that the change is churny and the final fixes
   are UNCONFIRMED (no dry round followed them).
@@ -375,9 +233,11 @@ NOT dry) and re-fix.
 
 ## 3. Final review report
 
-Write the report to a stable file AND print it. Save to:
-`~/.claude/plans/phillip-<branch>-<date>.md` (create the dir if needed). This survives
-the session and can be pasted into the PR body as proof the self-review ran.
+Write the report to a stable file AND print it. Save to
+`~/.claude/plans/phillip-<branch-slug>-<YYYY-MM-DD>.md` (create the dir if needed).
+`<branch-slug>` replaces every `/` in the branch name with `-`, so `feat/foo` does not become
+a nested path that does not exist. This survives the session and can be pasted into the PR
+body as proof the self-review ran.
 
 ```
 ### Phillip self-review -> <branch>, <date>
@@ -405,5 +265,3 @@ Then:
     review -> cap hit, final-round fixes unconfirmed," never "Ready for PR," regardless
     of the unresolved count.
   - Otherwise, say what remains and why.
-
-Keep the report terse. Cite lines. Name user impact. That is the bar.
