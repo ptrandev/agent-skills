@@ -2,7 +2,7 @@
 name: gemini
 version: 0.1.0
 description: |
-  Google Gemini CLI wrapper — three modes. Code review: independent diff review
+  Google Gemini CLI wrapper with three modes. Code review: independent diff review
   with pass/fail gate. Challenge: adversarial mode that tries to break your code.
   Consult: ask Gemini anything, leveraging its long-context strength (1M+ tokens)
   for whole-repo questions. Modeled on /codex; use Gemini when you want a third
@@ -23,70 +23,7 @@ allowed-tools:
   - AskUserQuestion
 ---
 
-<!-- Scaffold modeled on ~/.claude/skills/codex/SKILL.md. The gstack preamble,
-     telemetry, and Plan-Mode boilerplate are NOT included here — add them
-     later if you want full gstack parity. AskUserQuestion format and
-     Completion Status Protocol ARE included. -->
-
-## AskUserQuestion Format
-
-### Tool resolution (read first)
-
-"AskUserQuestion" can resolve to two tools at runtime: the **host MCP variant**
-(e.g. `mcp__conductor__AskUserQuestion` — appears in your tool list when the
-host registers it) or the **native** Claude Code tool.
-
-**Rule:** if any `mcp__*__AskUserQuestion` variant is in your tool list, prefer
-it. Hosts may disable native AUQ via `--disallowedTools AskUserQuestion`
-(Conductor does, by default) and route through their MCP variant; calling native
-there silently fails.
-
-**Fallback when neither variant is callable:** output the brief as prose and
-stop. **Never silently auto-decide.**
-
-### Format
-
-Every AskUserQuestion is a decision brief and must be sent as tool_use, not prose.
-
-```
-D<N> — <one-line question title>
-Project/branch/task: <1 short grounding sentence>
-ELI10: <plain English a 16-year-old could follow, 2-4 sentences, name the stakes>
-Stakes if we pick wrong: <one sentence on what breaks, what user sees, what's lost>
-Recommendation: <choice> because <one-line reason>
-Completeness: A=X/10, B=Y/10   (or: Note: options differ in kind, not coverage — no completeness score)
-Pros / cons:
-A) <option label> (recommended)
-  ✅ <pro — concrete, observable, ≥40 chars>
-  ❌ <con — honest, ≥40 chars>
-B) <option label>
-  ✅ <pro>
-  ❌ <con>
-Net: <one-line synthesis of what you're actually trading off>
-```
-
-D-numbering: first question is `D1`; increment yourself.
-
-- ELI10 always present. Recommendation ALWAYS present with `(recommended)` label.
-- Completeness: use `N/10` when options differ in coverage; otherwise "differ in kind" note.
-- Min 2 ✅ and 1 ❌ per option, each ≥40 chars. Hard-stop escape: `✅ No cons — this is a hard-stop choice`.
-- Effort labels when relevant: `(human: ~X days / CC: ~Y min)`.
-- Net line closes the tradeoff.
-
-### Self-check before emitting
-
-- [ ] D<N> header present
-- [ ] ELI10 + stakes line present
-- [ ] Recommendation line with concrete reason
-- [ ] Completeness scored OR kind-note present
-- [ ] Every option ≥2 ✅ and ≥1 ❌, each ≥40 chars
-- [ ] `(recommended)` on one option
-- [ ] Net line closes the decision
-- [ ] Calling the tool, not writing prose
-
----
-
-# /gemini — Multi-AI Second/Third Opinion
+# /gemini: Multi-AI Second/Third Opinion
 
 You are running the `/gemini` skill. This wraps the Google Gemini CLI to get an
 independent opinion from a different AI system.
@@ -95,6 +32,11 @@ Gemini's strengths: very long context window (1M+ tokens), strong at
 whole-codebase questions, web-grounded answers, fast on Flash, deeper on Pro.
 It's a complement to `/codex` (OpenAI), not a replacement. Present its output
 faithfully, not summarized.
+
+Reference files, loaded on demand:
+- `references/setup.md`: one-time per-machine API-key setup.
+- `references/askuserquestion.md`: decision-brief format, needed only by the
+  no-arguments auto-detect branch in Step 1.
 
 ---
 
@@ -114,15 +56,15 @@ If `NOT_FOUND`, stop and tell the user:
 
 ## Step 0.5: Auth probe (API-key only)
 
-**This skill is API-key only.** It authenticates exclusively via `$GEMINI_API_KEY`
-(or `$GOOGLE_API_KEY`) — never OAuth or gcloud ADC. Two reasons:
+API-key only. Auth goes through `$GEMINI_API_KEY` or `$GOOGLE_API_KEY`, never
+OAuth or gcloud ADC.
 
-1. **Models.** The `-latest` aliases and the full model catalog are served by the
-   Generative Language API behind an API key. The OAuth "Code Assist" backend
-   uses a different, smaller model namespace and returns **404 ModelNotFoundError**
-   for `gemini-pro-latest` / `gemini-flash-latest`.
-2. **Limits.** OAuth "Gemini Code Assist for individuals" is rate-capped (per-minute
-   and per-day); a billing-enabled API key is pay-as-you-go with far higher limits.
+- **MODELS.** The `-latest` aliases and the full model catalog are served by the
+  Generative Language API behind an API key. The OAuth "Code Assist" backend
+  serves a smaller model namespace and returns **404 ModelNotFoundError** for
+  `gemini-pro-latest` and `gemini-flash-latest`.
+- **LIMITS.** OAuth "Gemini Code Assist for individuals" is capped per minute and
+  per day. A billing-enabled API key is pay-as-you-go with far higher limits.
 
 Two conditions must both hold:
 
@@ -131,7 +73,7 @@ Two conditions must both hold:
   **ignores the key**.
 - `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) is set in the environment the skill runs
   in. A non-interactive shell does **not** source `~/.zshrc`, so the export must
-  live in `~/.zshenv` (see Setup, Step 0.7).
+  live in `~/.zshenv` (see `references/setup.md`).
 
 ```bash
 GEMINI_SETTINGS="$HOME/.gemini/settings.json"
@@ -159,14 +101,14 @@ else
 fi
 ```
 
-Stop conditions (do the Setup in Step 0.7 to resolve):
+Stop conditions (do the setup in `references/setup.md` to resolve):
 
 - **`BLOCKED: no API key`** → No `GEMINI_API_KEY`/`GOOGLE_API_KEY` in the
   environment. The export likely lives in `~/.zshrc` (not loaded by
   non-interactive shells) or isn't set at all. Tell the user:
 
   > No Gemini API key in the environment. Add `export GEMINI_API_KEY="your-key"`
-  > to `~/.zshenv` (not `~/.zshrc` — non-interactive shells don't source it),
+  > to `~/.zshenv` (not `~/.zshrc`, which non-interactive shells don't source),
   > then open a new shell. Get a key at https://aistudio.google.com/apikey
   > (enable billing on the project for high/unlimited-style limits).
 
@@ -175,7 +117,7 @@ Stop conditions (do the Setup in Step 0.7 to resolve):
 
   > `~/.gemini/settings.json` has `selectedType: <value>`. This skill needs
   > `gemini-api-key`. Set `security.auth.selectedType` to `"gemini-api-key"`
-  > (see Setup, Step 0.7).
+  > (see `references/setup.md`).
 
 ---
 
@@ -189,166 +131,143 @@ mkdir -p "$PLAN_ROOT" "$TMP_ROOT"
 
 ---
 
-## Step 0.7: One-time setup (API-key only)
-
-Run this once. After it, both the auth probe and the `gemini` calls work under
-Claude Code's non-interactive Bash tool, with no rate caps beyond your API tier.
-
-**1. Get an API key (enable billing for high limits).**
-Create a key at https://aistudio.google.com/apikey. The free API tier is itself
-rate-limited; for unlimited-style pay-as-you-go usage, enable billing on the
-key's Google Cloud project.
-
-**2. Tell the CLI to use API-key auth (not OAuth).**
-
-```bash
-python3 - <<'PY'
-import json, os
-p = os.path.expanduser("~/.gemini/settings.json")
-d = json.load(open(p)) if os.path.exists(p) else {}
-d.setdefault("security", {}).setdefault("auth", {})["selectedType"] = "gemini-api-key"
-json.dump(d, open(p, "w"), indent=2)
-print("selectedType ->", d["security"]["auth"]["selectedType"])
-PY
-```
-
-If you previously logged in with OAuth, you can also delete
-`~/.gemini/oauth_creds.json` so it can't be selected by mistake (optional).
-
-**3. Put the key where every shell sees it — `~/.zshenv`, NOT `~/.zshrc`.**
-`~/.zshrc` is only sourced for interactive shells; the Bash tool runs
-non-interactive shells, which source `~/.zshenv`. Add:
-
-```bash
-export GEMINI_API_KEY="your-key-here"
-```
-
-If a key is currently exported in `~/.zshrc`, move that line to `~/.zshenv` so
-there's a single source of truth. Also remove any stale `GEMINI_API_KEY` in a
-`.env` the CLI auto-loads (`~/.gemini/.env` or a project `.env`) — an expired key
-there can shadow the good one.
-
-**4. Verify (fresh shell):**
-
-```bash
-echo "key set: ${GEMINI_API_KEY:+yes}"   # should print "key set: yes"
-gemini -m gemini-pro-latest -p "Reply with exactly one word: OK" < /dev/null
-```
-
-A clean `OK` confirms the skill is ready.
-
----
-
 ## Step 1: Detect mode
 
 Parse the user's input:
 
 1. `/gemini review` or `/gemini review <instructions>` → **Review mode** (Step 2A)
 2. `/gemini challenge` or `/gemini challenge <focus>` → **Challenge mode** (Step 2B)
-3. `/gemini` with no arguments → **Auto-detect:**
-   - Look for a diff against the base branch (use the same base-branch detection
-     as the codex skill: `gh pr view --json baseRefName -q .baseRefName`, falling
-     back to `main`/`master`).
-   - If a diff exists, ask via AskUserQuestion: Review / Challenge / Custom prompt.
+3. `/gemini` with no arguments → **Auto-detect:** run the shared invocation
+   contract below first, then:
+   - Look for a diff against the base branch: `[ -s "$TMPDIFF" ]`.
+   - If a diff exists, ask via AskUserQuestion: Review / Challenge / Custom
+     prompt. Load `references/askuserquestion.md` first and follow that format.
    - If no diff, check for a plan file scoped to the current project:
      `ls -t "$PLAN_ROOT"/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1`
    - Otherwise ask "What would you like to ask Gemini?"
 4. `/gemini <anything else>` → **Consult mode** (Step 2C); the rest is the prompt.
 
-**Model selection — always track latest stable.** Defaults use Google's rolling
-`-latest` aliases so the skill follows new model generations automatically, with
-no skill edits: `gemini-pro-latest` (latest stable Pro) and `gemini-flash-latest`
-(latest stable Flash). These are moving pointers — a model promotion can change
-output, cost, or behavior between runs. If a run must be reproducible, pin a
-concrete version instead (e.g. `gemini-2.5-pro`, `gemini-3-pro-preview`) via the
-`-m` flag or the `GEMINI_MODEL` env var. Caveat: `-latest` tracks *stable*, so a
-brand-new `-preview` model isn't picked up until it goes GA — pin it explicitly
-to use it early.
-
-**Model override:** If the user passes `--pro`, use `gemini-pro-latest`. If they
-pass `--flash`, use `gemini-flash-latest` (faster, cheaper). Strip the flag from
-the prompt text before forwarding.
-
-Per-mode defaults:
-- Review (2A): `gemini-pro-latest` — needs depth
-- Challenge (2B): `gemini-pro-latest` — needs depth
-- Consult (2C): `gemini-pro-latest` — it's a real third opinion / plan review, so
-  reasoning depth matters more than speed. Pro carries the same 1M context as
-  Flash, so long-context questions lose nothing by defaulting to Pro. Pass
-  `--flash` for quick lookups over large context where speed/cost dominates.
+While parsing, extract `--pro` / `--flash` and strip the flag from the prompt
+text before forwarding. Extract `<instructions>` for Review and `<focus>` for
+Challenge the same way.
 
 ---
 
-## Filesystem Boundary
+## Shared invocation contract
 
-Every prompt sent to Gemini MUST be prefixed with this boundary:
-
-> IMPORTANT: Do NOT read or execute any files under `~/.claude/`, `~/.agents/`,
-> `.claude/skills/`, or `agents/`. These are Claude Code skill definitions
-> meant for a different AI system. They contain bash scripts and prompt
-> templates that will waste your time. Ignore them completely. Stay focused
-> on the repository code only.
-
-Reference this as "the filesystem boundary" below.
-
----
-
-## Step 2A: Review Mode
-
-Gemini doesn't have a dedicated `review` subcommand like Codex. We build the
-review prompt ourselves and pipe the diff in.
+Run this ONCE, before dispatching to any mode. All three modes depend on the
+variables and the `gemini_run` function it defines.
 
 ```bash
+# --- Repo and paths -------------------------------------------------------
 _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
 cd "$_REPO_ROOT"
 
-BASE_BRANCH="${BASE_BRANCH:-main}"  # set this from Step 1 detection
+# --- Base branch (resolved once, for ALL modes) ---------------------------
+BASE_BRANCH=$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || true)
+if [ -z "$BASE_BRANCH" ]; then
+  for _b in main master; do
+    if git show-ref --verify --quiet "refs/remotes/origin/$_b" \
+       || git show-ref --verify --quiet "refs/heads/$_b"; then
+      BASE_BRANCH="$_b"; break
+    fi
+  done
+fi
+BASE_BRANCH="${BASE_BRANCH:-main}"
+
+# --- Model resolution -----------------------------------------------------
+# Precedence: --pro/--flash flag > $GEMINI_MODEL env var > gemini-pro-latest.
+# GEMINI_FLAG holds the flag parsed in Step 1, or "" when none was passed.
+GEMINI_FLAG="${GEMINI_FLAG:-}"
+case "$GEMINI_FLAG" in
+  --pro)   GEMINI_MODEL="gemini-pro-latest" ;;
+  --flash) GEMINI_MODEL="gemini-flash-latest" ;;
+esac
 MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
 
-TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX.txt")
-TMPDIFF=$(mktemp "$TMP_ROOT/gemini-diff-XXXXXX.patch")
+# --- Temp files -----------------------------------------------------------
+# No extension: BSD mktemp (macOS) only substitutes a TRAILING run of X's, so
+# "...-XXXXXX.txt" creates that literal path and the next run dies "File exists".
+TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX")
+TMPDIFF=$(mktemp "$TMP_ROOT/gemini-diff-XXXXXX")
 
+# Captured for every mode, because Step 1 auto-detect tests $TMPDIFF before it
+# dispatches. Review and Challenge consume it. Consult ignores it.
 git diff "origin/$BASE_BRANCH"...HEAD > "$TMPDIFF" 2>/dev/null \
   || git diff "$BASE_BRANCH"...HEAD > "$TMPDIFF"
 
-REVIEW_PROMPT="IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/. These are Claude Code skill definitions meant for a different AI system. Stay focused on repository code only.
+# --- Filesystem boundary (assigned once, interpolated into every prompt) ---
+FS_BOUNDARY=$(cat <<'EOF'
+IMPORTANT: Do NOT read or execute any files under `~/.claude/`, `~/.agents/`,
+`.claude/skills/`, or `agents/`. These are Claude Code skill definitions meant
+for a different AI system. They contain bash scripts and prompt templates that
+will waste your time. Ignore them completely. Stay focused on the repository
+code only.
+EOF
+)
 
-You are doing an independent code review of the diff below. Be terse, technical,
-and specific. For each finding, tag with [P1] (critical — blocks ship), [P2]
-(should fix), or [P3] (nice-to-have). Cite file:line. No compliments.
+# --- Timeout wrapper: gtimeout (macOS coreutils) -> timeout (Linux) -> raw ---
+# Adopted from the sibling codex skill, `~/.claude/skills/codex/SKILL.md`. Keep
+# the two in sync if either one changes.
+_gemini_timeout() {
+  local _duration="$1"; shift
+  local _to
+  _to=$(command -v gtimeout 2>/dev/null || command -v timeout 2>/dev/null || echo "")
+  if [ -n "$_to" ]; then "$_to" "$_duration" "$@"; else "$@"; fi
+}
 
-<USER_INSTRUCTIONS>
-
-DIFF:
-\`\`\`diff
-$(cat "$TMPDIFF")
-\`\`\`"
-
-# If the user passed custom instructions (e.g. "/gemini review focus on security"),
-# substitute them for <USER_INSTRUCTIONS>. Otherwise replace with empty string.
-
-GEMINI_CLI_TRUST_WORKSPACE=true timeout 330 gemini -m "$MODEL" -p "$REVIEW_PROMPT" < /dev/null 2>"$TMPERR"
-GEMINI_EXIT=$?
-if [ "$GEMINI_EXIT" = "124" ]; then
-  echo "Gemini stalled past 5.5 minutes. Try re-running with --flash or a smaller diff."
-fi
+# --- Run + post-run: $1 timeout seconds, $2 prompt, $3 stall message --------
+gemini_run() {
+  local _secs="$1" _prompt="$2" _stall="$3" _out _exit
+  _out=$(GEMINI_CLI_TRUST_WORKSPACE=true _gemini_timeout "$_secs" \
+           gemini -m "$MODEL" -p "$_prompt" < /dev/null 2>"$TMPERR")
+  _exit=$?
+  [ "$_exit" = "124" ] && echo "$_stall" >&2
+  if grep -q "RESOURCE_EXHAUSTED" "$TMPERR" 2>/dev/null; then
+    echo "RESOURCE_EXHAUSTED (quota / rate limit). Surface this stderr verbatim, then wait or re-run with --flash:" >&2
+    cat "$TMPERR" >&2
+  fi
+  [ -z "$_out" ] && echo "Gemini returned no response. Check $TMPERR for errors." >&2
+  printf '%s\n' "$_out"
+  rm -f "$TMPERR" "$TMPDIFF"
+  return "$_exit"
+}
 ```
 
-**Gate verdict:**
-- If output contains `[P1]` → **GATE: FAIL**
-- Otherwise → **GATE: PASS**
+**Bash tool timeout.** `gemini_run` uses 330s or 600s. The Bash tool defaults to
+120000ms and would kill the call first, so every `gemini_run` invocation must
+pass `timeout: 600000` on the Bash call.
 
-**Present verbatim:**
+**Model.** All three modes default to `gemini-pro-latest` for reasoning depth,
+including Consult, which is a real third opinion or plan review. Pro carries the
+same 1M context as Flash, so long-context questions lose nothing. Pass `--flash`
+for quick lookups over large context where speed and cost dominate. Both aliases
+are moving pointers to the latest *stable* Pro and Flash, so the skill tracks new
+model generations with no skill edits. A promotion can change output, cost, or
+behavior between runs. Pin a concrete version (e.g. `gemini-2.5-pro`,
+`gemini-3-pro-preview`) via `-m` or `GEMINI_MODEL` when a run must be
+reproducible, or to use a `-preview` model before it goes GA, since `-latest`
+tracks stable only.
+
+---
+
+## Output contract
+
+Every mode presents Gemini's output the same way.
+
+**1. Verbatim block.** `<mode>` is `code review`, `adversarial challenge`, or
+`consult`. The footer carries `GATE: PASS | ` only in Review mode.
 
 ```
-GEMINI SAYS (code review, model=<model>):
+GEMINI SAYS (<mode>, model=<model>):
 ════════════════════════════════════════════════════════════
-<full gemini output, verbatim — do not truncate or summarize>
+<full gemini output, verbatim. Do not truncate or summarize>
 ════════════════════════════════════════════════════════════
 GATE: PASS | Model: gemini-pro-latest
 ```
 
-**Synthesis recommendation (REQUIRED).** After the verbatim block, emit ONE line:
+**2. Synthesis recommendation (REQUIRED).** After the verbatim block, emit ONE
+line:
 
 ```
 Recommendation: <action> because <reason that names the most actionable finding>
@@ -357,8 +276,8 @@ Recommendation: <action> because <reason that names the most actionable finding>
 The reason must engage with a specific finding or compare against an alternative
 (other findings, fix-vs-ship, fix order). Boilerplate fails the format.
 
-**Cross-model comparison:** If `/codex review` or `/review` already ran in this
-conversation, append:
+**3. Cross-model comparison.** If `/codex review` or `/review` already ran in
+this conversation, append:
 
 ```
 CROSS-MODEL ANALYSIS:
@@ -368,38 +287,66 @@ CROSS-MODEL ANALYSIS:
   Only Claude found: [Claude-unique]
 ```
 
-Cleanup: `rm -f "$TMPERR" "$TMPDIFF"`
+If Gemini's analysis contradicts Claude's own understanding, flag it: "Note:
+Claude Code disagrees on X because Y."
+
+---
+
+## Step 2A: Review Mode
+
+Gemini has no dedicated `review` subcommand like Codex. Build the review prompt
+and inline the diff.
+
+```bash
+# Parsed in Step 1 from `/gemini review <instructions>`, e.g. "focus on security".
+# Empty when the user gave none, which keeps the prompt free of a stray blank line.
+USER_INSTRUCTIONS=""
+INSTRUCTION_BLOCK=""
+[ -n "$USER_INSTRUCTIONS" ] && INSTRUCTION_BLOCK="
+$USER_INSTRUCTIONS
+"
+
+REVIEW_PROMPT="$FS_BOUNDARY
+
+You are doing an independent code review of the diff below. Be terse, technical,
+and specific. For each finding, tag with [P1] (critical: blocks ship), [P2]
+(should fix), or [P3] (nice-to-have). Cite file:line. No compliments.
+$INSTRUCTION_BLOCK
+DIFF:
+\`\`\`diff
+$(cat "$TMPDIFF")
+\`\`\`"
+
+gemini_run 330 "$REVIEW_PROMPT" \
+  "Gemini stalled past 5.5 minutes. Try re-running with --flash or a smaller diff."
+```
+
+**Gate verdict:**
+- If output contains `[P1]` → **GATE: FAIL**
+- Otherwise → **GATE: PASS**
+
+Present per the Output contract, mode `code review`, footer including the gate.
 
 ---
 
 ## Step 2B: Challenge (Adversarial) Mode
 
-Gemini tries to break the code — edge cases, race conditions, security holes,
+Gemini tries to break the code: edge cases, race conditions, security holes,
 silent failure modes.
 
 ```bash
-_REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
-cd "$_REPO_ROOT"
-
-BASE_BRANCH="${BASE_BRANCH:-main}"
-MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
-
-TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX.txt")
-TMPDIFF=$(mktemp "$TMP_ROOT/gemini-diff-XXXXXX.patch")
-
-git diff "origin/$BASE_BRANCH"...HEAD > "$TMPDIFF" 2>/dev/null \
-  || git diff "$BASE_BRANCH"...HEAD > "$TMPDIFF"
-
-# FOCUS is empty by default, or "security", "performance", etc. from user input
+# Parsed in Step 1 from `/gemini challenge <focus>`, e.g. "security",
+# "performance". Empty by default.
+FOCUS=""
 FOCUS_LINE=""
 [ -n "$FOCUS" ] && FOCUS_LINE="Focus specifically on $FOCUS."
 
-CHALLENGE_PROMPT="IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/, .claude/skills/, or agents/. Stay focused on repository code only.
+CHALLENGE_PROMPT="$FS_BOUNDARY
 
 Review the diff below. Your job is to find ways this code will FAIL in production.
 Think like an attacker and a chaos engineer. Find edge cases, race conditions,
 security holes, resource leaks, failure modes, and silent data corruption paths.
-Be adversarial. Be thorough. No compliments — just the problems. Cite file:line.
+Be adversarial. Be thorough. No compliments. Just the problems. Cite file:line.
 $FOCUS_LINE
 
 DIFF:
@@ -407,46 +354,31 @@ DIFF:
 $(cat "$TMPDIFF")
 \`\`\`"
 
-GEMINI_CLI_TRUST_WORKSPACE=true timeout 600 gemini -m "$MODEL" -p "$CHALLENGE_PROMPT" < /dev/null 2>"$TMPERR"
-GEMINI_EXIT=$?
-if [ "$GEMINI_EXIT" = "124" ]; then
-  echo "Gemini stalled past 10 minutes. Try re-running with --flash or a narrower scope."
-fi
+gemini_run 600 "$CHALLENGE_PROMPT" \
+  "Gemini stalled past 10 minutes. Try re-running with --flash or a narrower scope."
 ```
 
-Present verbatim in the same `GEMINI SAYS (adversarial challenge)` block.
-Emit the required recommendation line afterward (same format as Review).
-
-Cleanup: `rm -f "$TMPERR" "$TMPDIFF"`
+Present per the Output contract, mode `adversarial challenge`. No gate line.
 
 ---
 
 ## Step 2C: Consult Mode
 
-Ask Gemini anything. This is where Gemini's long context shines — you can
-include whole files, plans, or repo summaries without splitting.
+Ask Gemini anything. Gemini's long context shines here, so whole files, plans, or
+repo summaries fit in one prompt without splitting.
+
+**Plan review auto-detection:** if the user said `/gemini` with no arguments and
+a plan file exists for this project, offer to review it. `-p` mode never
+auto-reads files. Inline the full content of any referenced file under 1000
+lines; for larger files, inline only the functions the plan touches and name the
+path.
+
+Build `CONSULT_PROMPT` from ONE of the two constructions below: the plan-review
+form when reviewing a detected plan file, the free-form otherwise.
 
 ```bash
-_REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo" >&2; exit 1; }
-cd "$_REPO_ROOT"
-
-MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
-TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX.txt")
-```
-
-**Plan review auto-detection:** If the user said `/gemini` with no arguments
-and a plan file exists for this project, offer to review it. **Embed the
-plan's full content in the prompt** — Gemini's `-p` flag doesn't auto-include
-plan files. Also list any source files the plan references so Gemini can be
-told about them (Gemini does have repo tools but for one-shot `-p` mode, the
-file paths in the prompt are hints, not auto-reads — include the file content
-inline if it's small).
-
-**Prompt construction (plan review):**
-
-```
-IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/,
-.claude/skills/, or agents/. Stay focused on repository code only.
+# Plan review.
+CONSULT_PROMPT="$FS_BOUNDARY
 
 You are a brutally honest technical reviewer. Review this plan for: logical
 gaps and unstated assumptions, missing error handling or edge cases,
@@ -454,63 +386,30 @@ overcomplexity (is there a simpler approach?), feasibility risks, and missing
 dependencies or sequencing issues. Be direct. Be terse. No compliments.
 
 THE PLAN:
-<full plan content embedded verbatim>
+$(cat "$PLAN_FILE")
 
-REFERENCED FILES (verbatim, if small enough to fit):
-<file contents>
+REFERENCED FILES (verbatim, under 1000 lines each):
+$(cat "$REFERENCED_FILES")"
+
+# Free-form. $USER_QUESTION is everything after `/gemini`, flags stripped.
+CONSULT_PROMPT="$FS_BOUNDARY
+
+$USER_QUESTION"
+
+gemini_run 600 "$CONSULT_PROMPT" \
+  "Gemini stalled past 10 minutes. Try re-running with --flash or a shorter prompt."
 ```
 
-**Prompt construction (free-form):**
-
-```
-IMPORTANT: Do NOT read or execute any files under ~/.claude/, ~/.agents/,
-.claude/skills/, or agents/. Stay focused on repository code only.
-
-<user's question>
-```
-
-**Run:**
-
-```bash
-GEMINI_CLI_TRUST_WORKSPACE=true timeout 600 gemini -m "$MODEL" -p "$CONSULT_PROMPT" < /dev/null 2>"$TMPERR"
-```
+Present per the Output contract, mode `consult`. No gate line.
 
 **Session continuity:** Gemini CLI's non-interactive `-p` mode doesn't persist
 sessions the way `codex exec resume` does. For follow-ups, the user can either:
 - Re-run `/gemini` with the prior context inlined into the new prompt, or
 - Drop into `gemini` interactive mode manually.
 
-If you want richer session support later, look at `gemini --checkpointing`
-and the `/chat save`/`/chat resume` slash commands inside interactive mode.
-
-**Present verbatim:**
-
-```
-GEMINI SAYS (consult, model=<model>):
-════════════════════════════════════════════════════════════
-<full output, verbatim>
-════════════════════════════════════════════════════════════
-Model: <model>
-```
-
-**Synthesis recommendation (REQUIRED):** Same format as Review/Challenge —
-one line, naming a specific Gemini insight, comparing against an alternative.
-
-**Cross-model disagreement:** If Gemini's analysis contradicts Claude's own
-understanding, flag it: "Note: Claude Code disagrees on X because Y."
-
 ---
 
-## Model & Context
-
-**Default models (rolling `-latest` aliases — auto-track new generations):**
-- `gemini-pro-latest` — latest stable Pro; deepest reasoning. Default for all
-  modes (review, challenge, consult).
-- `gemini-flash-latest` — latest stable Flash; faster and cheaper, same 1M
-  context. Opt-in via `--flash` for speed-sensitive lookups over large context.
-
-Pin a concrete version (`-m gemini-2.5-pro`, `gemini-3-pro-preview`, …) when you
-need a reproducible run or want to use a `-preview` model before it reaches GA.
+## Long context and grounding
 
 **Long context:** Gemini's 1M-token window is the standout feature. Use it
 when Claude/Codex would have to truncate (e.g. "review every file in
@@ -523,11 +422,8 @@ want Gemini to ground answers in current web docs.
 
 ## Error Handling
 
-- **Binary not found:** Detected in Step 0. Stop with install instructions.
-- **Auth missing:** Detected in Step 0.5. Stop with auth instructions.
 - **Quota / rate limit:** Gemini prints `RESOURCE_EXHAUSTED` to stderr. Surface
   it verbatim and suggest waiting or switching to `--flash`.
-- **Timeout (124):** Suggest `--flash` or narrower scope.
 - **Empty response:** Tell the user "Gemini returned no response. Check
   `$TMPERR` for errors."
 
@@ -552,29 +448,10 @@ want Gemini to ground answers in current web docs.
 
 When completing a skill workflow, close with one of:
 
-- **DONE** — completed with evidence (model used, gate verdict, token count).
-- **DONE_WITH_CONCERNS** — completed, but list specific concerns.
-- **BLOCKED** — cannot proceed; state the exact blocker and what was tried.
-- **NEEDS_CONTEXT** — missing info; state exactly what is needed.
+- **DONE**: completed with evidence (model used, gate verdict, token count).
+- **DONE_WITH_CONCERNS**: completed, but list specific concerns.
+- **BLOCKED**: cannot proceed; state the exact blocker and what was tried.
+- **NEEDS_CONTEXT**: missing info; state exactly what is needed.
 
 After 3 failed attempts, uncertain security-sensitive changes, or scope you
 cannot verify: escalate with format `STATUS | REASON | ATTEMPTED | RECOMMENDATION`.
-
----
-
-## What's NOT in this scaffold (deliberately)
-
-This is a thin scaffold. Compared to `~/.claude/skills/codex/SKILL.md`, it
-omits:
-
-- The full gstack preamble (update checks, telemetry, repo mode, learnings)
-- The AskUserQuestion decision-brief format block
-- Plan-mode safe-operations declarations
-- The `## GSTACK REVIEW REPORT` plan-file writer
-- The JSONL streaming parser (Gemini CLI doesn't emit codex-style JSONL)
-- The `gstack-codex-probe` helper (no `gstack-gemini-probe` exists yet)
-- Continuous checkpoint mode, question tuning, eureka logging
-
-If you want full gstack parity, copy the matching sections out of the codex
-skill and patch the binary/auth bits. For most "give me a third opinion"
-workflows, the scaffold above is enough.
