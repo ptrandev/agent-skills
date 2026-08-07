@@ -71,6 +71,26 @@ keep going.
 
 ---
 
+## Writing style (every artifact this run produces)
+
+Commit messages, the PR body, replies to bot and human review threads, recorded assumptions, and
+the final report are all read by teammates, so they are held to the same writing bar as anything
+else. A headless run (`claude -p`, a schedule, a cloud sandbox) does **not** load the user's global
+`CLAUDE.md`, so the rules are restated here and are binding:
+
+- **One idea per sentence.** Split any sentence carrying two or three.
+- **Evidence stays, words go.** Concision means fewer words per claim, never fewer claims. Keep
+  `file:line`, the commit SHA, the command run, and the actual numbers.
+- **No mid-sentence em dashes.** Use a period, comma, or colon. A `LABEL — text` header separator
+  is fine.
+- **Escape literal delimiters** in posted markdown: `\~` for "approximately", `\$` for dollar
+  amounts. A second unescaped one silently corrupts the paragraph between them.
+- **No preamble, no filler, no apology.** Lead with the claim.
+- **State assumptions and gaps plainly.** An unverified thing is named as unverified, not hedged
+  into vagueness.
+
+---
+
 ## Preflight — dependency check (runs first)
 
 Before doing any work, check the tools this run will use and print a **readiness summary**, so

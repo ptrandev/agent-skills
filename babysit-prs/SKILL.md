@@ -142,6 +142,8 @@ The orchestrator (this session) stays thin: preflight → enumerate → dispatch
   `CAN_VISUAL`, and the three safety invariants (scope, evidence-before-resolve,
   unsure→leave-open). Tell the agent to execute Phases 2–6 of
   `~/.claude/skills/babysit-prs/SKILL.md` for **exactly that one PR** and nothing else.
+  Point it at the **Phase 5 Reply style** rules explicitly: a Routine sandbox has no global
+  `CLAUDE.md`, so the skill is the only place those rules exist for that agent.
 - **Concurrency:** agents for **different repos run in parallel** (separate clones — safe).
   Agents for PRs in the **same repo run sequentially** — they share the clone, and parallel
   checkouts in one clone corrupt each other. For a big same-repo backlog (≥4 PRs) you may
@@ -335,6 +337,25 @@ Reply (use the first comment's `databaseId`):
 gh api "repos/$OWNER/$NAME/pulls/$PR/comments/$COMMENT_DBID/replies" \
   --method POST -f body="$REPLY"
 ```
+
+### Reply style (applies to every reply and to the Phase 7 report)
+
+Everything this skill posts is read by a teammate, so it is held to the same writing bar as
+anything else. A Routine sandbox does **not** load the user's global `CLAUDE.md`, so the rules
+are restated here and are binding on the orchestrator and every sub-agent:
+
+- **One idea per sentence.** Split any sentence carrying two or three.
+- **Evidence stays, words go.** Concision means fewer words per claim, never fewer claims. Keep
+  `file:line`, the commit SHA, the command run, and the actual numbers.
+- **No mid-sentence em dashes.** Use a period, comma, or colon. A `LABEL — text` header
+  separator is fine.
+- **Escape literal delimiters** in the markdown you post: `\~` for "approximately" and `\$` for
+  dollar amounts, since a second unescaped one silently corrupts the paragraph between them
+  (GFM strikethrough, inline LaTeX). Literal `~`/`$` inside backticks are already safe.
+- **No preamble, no filler, no apology.** Lead with the claim. "Fixed in `$SHA`: …", not
+  "Thanks for catching this! I went ahead and…".
+- **Say what is unresolved plainly.** A thread left open gets a direct statement of what you
+  need from the human, not a hedge.
 
 Reply content by disposition:
 - **SAFE-FIX (pushed, green)** → state what changed and link the proof, e.g.

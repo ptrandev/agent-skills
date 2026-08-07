@@ -860,6 +860,21 @@ at scale 1; retina only for a hero shot.
 marker query. A concurrent routine may have posted since discovery; a PR may have flipped to draft.
 Either → skip with a note.
 
+### Writing style (every body posted here, both modes)
+
+A teammate reads this, so it is held to the same writing bar as anything else. A cloud/routine
+session does **not** load the user's global `CLAUDE.md`, so the rules are restated here and are
+binding:
+
+- **One idea per sentence.** Split any sentence carrying two or three.
+- **Evidence stays, words go.** Concision means fewer words per claim, never fewer claims. Keep the
+  surface, viewport, the measured number (`41px overflow`), and the image.
+- **No mid-sentence em dashes.** Use a period, comma, or colon. A `BLOCKER — text` severity
+  separator is fine.
+- **Escape literal delimiters** in posted markdown: `\~` for "approximately", `\$` for dollar
+  amounts. A second unescaped one silently corrupts the paragraph between them.
+- **No preamble, no filler, no apology.** Name the defect, then the evidence.
+
 **Reviewer mode** — one review, inline-anchored:
 
 ```bash
