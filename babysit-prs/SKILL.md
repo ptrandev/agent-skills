@@ -65,6 +65,34 @@ is a reply-and-leave-open.
 
 ---
 
+## Writing style
+
+The user's global writing rules, copied verbatim from `~/.claude/CLAUDE.md`. A headless run (a
+Routine, a cloud sandbox, `claude -p`) never loads that file, so this copy is the binding one. It
+governs every thread reply this skill posts and the Phase 7 report. When the rules change there,
+copy them here unchanged rather than paraphrasing.
+
+- Instead of using the em dash, prefer other punctuation like periods and commas. Only use the em dash if it's really the best choice.
+- In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs), escape delimiter characters used literally, since two of them in one paragraph silently corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in GFM) and `\$` for dollar amounts (`$...$` is inline LaTeX math in GitHub and VSCode preview). Literal `~`/`$` in code stay inside backticks instead.
+
+### Writing style (ASD-STE100)
+
+Apply ASD-STE100 principles to **every** artifact a human reads, not just chat replies:
+PR descriptions, PR review comments and verdicts, commit bodies, issue comments, Slack
+messages, docs, and reports. Text posted to GitHub or Slack is read by teammates, so it
+gets the same pass, not a looser one.
+
+- One idea per sentence. Split any sentence carrying two or three.
+- Remove information that does not help the reader act.
+- Keep the evidence. Concision means fewer words per claim, never fewer claims:
+  `file:line`, the command run, the actual numbers all stay.
+- Prefer periods, commas, and colons over the em dash. A `LABEL — text` header
+  separator is fine; a mid-sentence em dash is not.
+- Let the completed work show the result. No preamble, no self-congratulation.
+- Include all necessary context. Concise and complete, not concise and partial.
+
+---
+
 ## Preflight (runs first)
 
 Establish the world before touching anything. If a **required** check fails, stop and say so.
@@ -338,24 +366,8 @@ gh api "repos/$OWNER/$NAME/pulls/$PR/comments/$COMMENT_DBID/replies" \
   --method POST -f body="$REPLY"
 ```
 
-### Reply style (applies to every reply and to the Phase 7 report)
-
-Everything this skill posts is read by a teammate, so it is held to the same writing bar as
-anything else. A Routine sandbox does **not** load the user's global `CLAUDE.md`, so the rules
-are restated here and are binding on the orchestrator and every sub-agent:
-
-- **One idea per sentence.** Split any sentence carrying two or three.
-- **Evidence stays, words go.** Concision means fewer words per claim, never fewer claims. Keep
-  `file:line`, the commit SHA, the command run, and the actual numbers.
-- **No mid-sentence em dashes.** Use a period, comma, or colon. A `LABEL — text` header
-  separator is fine.
-- **Escape literal delimiters** in the markdown you post: `\~` for "approximately" and `\$` for
-  dollar amounts, since a second unescaped one silently corrupts the paragraph between them
-  (GFM strikethrough, inline LaTeX). Literal `~`/`$` inside backticks are already safe.
-- **No preamble, no filler, no apology.** Lead with the claim. "Fixed in `$SHA`: …", not
-  "Thanks for catching this! I went ahead and…".
-- **Say what is unresolved plainly.** A thread left open gets a direct statement of what you
-  need from the human, not a hedge.
+Every reply is held to the **Writing style** section above. It is binding on the orchestrator and
+on every sub-agent.
 
 Reply content by disposition:
 - **SAFE-FIX (pushed, green)** → state what changed and link the proof, e.g.
