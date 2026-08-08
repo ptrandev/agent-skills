@@ -8,11 +8,17 @@ source files. Atllas default: no files under `apps/agents-portal/src/pages/` or
 dirs. Never let an unmatched hardcoded path skip the phase silently: if the gate skips, say which
 paths it checked in the Phase 9 report.
 
-This phase produces the reviewer's visual context: **screenshots** of every affected surface at
-desktop/tablet/mobile, and a continuous **walkthrough video** of the same flow recorded with
-[OpenCap](https://opencap.dev), scoped to the browser window and indexed by markers. The video is
-**best-effort**: if OpenCap isn't installed, isn't logged in, or lacks the screen-recording
-permission, capture screenshots only and never block the PR.
+This phase produces the reviewer's visual context in two parts.
+
+- **Screenshots** of every affected surface at desktop/tablet/mobile. This is the evidence, and it
+  is the only responsive coverage.
+- A **walkthrough video**: one desktop user journey through the change, recorded with
+  [OpenCap](https://opencap.dev), scoped to the browser window and indexed by markers. It shows what
+  using the feature is like. It is deliberately desktop-only, because the screenshots already answer
+  the responsive question better than a video can. See `ui-walkthrough/opencap.md`.
+
+The video is **best-effort**: if OpenCap isn't installed, isn't logged in, or lacks the
+screen-recording permission, capture screenshots only and never block the PR.
 
 **Delegate the capture to `/ui-walkthrough`.** Do not hand-roll it here. That skill owns surface
 discovery, the three-viewport matrix, the deterministic detectors, and (the part `gh` can't do)
@@ -66,9 +72,13 @@ your change.
 ### Step 8c: The video comes back with the walkthrough
 
 Do not start a recording here. `/ui-walkthrough` owns it and returns
-`video: {url, sessionId, markers, truncated} | null`. See `ui-walkthrough/opencap.md`.
-`VIDEO_LINK` is `video.url`, or empty when `video` is `null`, in which case the reason is already in
-`neutralNotes` and Step 8d prints it.
+`video: {url, sessionId, viewport, beats, jumps, truncated} | null`. See
+`ui-walkthrough/opencap.md`. `VIDEO_LINK` is `video.url`, or empty when `video` is `null`, in which
+case the reason is already in `neutralNotes` and Step 8d prints it.
+
+`video.viewport` is always `desktop`. It describes the recording, never the run's coverage: read
+`coverage.viewports` for that, and keep the two next to each other in the posted body. A video link
+with no viewport coverage beside it reads as a desktop-only walkthrough.
 
 Use the Read tool on each returned PNG so the screenshots enter the conversation and you can judge
 them yourself before they go on the PR.
@@ -82,7 +92,7 @@ rendering, do not re-upload anything):
 gh pr comment "$PR_NUMBER" --body "$(cat <<EOF
 ## Walkthrough evidence
 
-**Video:** ${VIDEO_LINK:-_(no video this run, see the neutral note for why)_}
+**Video (desktop journey):** ${VIDEO_LINK:-_(no video this run, see the neutral note for why)_}
 
 $WALKTHROUGH_MARKDOWN
 EOF
