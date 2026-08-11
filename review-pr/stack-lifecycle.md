@@ -29,7 +29,7 @@ echo $$ > "$LOCK/pid"
 ```
 
 Sequential: the ports below are pinned and `browse` is a singleton Chromium daemon, so two stacks
-cannot coexist. Per-repo agents may run in parallel (see *Orchestration* in `SKILL.md`), but Tier-3
+cannot coexist. Per-repo agents may run in parallel (see `orchestration.md`), but Tier-3
 walkthroughs serialize on this lock; an agent that finds it held defers with a NEEDS-DYNAMIC-RUN note
 rather than waiting.
 
@@ -66,6 +66,24 @@ running. A port conflict that errors is loud; validating the wrong stack is quie
 converts the quiet failure into a loud skip. Kill a leftover only if it's provably ours: its PID is
 in a previous run's `$LOCK/pid` **and** its command line matches the stack (`ps -p <pid> -o
 command=` shows `next start` / `firebase emulators`). Anything else -> skip, never kill.
+
+## Pre-build: workspace packages, on Node 20
+
+Build the shared workspace packages **before** booting, at the PR head:
+
+```bash
+yarn turbo run build --filter='./packages/*'
+```
+
+`scripts/e2e-stack.sh` does **not** build them, and a fresh `yarn install` leaves their `dist/`
+empty, so the stack's `next build` hard-fails resolving `loop-stats` (consumed by `loop-renderer`,
+among others). Confirm **Node 20** is active first, per the repo's `.nvmrc`. Node 22 breaks the
+`re2` native addon and risks build/runtime drift.
+
+*(Verified via cloud boot spike 2026-07-26: emulators and API boot fine headlessly. This pre-build
+is the one gap between a fresh clone and a healthy `:3000`.)*
+
+`ui-walkthrough/stack.md` points here for this step. Keep it here, not in a second copy.
 
 ## Post-boot identity assertion
 

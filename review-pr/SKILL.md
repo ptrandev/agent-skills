@@ -198,7 +198,8 @@ GraphQL fallback if the search flag is flaky in cloud:
 If `$ARGS` named a PR#/URL, use it directly, but still confirm `ME` is a requested reviewer, is not
 the author, and that the PR is not a draft (invariant 5).
 
-Dispatch and staging for multi-PR runs are in *Orchestration*, after Phase 9.
+Dispatch and staging for multi-PR runs are in [orchestration.md](orchestration.md), summarized under
+*Orchestration* after Phase 9. A single-PR run needs neither.
 
 ---
 
@@ -382,53 +383,19 @@ is still the highest-confidence tier), paste its `markdown` into the review body
 [stack-lifecycle.md](stack-lifecycle.md). Read it before booting.** It stays this skill's source of
 truth. `/ui-walkthrough` Phase 4 reads it from there, so don't duplicate it.
 
-When it runs, reuse the `/full-send` Phase 8 / `/verify` + `/browse` pattern:
-- **Pre-build shared workspace packages first** (required, the stack's `next build` can't resolve
-  them otherwise): `yarn turbo run build --filter='./packages/*'` at the PR head. `scripts/e2e-stack.sh`
-  does **not** build workspace packages, and a fresh `yarn install` leaves their `dist/` empty, so
-  `next build` hard-fails resolving `loop-stats` (consumed by `loop-renderer`, etc.). Also confirm
-  **Node 20** is active (per the repo's `.nvmrc`) before building. Node 22 breaks the `re2` native
-  addon and risks build/runtime drift. *(Verified via cloud boot spike 2026-07-26: emulators + API
-  boot fine headlessly; this pre-build is the one gap between a fresh clone and a healthy `:3000`.)*
-- Bring up the **deterministic, externally-stubbed** stack. **Never fire real
-  Stripe/Vapi/Twilio/etc.** Two corrections to the obvious approach, both verified in the checkout:
-  **`yarn e2e:stack` cannot host a walkthrough** (it boots emulators -> seeds -> builds -> runs the
-  Playwright suite -> tears everything down; there is no persistent stack to drive), and
-  **`yarn agents-portal` is not emulator-scoped** (`npm run set-dev`; emulator interception is
-  env-var-driven via `e2e/.env.e2e`, so a process started outside that env talks to **real
-  atllas-dev**, silently). Use `/ui-walkthrough` Phase 4's hold-open mechanism: run the real
-  harness with a temporary hold spec in the **ephemeral checkout**, which keeps emulators + API +
-  `next start` up inside `emulators:exec` while the browser is driven from outside.
-  - **Prefix the boot with `env -u VSCODE_CWD`.** Claude Code running inside the VSCode extension
-    host exports `VSCODE_CWD=/`, and `firebase-tools` reads exactly that variable as "I am the VS
-    Code extension" (`lib/vsCodeUtils.js`), switching its template root to `lib/templates/`, a path
-    the npm package doesn't ship. The emulators then die at startup with
-    `ENOENT … lib/templates/hosting/init.js`, which reads like a corrupt `node_modules` and tempts a
-    pointless multi-GB reinstall. A terminal-launched `claude` has no `VSCODE_CWD`, so this
-    reproduces only from the IDE. Verified 2026-07-30.
-- Log in as a **seeded** persona, **not** a real dev account. Reviewer mode always walks the sealed
-  e2e stack, whose users are created per run by `apps/agents-portal/e2e/seed/seed.mjs` with
-  credentials committed in `apps/agents-portal/e2e/.env.e2e`: `e2e-agent@e2e.test`
-  (`E2E_TEST_USER_EMAIL`, has `core_premium: active` so it clears the paywall), `e2e-free@e2e.test`,
-  `e2e-admin@e2e.test`. **Nothing to provision**: no gitignored file, no routine env vars. A real
-  dev account like `phillip+premium@atllas.com` does **not exist** in the per-run emulator and fails
-  at the login form. Better still, reuse the authenticated `storageState` the harness's per-persona
-  setup projects already write, and skip the login form entirely.
-- Navigate to the affected surface; exercise the **happy path + key error/empty/loading states**;
-  capture the browser console + screenshots. Driver: **local** = `browse` (+ OpenCap video if
-  `CAN_VIDEO`, which also means `browse --headed`, see `ui-walkthrough/opencap.md`); **cloud** =
-  headless Playwright.
-  - **Cloud Chromium launch (required in the sandbox): `args: ['--ssl-version-max=tls1.2']`.** The
-    cloud egress path has a TLS-terminating middlebox that **resets Chromium's TLS 1.3 ClientHello**
-    (larger than curl's: GREASE + post-quantum ML-KEM key share), so *every* HTTPS request fails
-    with `net::ERR_CONNECTION_RESET` and the app hangs on its splash (e.g. `_app` can't load
-    `js.stripe.com` -> login form never mounts). Capping at TLS 1.2 shrinks the ClientHello enough to
-    pass (verified 3/3 against the real target). Not a cert/proxy issue: cert-ignore and proxy flags
-    do **not** help and aren't needed (Chromium auto-uses `$https_proxy`). If the walkthrough runs
-    the app's `playwright.config.ts` harness, inject the arg into `use.launchOptions.args` in the
-    **ephemeral clone** (local, uncommitted, never a repo change).
+**Boot mechanics are not this skill's to carry.** The driver, the stack boot, the pre-build, the
+seeded personas, and the capture matrix all belong to `/ui-walkthrough` and are documented in its
+`stack.md` and Phase 0. This section used to restate them, and the copies drifted. Do not re-add
+them: fix them where they live.
+
+**One rule stays this skill's own: never fire real Stripe/Vapi/Twilio.** The walkthrough runs
+against the deterministic, externally-stubbed stack. A surface the stubbed stack cannot exercise is
+a NEEDS-DYNAMIC-RUN note, never a reason to relax stubbing ([stack-lifecycle.md](stack-lifecycle.md),
+*State isolation*).
+
 - Also flag UI features shipping **without** the Playwright E2E specs the agents-portal behavioral
-  contract requires.
+  contract requires. This criterion is **this** skill's: `/ui-walkthrough` puts it out of scope on
+  purpose, so it is judged once, here.
 
 A **live-confirmed** defect ("modal throws on submit", screenshot) is the **highest-confidence**
 finding tier, so it is a strong basis for `REQUEST_CHANGES`. A clean walkthrough supports `APPROVE`.
@@ -513,85 +480,17 @@ remove any worktree created in Phase 3 (`git worktree remove --force "$WORKDIR"`
 
 ## Orchestration
 
-Phases 0 through 9 above describe **one** PR. This section is how a run drives several.
+Phases 0 through 9 above describe **one** PR.
 
-Review each (repo, PR) in its own sub-agent (Agent tool). One agent across several PRs carries prior
-diffs and findings forward, so PR A's pattern biases PR B's verdict. A review must stand on one PR's
-evidence alone. The orchestrator (this session) stays thin: preflight -> discover -> gate ->
-dispatch -> aggregate.
+- **Exactly one target PR: run Phases 3 through 9 inline.** No dispatch, no staging. This is the
+  common case (`/review-pr <PR#>`) and nothing else in this section applies to it.
+- **More than one PR: read [orchestration.md](orchestration.md) before dispatching.** It owns the
+  per-PR sub-agent model, the orchestrator rules, the two-pass batch model (static parallel, then
+  dynamic serial), the time budget and its never-drop-a-PR rule, and the nested-dispatch bounds.
 
-**Orchestrator rules:**
-
-- **Run Phase 0 once** (identity, capability probes, `/phillip-sync`) and **run the Phase 2
-  idempotency gate yourself** before dispatching: two cheap API calls per PR that avoid spawning
-  agents for already-reviewed heads. Do **not** read diffs or repo files yourself.
-- **Each dispatch prompt is self-contained:** repo, PR#, head SHA, clone path, the capability
-  booleans (`CAN_VERIFY_<repo>`, externals present, `CAN_LIVE_*`), any opt-down flags from `$ARGS`
-  (`--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots`), the incremental range if Phase 2
-  found a prior review, and the rubric path `~/.claude/skills/phillip/RUBRIC.md`. Tell the agent to
-  execute Phases 3 through 9 of `~/.claude/skills/review-pr/SKILL.md` for **exactly that one PR**,
-  reading the rubric itself.
-- **Nesting is expected:** the per-PR agent spawns its *own* blind Claude reviewer and runs its own
-  Codex/Gemini background jobs (Phase 4). Blindness is preserved: the blind reviewer still never
-  sees the PR description or author, regardless of what the per-PR agent knows.
-- **Concurrency:** agents for **different repos run in parallel** (separate clones). Agents for PRs
-  in the **same repo run sequentially** (shared clone, serial checkouts). Do **not** split same-repo
-  PRs across `git worktree`s to parallelize them: a fresh worktree's `node_modules` is empty, so
-  "verification deps present" there means a full `yarn install` per worktree (minutes and gigabytes
-  each). Without that install Tier 2 drops to reduced confidence and the run posts nothing
-  (invariant 2).
-- **Tier-3 dynamic walkthroughs are globally serialized** regardless of repo parallelism: one live
-  stack machine-wide via the stack lock (pinned ports, singleton `browse` daemon). An agent that
-  finds the lock held defers with a NEEDS-DYNAMIC-RUN note. See
-  [stack-lifecycle.md](stack-lifecycle.md).
-- **Return contract:** each agent returns only the verdict line (event, head SHA, posted review id,
-  inline-comment count), its report path, and its NEEDS-YOUR-EYES / NEEDS-DYNAMIC-RUN items, not its
-  transcript.
-- **Failure isolation:** a dead sub-agent marks its PR `skipped (agent failed)`; the others proceed.
-- **Single-PR exception:** exactly one target PR -> run Phases 3 through 9 inline, no dispatch.
-
-### Batch execution model (multi-PR runs): static parallel, then dynamic serial
-
-More than one PR in scope -> run the batch in **two staged passes** so the cheap work parallelizes
-and the expensive serial work (stack boots) never blocks it. (Single-PR runs skip staging: Phases 3
-through 9 inline, per the exception above. `--no-live` collapses this to Pass A only, and every PR
-posts after static.)
-
-**Pass A, static (parallel, all PRs).** Dispatch one sub-agent per PR (context isolation as above),
-each running the **static** phases only: Phase 3 (checkout/worktree), Phase 4 (three-reviewer),
-Phase 5 + 5b (bot adjudication), Phase 7 (assemble payload + verdict). It does **not** run Phase 6
-(dynamic) or Phase 8 (post). Each returns its assembled-static payload, its verdict, and whether the
-PR is **UI-touching** (the Phase 6 prefix test).
-- **Non-UI PRs are complete after Pass A** -> the orchestrator posts them immediately (Phase 8, with
-  the invariant-5 draft re-check and `--draft` honored). Nothing dynamic to wait on.
-- **UI PRs park** their static payload and enter the Pass-B queue.
-
-**Pass B, dynamic (serial, UI PRs only).** Drain the UI queue **one PR at a time** (the stack lock
-enforces one live stack machine-wide anyway), **ordered by UI-diff size, largest first** (most
-surface = most walkthrough value, and a broken stack fails fast). For each PR: Phase 6 (pre-build
-packages -> boot -> drive -> capture) -> merge live findings into the parked static payload (a
-live-confirmed defect can raise the verdict to `REQUEST_CHANGES`; a clean walkthrough supports
-`APPROVE`) -> **post the full review immediately** (Phase 8). Reviews land progressively, not in one
-end-of-run batch.
-
-**Time budget and degradation: never drop a PR.** Pass B is bounded by the session runtime. Any UI PR
-**not reached** before the budget runs out **posts its Pass-A static review** with a
-`NEEDS-DYNAMIC-RUN` note ("static review posted; dynamic walkthrough deferred. Re-run
-`/review-pr <n>` for the live pass"). Every in-scope PR always gets a posted review; only the
-*walkthrough* is best-effort. The aggregate lists which PRs got dynamic vs static-only.
-
-### Nested dispatch: a per-PR agent may spawn its own helpers, bounded
-
-It already does (the blind reviewer is one), and the pattern extends to other **read-only** work when
-one PR is itself too big for one context: chunked review of a large diff (one reader agent per chunk,
-findings merged before Phase 5), parallel verification of independent findings (each is read-only
-code tracing), or adjudicating a pile of bot threads. Two hard rules:
-
-- **Single writer per PR.** Only the per-PR agent posts the review, replies to threads, resolves bot
-  threads, or touches the checkout. Helpers return findings and verdicts; invariant 2
-  (only-verified-posts) is enforced in exactly one place.
-- **Depth cap:** orchestrator -> per-PR agent -> helpers. No deeper, and no speculative spawning: a
-  normal-sized PR runs Phases 4 and 5 inline (plus the blind reviewer it always spawns).
+One rule is load-bearing enough to keep here: **a review must stand on one PR's evidence alone.**
+One agent spanning several PRs carries prior diffs and findings forward, so PR A's pattern biases
+PR B's verdict. That is why each (repo, PR) gets its own sub-agent.
 
 ---
 
