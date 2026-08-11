@@ -1,10 +1,9 @@
 ---
 name: phillip-sync
 description: >
-  Mines the current repo's recent resolved PR reviews and folds recurring, generalizable
-  lessons into the /phillip rubric at ~/.claude/skills/phillip/RUBRIC.md. Runs as a
-  non-blocking pre-step inside /phillip: on any missing tool, auth, or network problem it
-  prints one warning line and returns success.
+  Mines the current repo's resolved PR reviews and folds recurring lessons into the /phillip
+  rubric. Runs automatically as a non-blocking pre-step inside /phillip. Use for "refresh the
+  rubric" or "phillip sync".
 triggers:
   - /phillip-sync
   - phillip sync

@@ -1,16 +1,10 @@
 ---
 name: review-pr
-description: |
-  Reviews GitHub PRs where you are the requested reviewer on Atllas-Inc/codebase
-  and Atllas-Inc/aicc-queues, applies Phillip's engineering bar (reuses /phillip's
-  rubric + three independent reviewers), verifies every finding against the real
-  code path, posts the review back to GitHub (inline comments + a verdict), and adjudicates
-  existing bot review threads (Gemini/Copilot): surfacing the legit ones, resolving verified-false
-  noise. The cross-review sibling of /phillip (which is self-review). Autonomous by default; opt
-  down with --draft (don't submit), --no-approve (cap at COMMENT), --no-live (skip the dynamic
-  walkthrough), --no-resolve-bots (don't resolve bot threads). Idempotent and safe to re-run on a
-  schedule. Use: /review-pr, /review-pr <PR#|URL>, /review-pr --repo <owner/name>,
-  /review-pr quick. Triggers: "review the PRs I'm assigned", "review-pr".
+description: >
+  Reviews GitHub PRs where you are the requested reviewer, applying Phillip's engineering bar.
+  Posts inline comments and a verdict back to GitHub, and adjudicates existing bot review
+  threads. The cross-review sibling of /phillip, which handles self-review. Autonomous by
+  default.
 ---
 
 # review-pr

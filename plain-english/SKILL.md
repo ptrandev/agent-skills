@@ -1,6 +1,11 @@
 ---
 name: plain-english
-description: Extracts the signal from bloated or evasive text and shows it as a bottom line, a list of what the text actually claims with each claim's strength marked, what it conspicuously does not say, and what it implies without claiming. Adds nothing from outside the source. Use when the user pastes text and asks "what is this actually saying", "cut through this", "extract the signal", "what are they actually claiming", "is this saying anything", "decode this", "what am I missing here", "put this in plain English", "TL;DR this", "translate the corporate speak", or pastes AI-generated writing, marketing copy, a press release, legal terms, a policy, an academic abstract, an executive memo, or a status update and wants to know what is really in it.
+description: >
+  Extracts the signal from bloated or evasive text: the bottom line, every claim with its
+  strength marked, what the text conspicuously does not say, and what it implies without
+  claiming. Adds nothing from outside the source. Use for "what is this actually saying", "cut
+  through this", or "TL;DR this", and on pasted marketing, legal, policy, or AI-generated
+  writing.
 ---
 
 # Plain English

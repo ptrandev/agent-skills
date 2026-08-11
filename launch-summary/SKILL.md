@@ -1,16 +1,10 @@
 ---
 name: launch-summary
 version: 2.0.0
-description: |
-  Generates a non-developer-friendly summary of what was shipped across the
-  Atllas codebase and aicc-queues repos over a daily or weekly window. Only
-  counts PRs merged into master. Produces a categorized, bulletpointed summary
-  split into Mobile and App sections, suitable for stakeholders, non-technical
-  teammates, or changelog posts. Use when asked
-  to "daily summary", "what did we launch today", "daily recap",
-  "what shipped today", "weekly summary", "what did we launch this week",
-  "launch recap", "what shipped this week", "/launch-summary daily",
-  or "/launch-summary weekly".
+description: >
+  Summarizes what shipped across the Atllas codebase and aicc-queues repos over a daily or
+  weekly window, written for non-developers. Counts only PRs merged to master. Use for "what
+  did we launch today", "weekly summary", or "launch recap".
 allowed-tools:
   - Bash
   - Read

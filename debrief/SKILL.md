@@ -1,15 +1,10 @@
 ---
 name: debrief
-description: |
-  End-of-session confidence audit. Interrogates the session just completed:
-  what was assumed but never verified, what the user doesn't realize, what
-  will break in 3 months. Converts every uncertainty into a concrete
-  check (a command, test, or file read), runs the safe ones, and separates
-  real gaps from confident-sounding filler. Optionally spawns a blind,
-  context-free reviewer on the session's diff. Use at the end of a work
-  session, before walking away from a task, or when asked "debrief",
-  "what are you least confident about", "what am I missing", "loose ends",
-  or "/debrief".
+description: >
+  End-of-session confidence audit. Names what was assumed but never verified, converts each
+  uncertainty into a concrete check, runs the safe ones, and separates real gaps from
+  confident-sounding filler. Use at the end of a work session, or for "what am I missing",
+  "what are you least confident about", or "loose ends".
 ---
 
 # debrief

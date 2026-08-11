@@ -1,13 +1,10 @@
 ---
 name: phillip
 description: >
-  Reviews the current code change to Phillip's engineering bar before it becomes a PR.
-  Runs multiple rounds of adversarial review with three independent reviewers (Claude,
-  OpenAI Codex via /codex, Google Gemini via /gemini), verifies every finding against
-  the real code path, implements all HIGH and MEDIUM severity findings, rejects false
-  positives with a written reason, and loops until a clean round. Produces a final
-  review report. Use before pushing or opening a PR, or when asked to "review like
-  Phillip", "self-review", "phillip review", "audit my diff", or "is this ready to ship".
+  Self-review of the current uncommitted change against Phillip's engineering bar, before it
+  becomes a PR. Runs adversarial rounds with three independent reviewers, verifies every
+  finding against the real code path, fixes all HIGH and MEDIUM findings, and loops until a
+  clean round. Use before pushing or opening a PR.
 triggers:
   - /phillip
   - phillip review

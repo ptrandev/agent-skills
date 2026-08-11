@@ -1,9 +1,8 @@
 ---
 name: merge-master
-description: |
-  Merges the latest origin/master into the current branch, resolves any merge
-  conflicts, then commits and pushes. Use when asked to "merge master", "sync
-  with master", "pull in latest master", "update my branch", or /merge-master.
+description: >
+  Merges origin/master into the current branch, resolves any conflicts, then commits and
+  pushes. Use for "merge master", "sync with master", or "update my branch".
 ---
 
 # merge-master

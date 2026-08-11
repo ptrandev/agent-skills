@@ -1,14 +1,11 @@
 ---
 name: gemini
 version: 0.1.0
-description: |
-  Google Gemini CLI wrapper with three modes. Code review: independent diff review
-  with pass/fail gate. Challenge: adversarial mode that tries to break your code.
-  Consult: ask Gemini anything, leveraging its long-context strength (1M+ tokens)
-  for whole-repo questions. Modeled on /codex; use Gemini when you want a third
-  voice or when context size matters more than raw reasoning depth.
-  Use when asked to "gemini review", "ask gemini", "third opinion", or
-  "long-context review".
+description: >
+  Google Gemini CLI wrapper with three modes. Review: independent diff review with a pass/fail
+  gate. Challenge: adversarial, tries to break your code. Consult: any question, with 1M+
+  token context for whole-repo work. Use when you want a third opinion, or when context size
+  matters more than reasoning depth.
 triggers:
   - gemini review
   - gemini challenge

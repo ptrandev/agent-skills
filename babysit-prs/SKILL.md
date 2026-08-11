@@ -1,13 +1,9 @@
 ---
 name: babysit-prs
-description: |
-  Watches your open PRs on Atllas-Inc/codebase and Atllas-Inc/aicc-queues,
-  triages every unresolved review thread (bot AND teammate), fixes the safe
-  ones, replies with evidence (the fixing commit), and auto-resolves only
-  threads it actually fixed. Anything ambiguous is left open with a question
-  for you. Scoped to PRs you authored. Idempotent and safe to re-run, so it can
-  run headless on a schedule (/schedule or /loop) or be invoked directly:
-  /babysit-prs, /babysit-prs <PR#> [<PR#>...], or /babysit-prs --repo <owner/name>.
+description: >
+  Triages unresolved review threads on open PRs that you authored, fixes the safe ones,
+  replies with the fixing commit, and leaves anything ambiguous open with a question. Defaults
+  to Atllas-Inc/codebase and aicc-queues. Idempotent, so it is safe to re-run on a schedule.
 ---
 
 # babysit-prs

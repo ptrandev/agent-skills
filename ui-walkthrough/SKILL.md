@@ -1,19 +1,11 @@
 ---
 name: ui-walkthrough
-description: |
-  Walks a PR's UI changes in a real browser at desktop/tablet/mobile, evaluates what it sees
-  against the design-review rubric, and posts the evidence back to GitHub: a REQUEST_CHANGES
-  review with screenshots when there are blocking defects, or a proof comment with screenshots
-  when it's clean. Role-aware: runs as the PR's **reviewer** (posts a review) or as its **author**
-  (posts a walkthrough comment giving the reviewer full context on the UI change). Runs both on a
-  local Mac and in a headless Claude routine. Never mutates source: it reports, it doesn't fix.
-  Author-mode local runs walk the real dev stack; reviewer and routine runs walk the sealed e2e
-  stack, whose personas are seeded per run, so there are no credentials to provision.
-  Author-mode local runs also record a desktop walkthrough video: one user journey through the
-  change, clicked not scripted, indexed by markers. The screenshots carry the responsive evidence.
-  Use: /ui-walkthrough, /ui-walkthrough <PR#|URL>, --author/--reviewer, --viewports=, --personas=,
-  --target=e2e|dev, --no-post, --embedded. Triggers: "walk the UI", "screenshot the PR",
-  "UI walkthrough", "show me what changed visually".
+description: >
+  Walks a PR's UI changes in a real browser at desktop, tablet, and mobile widths, judges what
+  it sees against the design-review rubric, and posts the screenshots back to GitHub. Runs as
+  the PR's reviewer, which posts a review, or as its author, which posts a walkthrough
+  comment. Reports defects, never fixes them. Use for "walk the UI", "screenshot the PR", or
+  "show me what changed visually".
 ---
 
 # ui-walkthrough

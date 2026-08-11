@@ -1,13 +1,9 @@
 ---
 name: full-send
-description: |
-  End-to-end feature workflow: Linear ticket (or raw idea) → implement (size-adaptive:
-  small tickets single-pass, large ones decompose into a Ralph-style one-task-per-iteration
-  loop to avoid context rot) → /phillip self-review → commit → draft PR → automated bot review
-  (Copilot and/or Gemini Code Assist) → address all threads → UI screenshots + walkthrough video.
-  Autonomous (zero stops) by default; opt into an interactive grill with
-  /full-send interactive <TICKET-ID>, or force the loop with /full-send loop <TICKET-ID>.
-  Use with /full-send <TICKET-ID>, just /full-send, or /full-send <free-text idea>.
+description: >
+  End-to-end feature workflow: take a Linear ticket or a raw idea, implement it, self-review,
+  open a PR, address every bot review thread, then capture UI evidence. Autonomous by default.
+  Use with /full-send <TICKET-ID>, /full-send alone, or a free-text idea.
 ---
 
 # full-send
