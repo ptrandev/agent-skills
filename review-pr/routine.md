@@ -43,12 +43,24 @@ At **claude.ai/code/routines -> New routine**:
 Default **Trusted** network is fine (github.com + package registries reachable). Setup script (runs
 once, cached). **The two repos differ: codebase is Yarn 3 Berry, aicc-queues is Gradle/JVM.**
 
+> **The runner aborts the whole script on the first non-zero command.** Verified 2026-08-13: a
+> `cp` of a non-existent skill directory ended setup at that line, and steps (b) onward never ran.
+> So **every** step needs a guard: `|| echo …`, an `if`, or a `[ -d … ]` test. A step that is
+> allowed to fail must say so in its own line. Do not add a bare command to this script.
+
 ```bash
 # (a) install the skills this one reads/calls (public repo, no auth).
+#     `codex` is a gstack skill and is NOT in this repo. Do not add it to this list:
+#     the cp fails and takes the whole setup script with it.
+rm -rf /tmp/claude-skills      # a leftover dir makes `git clone` fail, which ends setup
 git clone --depth 1 https://github.com/ptrandev/claude-skills.git /tmp/claude-skills
 mkdir -p "$HOME/.claude/skills"
-for s in review-pr phillip phillip-sync codex gemini full-send ui-walkthrough; do
-  cp -R "/tmp/claude-skills/$s" "$HOME/.claude/skills/$s"
+for s in review-pr phillip phillip-sync gemini full-send ui-walkthrough; do
+  if [ -d "/tmp/claude-skills/$s" ]; then
+    cp -R "/tmp/claude-skills/$s" "$HOME/.claude/skills/$s"
+  else
+    echo "WARN: skill '$s' is not in the repo, skipped"
+  fi
 done
 
 # (b) toolchains for Tier-2 verification.
@@ -66,21 +78,27 @@ fi
 # (c) `gh`. The skill and /ui-walkthrough drive GitHub through `gh` in ~30 places, with no
 #     fallback. The sandbox image does not ship it. Without this the routine cannot discover,
 #     check out, or post anything.
-command -v gh >/dev/null || {
-  ( type -p curl >/dev/null || apt-get install -y curl ) \
-  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-       -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
-  && echo "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-       > /etc/apt/sources.list.d/github-cli.list \
-  && apt-get update && apt-get install -y gh
-}
+if ! command -v gh >/dev/null; then
+  { ( type -p curl >/dev/null || apt-get install -y curl ) \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+         -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+         > /etc/apt/sources.list.d/github-cli.list \
+    && apt-get update && apt-get install -y gh ; } || echo "WARN: gh install failed"
+fi
 gh --version || echo "FATAL: gh missing. Discovery and posting will both fail."
 
 # (d) headless browser for the Tier-3 dynamic walkthrough (trial-verify on first run).
 #     Prefer the image's preinstalled browsers; `playwright install` is often forbidden here.
-ls -d /opt/pw-browsers/chromium* /root/.cache/ms-playwright/chromium* 2>/dev/null | head -1 \
-  || npx --yes playwright install --with-deps chromium \
-  || echo "no chromium. Dynamic walkthrough disabled (static review only)"
+#     Test the captured path, NOT the pipeline's status: `ls ... | head -1` exits 0 on no match,
+#     which would short-circuit an `||` chain and silently skip the install.
+PW_EXEC=$(ls -d /opt/pw-browsers/chromium* /root/.cache/ms-playwright/chromium* 2>/dev/null | head -1)
+if [ -n "$PW_EXEC" ]; then
+  echo "chromium: preinstalled at $PW_EXEC (pass as executablePath)"
+else
+  npx --yes playwright install --with-deps chromium \
+    || echo "no chromium. Dynamic walkthrough disabled (static review only)"
+fi
 ```
 
 Notes:
@@ -99,6 +117,10 @@ Notes:
 - **No credentials to provision for the walkthrough.** Step (a) clones the **public** skills repo, so
   any gitignored credential file is absent here by construction, and nothing needs it: the Tier-3
   walkthrough logs in as a seeded e2e persona. Details in SKILL.md Phase 6.
+- **The `codex` skill ships with gstack, not with this repo**, so step (a) cannot install it and
+  Tier 2b runs gemini-only here. That is a permanent one-reviewer degrade, not a per-run blip:
+  the skill says so in its report and caps the verdict at `COMMENT`
+  ([SKILL.md](SKILL.md) Phase 4). To restore the second voice, install gstack in setup as well.
 - `codex` / `gemini` also need their CLIs + auth in the sandbox to actually run (set keys via
   **Environment variables**); without them the skill degrades to fewer reviewers, says so, and caps
   the verdict at `COMMENT`.
