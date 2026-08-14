@@ -214,9 +214,10 @@ there, carry one boolean, branch in **Phase 5c**. Video is **local macOS only, u
 and **always** best-effort: no `opencap` call may block, fail, or slow the walkthrough.
 
 **The video is one desktop journey, not the capture matrix.** It records a user walking the change
-at 1440×900, after the matrix and the detectors have already run silently. Responsive coverage is
-the screenshots' job, at all three widths, and it does not move into the video. That split, and why
-merging it back is a mistake, is argued in [opencap.md](opencap.md).
+at 1440×900, after the matrix and the detectors have already run silently. The journey reaches
+**every surface the run walked**, at that one width. Responsive coverage is the screenshots' job, at
+all three widths, and it does not move into the video. That split, and why merging it back is a
+mistake, is argued in [opencap.md](opencap.md).
 
 ### Target selection
 
@@ -610,8 +611,9 @@ review body.
 budget, the synthetic cursor), the window-resolution nonce, the `record start` call, the marker
 taxonomy, the `error` event, the quota limits, and the discard-on-abort teardown.
 
-Four facts shape this pass:
+Five facts shape this pass:
 
+- The route covers **every surface 5a walked**. No length budget trims it: see [opencap.md](opencap.md).
 - The browser must be **logged in** before recording starts, so credentials never reach the video.
 - The viewport is **1440×900 and never changes** while recording. Responsive coverage is 5a's.
 - 5a and 5b are **already done**, so the route can be authored around the defects they found.
@@ -780,7 +782,7 @@ Personas: premium. Viewports: desktop, tablet, mobile.
 Surfaces walked: 8 of 11, dropped `/x`, `/y`, `/z` (cap).
 Images: 11 embedded, 13 linked (budget).
 Stack: locally booted at <sha>, externally stubbed.
-Video: <link> (desktop journey, <n> beats). Screenshots cover all three viewports.
+Video: <link> (desktop journey, all <n> surfaces, <b> beats). Screenshots cover all three viewports.
 ```
 
 **The Coverage block always names the viewports, and always next to the video line.** The video is
@@ -816,12 +818,16 @@ COVERAGE: 8/11 surfaces (dropped: …). Assets: refs/ui-walkthrough/pr-1773-<hea
 Posted: <review id|comment url>, event=<…>, <k> inline, <m> images embedded.
 ```
 
-The `Video:` field is never bare. Either a URL with its beat and jump counts
-(`https://opencap.dev/r/Bs_eYjKW (desktop journey, 9 beats, 1 jump)`), or the reason it's absent:
-`skipped (headless browse daemon running)`, `skipped (screen-recording permission)`,
+The `Video:` field is never bare. Either a URL with its surface, beat, and jump counts
+(`https://opencap.dev/r/Bs_eYjKW (desktop journey, all 8 surfaces, 9 beats, 1 jump)`), or the reason
+it's absent: `skipped (headless browse daemon running)`, `skipped (screen-recording permission)`,
 `skipped (headless routine)`, `truncated at 5:00 (Free tier)`. "Video: ✓" without a URL is not a
 report. A journey that is mostly jumps says so: it means the app had no in-app route between those
 surfaces, which is worth a reviewer knowing.
+
+**The journey covers every walked surface, so the count reads `all <n>` and matches
+`Surfaces walked`.** A surface the route could not reach at all is named with its reason. That is a
+run defect to report, never a length trade the skill is allowed to make.
 
 Teardown is the EXIT trap from Phase 4 (stack down, lock released). It must not depend on the
 walkthrough having succeeded. It must leave the machine exactly as it was found:
@@ -849,7 +855,7 @@ With `--embedded`, post nothing and **return** to the caller:
 ```
 { blockers: [...], mediums: [...], nits: [...],
   images: [{surface, viewport, state, url}], neutralNotes: [...],
-  video: {url, sessionId, viewport, beats, jumps, truncated} | null,
+  video: {url, sessionId, viewport, surfaces, surfacesUnreached, beats, jumps, truncated} | null,
   coverage: {surfacesWalked, surfacesTotal, dropped, personas, viewports},
   markdown: "<ready-to-paste evidence section>" }
 ```
@@ -864,6 +870,10 @@ journey. `video` is `null` whenever `CAN_VIDEO` was 0, with the reason in `neutr
 **`video.viewport` is always `desktop`, and it does not describe the run's coverage.** Read
 `coverage.viewports` for that. A caller that renders the video link without the coverage block
 implies a desktop-only walkthrough.
+
+**`video.surfaces` equals `coverage.surfacesWalked` on every healthy run**, because the journey
+covers all of them. `video.surfacesUnreached` is normally empty. A non-empty one means a surface
+never rendered, which the caller should read as a defect, not as a shortened video.
 
 - **`/review-pr` Phase 6**: call it instead of hand-rolling a walkthrough. `/review-pr` owns the
   verdict (it can `APPROVE`; this skill can't) and merges `blockers` into its own findings, which

@@ -17,7 +17,13 @@ The video is a **threaded journey**: one continuous route that starts at the app
 point, navigates to each changed surface **by clicking**, performs the action the PR changes, and
 shows the result. Desktop width, start to finish. Markers are the beats of that route.
 
-It is **not** the screenshot sweep. The sweep visits the same surface three times at three widths,
+**The route reaches every surface Phase 3 walked. Full coverage, no budget, no sampling.** A video
+that visits 6 of 8 surfaces is worse than useless: a reviewer cannot tell a surface the route
+skipped from a surface the PR did not change. **Length is never a reason to drop a surface.** The
+account is on Pro, so one recording runs to 60 minutes and a journey uses a fraction of that. When a
+run feels slow, tighten the dwell budget, never the surface list. See *Dwell*.
+
+The video is **not** the screenshot sweep. The sweep visits the same surface three times at three widths,
 reloading between each, which is correct for evidence and unwatchable as a video. The two passes are
 therefore separated in time: `SKILL.md` Phase 5a captures the matrix silently, Phase 5b runs the
 detectors silently, and only Phase 5c records.
@@ -194,16 +200,16 @@ opencap billing usage      # Plan: free | Recordings: 3 / 25
 | Pro | 60 minutes | unlimited |
 | Team | unlimited | unlimited |
 
-A journey is **much** shorter than the old three-viewport sweep. Eight surfaces at the dwell budget
-below runs roughly 90 to 150 seconds, so a normal run fits inside the Free tier's 5 minutes with room
-to spare. Truncation stops being the routine case. If it happens, it means the dwell budget was
-exceeded or the 8-surface cap was not applied, and both are bugs in the run rather than facts about
-the tier.
+**This account is on Pro, so duration does not constrain the journey.** Eight surfaces at the dwell
+budget below runs roughly 60 to 120 seconds against a 60-minute ceiling. Nothing about the route,
+the surface list, or the dwell is decided by the quota. If a recording ever truncates, the run is
+broken, not long.
 
-The binding Free-tier constraint is now the **lifetime count**, not the per-recording length: one
-recording per run is 25 runs for the account. That is the reason invariant 4 is absolute. OpenCap
-warns at 80% of a limit and pauses new recordings at 100%; a paused start is just another
-`CAN_VIDEO=0` path.
+Read the plan before treating the ceiling as 60 minutes. `opencap billing usage` prints it. On Free,
+the binding limit is the **lifetime count**, not the per-recording length: one recording per run is
+25 runs for the account. That is the reason invariant 4 is absolute. OpenCap warns at 80% of a limit
+and pauses new recordings at 100%; a paused start is just another `CAN_VIDEO=0` path. **A Free-tier
+5-minute ceiling still never drops a surface**: it truncates the tail, and the report says so.
 
 ---
 
@@ -303,16 +309,23 @@ construct an id.
 
 ### 2. Dwell, so a human can follow
 
-Playwright at machine speed is unreadable. Two fixed budgets, applied by every beat:
+Playwright at machine speed is unreadable. Three fixed budgets, applied by every beat:
 
 | Pause | Value | After |
 |---|---|---|
-| `SETTLE_MS` | 800 | a navigation reaches `networkidle` |
-| `BEAT_MS` | 500 | an interaction's result renders |
+| `SETTLE_MS` | 400 | a navigation reaches `networkidle` |
+| `BEAT_MS` | 250 | an interaction's result renders |
+| `CURSOR_MS` | 200 | the synthetic cursor starts moving, before the click |
 
-Eight surfaces with two interactions each is roughly 90 to 150 seconds at these numbers. If a run
-would exceed 4 minutes, drop beats from the end rather than shortening the dwell. A fast video nobody
-can follow is worth less than a short one they can.
+These are deliberately short. The dwell is a legibility floor on top of the page's own load and
+render time, which is what actually paces the video, so doubling it buys a slower video rather than
+a clearer one.
+
+**The dwell is the only thing that flexes, and the surface list never is.** A run that feels long
+tightens these three numbers. It never drops a beat, and it never drops a surface: full coverage is
+the point of the artifact (see *What the recording is*). Do not cut any of the three below 150ms.
+Under that the cursor teleports and interactions read as jump cuts, which is the failure these
+budgets exist to prevent.
 
 ### 3. Show a cursor
 
@@ -327,17 +340,17 @@ $B js '(() => {
   const d = document.createElement("div")
   d.style.cssText = "position:fixed;z-index:2147483647;width:18px;height:18px;margin:-9px 0 0 -9px;"
     + "border-radius:50%;background:rgba(0,0,0,.55);border:2px solid #fff;pointer-events:none;"
-    + "left:50%;top:50%;transition:left .35s cubic-bezier(.4,0,.2,1),top .35s cubic-bezier(.4,0,.2,1)"
+    + "left:50%;top:50%;transition:left .2s cubic-bezier(.4,0,.2,1),top .2s cubic-bezier(.4,0,.2,1)"
   document.body.appendChild(d); window.__uiwCursor = d
   window.__uiwMoveTo = (x, y) => { d.style.left = x + "px"; d.style.top = y + "px" }
   window.__uiwTap = () => d.animate(
-    [{transform:"scale(1)"},{transform:"scale(.6)"},{transform:"scale(1)"}], 200)
+    [{transform:"scale(1)"},{transform:"scale(.6)"},{transform:"scale(1)"}], 150)
 })()'
 
 # then, per click
 $B js "(() => { const r = document.querySelector('$SEL').getBoundingClientRect()
   window.__uiwMoveTo(r.left + r.width / 2, r.top + r.height / 2) })()"
-sleep 0.4                                    # let the dot travel its 350ms transition
+sleep 0.2                                    # CURSOR_MS: the dot's 200ms travel transition
 $B js 'window.__uiwTap()'
 $B click "$SEL"
 ```
@@ -421,11 +434,16 @@ Report the video the way the rest of this skill reports evidence, factually, inc
 didn't happen:
 
 ```
-Video: https://opencap.dev/r/Bs_eYjKW  (desktop journey, 9 beats, 1 jump)
+Video: https://opencap.dev/r/Bs_eYjKW  (desktop journey, all 8 surfaces, 9 beats, 1 jump)
 Video: skipped: headless browse daemon already running
 Video: skipped: OpenCap screen-recording permission not granted (run `opencap config doctor`)
 Video: truncated at 5:00 (Free tier), covers beats 1 to 6 of 9
 ```
+
+**The surface count is `all <n>`, matching the surfaces Phase 3 walked.** Full coverage is the
+contract, so the line states it rather than leaving a reader to assume. A route that could not reach
+a surface at all names it and says why (`7 of 8 surfaces, /billing never rendered`). That is a
+defect in the run or in the PR, never a length decision, and it is reported as one.
 
 Never write "video captured" without a URL, and never describe a display capture as a walkthrough.
 
