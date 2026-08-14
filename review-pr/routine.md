@@ -16,7 +16,8 @@ dynamic walkthrough** headlessly. No machine on, no open session.
   connected identity provides it) to submit reviews + inline comments.
 - **It calls other skills**, so the setup script must install them into the sandbox: `phillip`
   (whose `RUBRIC.md` it reads), `phillip-sync`, `codex`, `gemini`.
-- **It can run Tier-3 headlessly** (16 GB is enough for the stack). Install Playwright in setup.
+- **It can run Tier-3 headlessly** (16 GB is enough for the stack). Setup must supply `gh` and a
+  Chromium; the image ships neither reliably. See §3.
 
 ## 1. Connect GitHub (no PAT)
 
@@ -62,12 +63,39 @@ if [ -f "$AICC_DIR/build.gradle" ]; then
     || echo "aicc-queues: gradle compile failed. Verify degrades to diff-only"
 fi
 
-# (c) headless browser for the Tier-3 dynamic walkthrough (trial-verify on first run).
-npx --yes playwright install --with-deps chromium \
-  || echo "playwright install failed. Dynamic walkthrough disabled (static review only)"
+# (c) `gh`. The skill and /ui-walkthrough drive GitHub through `gh` in ~30 places, with no
+#     fallback. The sandbox image does not ship it. Without this the routine cannot discover,
+#     check out, or post anything.
+command -v gh >/dev/null || {
+  ( type -p curl >/dev/null || apt-get install -y curl ) \
+  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+       -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && echo "deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+       > /etc/apt/sources.list.d/github-cli.list \
+  && apt-get update && apt-get install -y gh
+}
+gh --version || echo "FATAL: gh missing. Discovery and posting will both fail."
+
+# (d) headless browser for the Tier-3 dynamic walkthrough (trial-verify on first run).
+#     Prefer the image's preinstalled browsers; `playwright install` is often forbidden here.
+ls -d /opt/pw-browsers/chromium* /root/.cache/ms-playwright/chromium* 2>/dev/null | head -1 \
+  || npx --yes playwright install --with-deps chromium \
+  || echo "no chromium. Dynamic walkthrough disabled (static review only)"
 ```
 
 Notes:
+- **`gh` is a hard dependency, not a Tier-3 nicety.** Confirm `gh --version` and `gh auth status` in
+  the first-run transcript. Both skills hard-exit on an unauthenticated `gh`
+  ([SKILL.md](SKILL.md) Phase 1, `ui-walkthrough/SKILL.md` Phase 0), so installing the binary is
+  only half the job. The connected GitHub identity authorizes **git** (cloning, pushing the
+  evidence ref); it does not necessarily populate `gh`'s own credential. If `gh auth status` fails
+  after install, set `GH_TOKEN` under **Environment variables** to a token with `repo` scope.
+  A GitHub MCP server is not a substitute: `evidence-hosting.md`'s
+  `body_html` read-back needs the `application/vnd.github.full+json` media type, which MCP does not
+  expose, and MCP connections have been observed dropping mid-session.
+- **A preinstalled Chromium that mismatches the repo's Playwright pin still drives the walkthrough.**
+  It needs an explicit `executablePath`; see `ui-walkthrough/SKILL.md` Phase 0, *Cloud browser
+  build*. Only a total absence of Chromium sets `CAN_LIVE_HEADLESS=false`.
 - **No credentials to provision for the walkthrough.** Step (a) clones the **public** skills repo, so
   any gitignored credential file is absent here by construction, and nothing needs it: the Tier-3
   walkthrough logs in as a seeded e2e persona. Details in SKILL.md Phase 6.
@@ -121,8 +149,15 @@ first and confirm:
    validate against `pulls/<n>/files` ranges (no 422s).
 5. **Idempotency:** a second `--draft` run reproduces the same draft; after a real post, a re-run
    skips ("already reviewed at current head").
-6. **Tier-3:** on a UI PR, confirm `npx playwright install` + a headless screenshot actually succeed
-   in the sandbox. If not, the skill sets `CAN_LIVE_HEADLESS=false` and falls back to static review.
+6. **Tier-3, on a real UI PR, end to end.** RAM and a Chromium directory are **not** evidence that
+   Tier-3 works. Confirm all four, in the transcript:
+   - a headless screenshot actually renders (with `executablePath` if the pin mismatches),
+   - the stack **boots inside the budget** in `stack-lifecycle.md`. `next build` is the long pole
+     and is the least-tested piece of the cloud path.
+   - the detached-ref push is accepted (`git push --dry-run` on rung 1, then rung 2),
+   - the posted body's images survive the `body_html` read-back (`evidence-hosting.md`).
+
+   If any fails, the skill sets `CAN_LIVE_HEADLESS=false` and falls back to static review.
 
 Drop `--draft` once the drafts look right.
 

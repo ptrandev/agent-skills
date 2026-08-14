@@ -56,8 +56,8 @@ every width". Do not merge the two questions back together.
 ## Why window-scoped, always
 
 `opencap record start` with no target flag captures the **entire primary display**. These recordings
-get posted to a PR, so a display capture ships whatever else was on screen (Slack, mail, another
-client's code, a password manager) to everyone with repo access. It also records the wrong thing:
+get posted to a PR, **including PRs you do not own**, so a display capture ships whatever else was on
+screen (Slack, mail, another client's code, a password manager) to everyone with repo access. It also records the wrong thing:
 `browse` is **headless** by default, so there is no on-screen browser in the frame at all. A headless
 browser has no window to target either, which is the only reason this skill ever runs headed.
 
@@ -102,17 +102,38 @@ Video is available only when **all** of these hold. Probe them in Phase 0 and ca
 | Signed in | `opencap whoami` | Exit 3 = auth error → `opencap login` once, interactively |
 | No live session | `opencap record status --json` reports inactive | Invariant 4 |
 | Headed browser obtainable | see below | No window, no window capture |
-| Author mode, local | `ROLE=author && ENVIRONMENT=local` | Reviewer runs post to someone else's PR from the sealed stack; a video adds nothing there and doubles the surface area |
+| Local machine | `ENVIRONMENT=local` | A headless runtime has no window server, so there is nothing to capture. This is the only environment condition |
 | Not `--no-video` | flag | n/a |
 
 ```bash
 CAN_VIDEO=0
-if [ "$(uname)" = Darwin ] && [ "$ROLE" = author ] && [ "$ENVIRONMENT" = local ] \
+if [ "$(uname)" = Darwin ] && [ "$ENVIRONMENT" = local ] \
    && [ "${NO_VIDEO:-0}" = 0 ] && command -v opencap >/dev/null 2>&1 \
    && opencap config doctor >/dev/null 2>&1 \
    && ! opencap record status --json 2>/dev/null | grep -q '"active"[[:space:]]*:[[:space:]]*true'
 then CAN_VIDEO=1; else echo "video: skipped (see neutral note)"; fi
 ```
+
+### The role does not gate the video, and attendance does not either
+
+**Both roles record on a local Mac.** A reviewer-mode video is the more useful of the two: it shows a
+colleague's change being used, by someone who did not write it, which is the artifact a PR discussion
+usually lacks. `/review-pr` Phase 6 calls this skill in reviewer mode, so its posted review carries
+the link whenever the run is local.
+
+**Attendance does not gate it.** Recording does not occupy the machine (see the focus note below), so
+an unattended local `/loop` run records exactly like an attended one. `UIW_UNATTENDED=1` still
+refuses `--target=dev` (`SKILL.md` Phase 0); it has no effect on video.
+
+Two consequences of recording in reviewer mode, both already covered by rules above, both worth
+naming because the target is someone else's PR:
+
+- **The route runs against the sealed e2e stack** (invariant 7), so the journey walks seeded personas
+  and stubbed externals. That is a weaker story than author-mode `dev` data, and it is still a real
+  user walking the feature. The Coverage block names the stack, so a reader can weigh it.
+- **Window scoping is now the only thing between the operator's desktop and a colleague's PR.**
+  Invariant 1 and the gutter check are hard failures, never warnings. Uncertain window id, gutter over
+  40px, no `--headed`: `CAN_VIDEO=0`, and the run posts screenshots.
 
 ### The headed-browser condition
 

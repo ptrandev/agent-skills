@@ -57,6 +57,13 @@ test('ui-walkthrough hold', async () => {
 })
 ```
 
+**The hold spec must never take a `{ page }` fixture.** Playwright launches a browser lazily, when a
+fixture asks for one, so a fixture-free test holds the stack open without ever launching a browser.
+That is the only reason the hold survives a cloud sandbox whose bundled Chromium does not match the
+repo's Playwright pin (SKILL.md Phase 0, *Cloud browser build*). Verified 2026-08-13 in a routine
+sandbox: this spec passed, the same spec with `{ page }` failed at launch. Add the fixture and the
+hold dies on exactly the runtimes that have no other way to boot a stack.
+
 ```bash
 # Invoke the SCRIPT, not `yarn e2e:stack`. See "backgrounding" below.
 env -u VSCODE_CWD UIW_HOLD_SECONDS=900 bash scripts/e2e-stack.sh uiw-hold.spec.ts --project="$PROJ" &

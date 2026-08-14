@@ -25,7 +25,7 @@ description: >
 | `--target=e2e\|dev` | Which stack to walk. Default is **role- and environment-derived**, see *Target selection*. |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
 | `--no-post` | Assemble the report + print the exact payload, **don't post**. |
-| `--no-video` | Skip the OpenCap recording even when available (author mode, local only). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
+| `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
 | `--embedded` | Called by another skill: return findings, **post nothing**. See *Being called by another skill*. |
 
 ---
@@ -137,7 +137,7 @@ would each take "the" lock and boot two stacks onto the same pinned ports.
 | Browser | `browse` binary (`$ROOT/.claude/skills/gstack/browse/dist/browse`, else `~/.claude/skills/gstack/browse/dist/browse`) | headless Playwright/Chromium |
 | Viewport | `browse viewport WxH` | `page.setViewportSize` |
 | Screenshot | `browse prettyscreenshot`, else `browse screenshot` | `page.screenshot({fullPage:true})` |
-| Video | OpenCap **scoped to the browser window**, author mode only, needs a HEADED browser | none (skip, never block) |
+| Video | OpenCap **scoped to the browser window**, either role, needs a HEADED browser | none (skip, never block) |
 | Credentials | `dev-credentials.md` | **env vars only** (the file is gitignored, so it is absent) |
 
 **Probe the `browse` build, do not assume this table.** Some builds are **headless-only**: no
@@ -176,6 +176,24 @@ const context = await browser.newContext({
   splash (`_app` can't load `js.stripe.com`, so the login form never mounts). TLS 1.2 shrinks the
   ClientHello enough to pass; cert-ignore and proxy flags do not help. Driving the repo's own
   harness, inject the arg into `use.launchOptions.args` **in the ephemeral checkout only**.
+- **Cloud browser build: probe for a preinstalled Chromium before concluding "no browser".** A
+  routine sandbox ships its own Playwright browsers and **forbids `playwright install`**, so the
+  bundled build routinely does not match the repo's `@playwright/test` pin. A bare
+  `chromium.launch()` then hard-fails on the missing revision (verified 2026-08-13: pin 1.58.2 wants
+  `chromium_headless_shell-1208`, the sandbox shipped 1194). This is **not** a reason to set
+  `CAN_LIVE_HEADLESS=false`. Pass the sandbox's own binary and it launches:
+
+  ```bash
+  PW_EXEC=$(ls -d /opt/pw-browsers/chromium* /root/.cache/ms-playwright/chromium* 2>/dev/null | head -1)
+  ```
+
+  ```js
+  chromium.launch({ executablePath: PW_EXEC, args: ['--ssl-version-max=tls1.2'] })
+  ```
+
+  The cost is real and belongs in the report: the **repo's own E2E specs cannot execute** on a
+  mismatched build, so a run there can judge "this UI PR is missing E2E specs" by reading the diff
+  but can never run them. That is a neutral note, never a finding (invariant 2).
 - **Capacity gate: skip if total RAM < \~8 GB** (Next.js + JVM Firebase emulators + API). Note it
   and exit: a constrained runtime produces flaky evidence, which is worse than none.
 
@@ -192,8 +210,8 @@ else TOTAL_MB=$(( $(grep -o '[0-9]\+' /proc/meminfo | head -1) / 1024 )); fi   #
 
 **Read [opencap.md](opencap.md) before probing or recording.** It owns the probe, the
 window-scoping rule, the journey, the sequence, the markers, the quota, and the teardown. Probe
-there, carry one boolean, branch in **Phase 5c**. Video is **author mode + local + macOS only**, and
-**always** best-effort: no `opencap` call may block, fail, or slow the walkthrough.
+there, carry one boolean, branch in **Phase 5c**. Video is **local macOS only, under either role**,
+and **always** best-effort: no `opencap` call may block, fail, or slow the walkthrough.
 
 **The video is one desktop journey, not the capture matrix.** It records a user walking the change
 at 1440×900, after the matrix and the detectors have already run silently. Responsive coverage is
@@ -730,6 +748,9 @@ gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" --method POST --input "$SCRATCH/pa
 - Build the JSON with `jq -n`, never hand-quote bodies containing image markdown.
 - **Clean run -> still post.** A `COMMENT` review whose body is the proof gallery. That is the
   "walkthrough was done" artifact, and it's the whole reason this runs on clean PRs.
+- **The review `body` ends with the same `### Coverage` block as the author template below**,
+  video line included. A local reviewer run records too, so a review that shows the link without
+  the viewport line reads as desktop-only coverage on a colleague's PR.
 
 **Author mode**: one comment (`gh pr comment`). The image row below is for **notable surfaces
 only**, the ones Phase 7's priority list kept; every other surface gets a linked line:
@@ -782,7 +803,7 @@ Write `${UI_WALKTHROUGH_PLANS_DIR:-$HOME/.claude/plans}/ui-walkthrough-<owner>-<
 ```
 ### /ui-walkthrough -> Atllas-Inc/codebase#1773, <date>
 Role: reviewer   Head: <sha>   Viewports: desktop,tablet,mobile   Personas: premium
-Target: e2e (emulators, stubbed, seeded)   Driver: browse   Video: skipped (reviewer mode)
+Target: e2e (emulators, stubbed, seeded)   Driver: browse   Video: skipped (headless routine)
 Stack: booted ✓ identity-asserted ✓
 
 | # | Class | Surface | Viewport | Finding | Evidence | Posted |
@@ -798,7 +819,7 @@ Posted: <review id|comment url>, event=<…>, <k> inline, <m> images embedded.
 The `Video:` field is never bare. Either a URL with its beat and jump counts
 (`https://opencap.dev/r/Bs_eYjKW (desktop journey, 9 beats, 1 jump)`), or the reason it's absent:
 `skipped (headless browse daemon running)`, `skipped (screen-recording permission)`,
-`skipped (reviewer mode)`, `truncated at 5:00 (Free tier)`. "Video: ✓" without a URL is not a
+`skipped (headless routine)`, `truncated at 5:00 (Free tier)`. "Video: ✓" without a URL is not a
 report. A journey that is mostly jumps says so: it means the app had no in-app route between those
 surfaces, which is worth a reviewer knowing.
 
@@ -847,7 +868,9 @@ implies a desktop-only walkthrough.
 - **`/review-pr` Phase 6**: call it instead of hand-rolling a walkthrough. `/review-pr` owns the
   verdict (it can `APPROVE`; this skill can't) and merges `blockers` into its own findings, which
   is exactly its documented "live-confirmed defect is the highest-confidence tier" rule. Its
-  `stack-lifecycle.md` stays the source of truth that [stack.md](stack.md) reads.
+  `stack-lifecycle.md` stays the source of truth that [stack.md](stack.md) reads. On a **local**
+  `/review-pr` run this returns a `video`, so its review body must carry `coverage` beside the
+  link. Its usual home is a headless routine, where `video` is `null`.
 - **`/full-send` Phase 8**: call it in author mode for evidence, replacing the desktop-only
   screenshot pass. It already reads `dev-credentials.md` and already posts a comment; this returns
   a richer, multi-viewport `markdown` block for it.
