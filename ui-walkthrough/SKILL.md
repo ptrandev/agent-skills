@@ -109,7 +109,8 @@ gets the same pass, not a looser one.
 Probe, record booleans, branch later. **Never assume a driver.**
 
 ```bash
-if gh api user --jq .login >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
+# Probe a REPO call. `gh api user` passes while repo calls 403; see github-transport.md.
+if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
 SCRATCH=/private/tmp/ui-walkthrough; mkdir -p "$SCRATCH"     # NOT $TMPDIR, see below
 ```
 

@@ -108,7 +108,8 @@ It is binding on the orchestrator and on every sub-agent.
 ## Phase 0: Preflight + capability detection
 
 ```bash
-if gh api user --jq .login >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
+# Probe a REPO call. `gh api user` passes while repo calls 403; see github-transport.md.
+if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
 SCRATCH=/private/tmp/review-pr; mkdir -p "$SCRATCH"    # NOT $TMPDIR, see below
 ```
 
@@ -134,9 +135,9 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
   and the toolchain runs. Probe `node`/`yarn` (codebase -> FULL) and `java`/`./gradlew`
   (aicc-queues -> COMPILE-ONLY). Without it, review from the diff, drop **every finding to reduced
   confidence**, and **post nothing** (report-only, invariant 2).
-- **Tier 2b, external reviewers:** `/codex` and `/gemini` skills present + their CLIs authed.
-  Missing -> run with fewer reviewers and say so (same fallback as `/phillip`), and the verdict
-  caps at `COMMENT`.
+- **Tier 2b, external reviewers:** the `codex` and `gemini` CLIs present + authed. **The skills are
+  not required**, because Phase 4 runs the CLIs directly. Missing -> run with fewer reviewers and
+  say so (same fallback as `/phillip`), and the verdict caps at `COMMENT`.
 - **Tier 3, dynamic walkthrough**, two sub-capabilities:
   - `CAN_LIVE_HEADLESS`: can stand up the agents-portal stack + drive a **headless browser**.
     Requires a browser driver (`browse` binary locally, or headless Playwright/Chromium in cloud)
@@ -373,12 +374,12 @@ screenshots to GitHub via a verified mechanism (its Phase 7), and returns
 the review body, and treat its `neutralNotes` as infra notes, never findings.
 
 **Read [stack-lifecycle.md](stack-lifecycle.md) before booting.** It owns the stack lock, the pinned
-ports, the post-boot identity assertion, the boot budget, and teardown. `/ui-walkthrough` Phase 4
-reads it from there. **Do not duplicate it here.**
+ports, the pre-build, the post-boot identity assertion, the boot budget, and teardown.
+`/ui-walkthrough` Phase 4 reads it from there. **Do not duplicate it here.**
 
-**Boot mechanics are not this skill's to carry.** The driver, the stack boot, the pre-build, the
-seeded personas, and the capture matrix all belong to `/ui-walkthrough` and are documented in its
-`stack.md` and Phase 0. **Do not re-add them here.** Fix them where they live.
+**Boot mechanics are not this skill's to carry.** The driver, the stack boot, the seeded personas,
+and the capture matrix all belong to `/ui-walkthrough` and are documented in its `stack.md` and
+Phase 0. **Do not re-add them here.** Fix them where they live.
 
 **One rule stays this skill's own: never fire real Stripe/Vapi/Twilio.** The walkthrough runs
 against the deterministic, externally-stubbed stack. A surface the stubbed stack cannot exercise is

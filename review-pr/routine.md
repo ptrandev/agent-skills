@@ -78,6 +78,10 @@ AICC_DIR="${AICC_DIR:-./aicc-queues}"
 if [ -f "$CODEBASE_DIR/package.json" ]; then
   ( cd "$CODEBASE_DIR" && corepack enable && yarn install --immutable ) \
     || echo "codebase: yarn install failed. Verify degrades to diff-only (no posting)"
+  # `yarn install` leaves packages/*/dist empty, and the Tier-3 `next build` then hard-fails
+  # resolving loop-stats. stack-lifecycle.md owns this step; pre-build it once here.
+  ( cd "$CODEBASE_DIR" && yarn turbo run build --filter='./packages/*' ) \
+    || echo "WARN: workspace pre-build failed. Tier-3 boot will fail on packages/*/dist"
 fi
 if [ -f "$AICC_DIR/build.gradle" ]; then
   ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) \
@@ -104,7 +108,11 @@ npm i -g @openai/codex @google/gemini-cli || echo "WARN: reviewer CLI install fa
 # Codex needs a materialized credential; an API key in the env alone 401s. See section 8.
 if [ -n "$OPENAI_API_KEY" ]; then
   printenv OPENAI_API_KEY | codex login --with-api-key || echo "WARN: codex login failed"
+else
+  echo "WARN: OPENAI_API_KEY unset at setup time. Codex will refuse at run time."
 fi
+# Assert the credential FILE, not the exit code: both CLIs refuse with exit 0 (section 8).
+[ -f "$HOME/.codex/auth.json" ] || echo "WARN: ~/.codex/auth.json absent. Codex will refuse."
 codex --version  || echo "WARN: codex missing (Tier 2b degrades to fewer reviewers)"
 gemini --version || echo "WARN: gemini missing (Tier 2b degrades to fewer reviewers)"
 
@@ -122,15 +130,16 @@ fi
 ```
 
 Notes:
-- **Installing `gh` may not be enough, and often is not.** Verified 2026-08-14: in this sandbox
-  every `gh api` call 403s with *"GitHub access is not enabled for this session"*. That is a
-  session-level block, so no install and no `GH_TOKEN` fixes it. **Git transport is separate and
-  keeps working**, so the clone and the evidence-ref push are unaffected; only the GitHub **API**
-  is blocked. Check the **Connectors / Permissions** tabs first: enabling GitHub API access for
-  the routine is the cheap fix. If it cannot be enabled, the run must route every GitHub call
-  through the **GitHub MCP** tools, and Phase 8 needs `pull_request_review_write` plus
-  `resolve_review_thread` for Phase 5b. Probe with `gh api user`. **Never probe with `gh auth
-  status`**, which reports on stored credentials rather than on reachability.
+- **Installing `gh` is not enough, and the fix is an org admin action.** Verified 2026-08-14: every
+  repo call 403s with *"an org admin must connect the Claude GitHub App for this organization"*,
+  and all GraphQL is blocked. No install, no `GH_TOKEN`, and no per-routine toggle changes that.
+  Someone with admin on `Atllas-Inc` connects the Claude GitHub App to the org. Until then the run
+  is `mcp`, which served discovery and thread reads fine. **Git transport is separate and keeps
+  working**, so the clone and the evidence-ref push are unaffected; only the GitHub **API** is
+  blocked. **Probe a repo read** (`gh api repos/$OWNER/$NAME`). **Never probe with `gh auth status`
+  or `gh api user`**: both pass while every repo call 403s, because the token is valid for the user
+  and the block is org-scoped. Under `mcp`, Phase 8 needs `pull_request_review_write` and Phase 5b
+  needs `resolve_review_thread`.
 - **MCP costs one verification.** `evidence-hosting.md`'s `body_html` read-back needs the
   `application/vnd.github.full+json` media type, which MCP does not expose. Under `GH_TRANSPORT=mcp`
   the "images survived" check cannot run. Say so in the report rather than implying it passed.
@@ -140,10 +149,11 @@ Notes:
 - **No credentials to provision for the walkthrough.** Step (a) clones the **public** skills repo, so
   any gitignored credential file is absent here by construction, and nothing needs it: the Tier-3
   walkthrough logs in as a seeded e2e persona ([SKILL.md](SKILL.md) Phase 6).
-- **The `codex` skill ships with gstack, not with this repo**, so step (a) cannot install it and
-  Tier 2b runs gemini-only here. That is a permanent one-reviewer degrade, not a per-run blip:
-  the skill says so in its report and caps the verdict at `COMMENT`
-  ([SKILL.md](SKILL.md) Phase 4). To restore the second voice, install gstack in setup as well.
+- **Both external reviewers run here, and neither needs a gstack skill.** Step (a) cannot install
+  the `codex` skill, which ships with gstack. Tier 2b does not need it: §3 installs and authenticates
+  both CLIs, §8 owns the sandbox invocation contract, and Phase 4 runs the CLIs directly
+  ([SKILL.md](SKILL.md) Phase 4). A failed `codex login` trips the `WARN` in §3, and the run then
+  reports fewer reviewers and caps the verdict at `COMMENT`.
 - `codex` / `gemini` also need their CLIs + auth in the sandbox to actually run (set keys via
   **Environment variables**); without them the skill degrades to fewer reviewers, says so, and caps
   the verdict at `COMMENT`.
@@ -220,9 +230,17 @@ Drop `--draft` after every check above passes.
 SKILL.md Phase 4 launches both CLIs as concurrent background jobs. Their headless invocation differs
 from a local, OAuth-authed run:
 
+> **Both CLIs refuse with EXIT CODE 0 in this sandbox until their trust gates are bypassed**
+> (verified 2026-08-14). Codex: *"Not inside a trusted directory and `--skip-git-repo-check` was not
+> specified"*. Gemini: *"not running in a trusted directory"*. The refusal writes an empty output
+> file and exits clean, so a run gating on exit status logs two reviewers that never ran, and a
+> clean pass feeds `APPROVE`. **Gate on the output contract, never the exit code**
+> ([SKILL.md](SKILL.md) Phase 4). The two flags below are mandatory here, not optional hardening.
+
 - **Codex, API-key environments.** When Codex is authed by API key (`OPENAI_API_KEY` /
   `CODEX_API_KEY`, e.g. this routine) rather than ChatGPT-plan OAuth, invoke it as
-  `codex exec -s read-only -c model_reasoning_effort=high` with the **diff embedded in the prompt**
+  `codex exec -s read-only --skip-git-repo-check -c model_reasoning_effort=high` with the **diff
+  embedded in the prompt**
   (feed `/tmp/review-pr-$NAME-$PR.diff`). Do **not** use `/codex review` or `codex review` there: it
   requires OAuth (401s on an API key) and it reviews the **working tree**, which is empty in a
   detached read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure,
@@ -231,7 +249,8 @@ from a local, OAuth-authed run:
   enough: it 401s until a login writes `~/.codex/auth.json`. Run
   `printenv OPENAI_API_KEY | codex login --with-api-key` once. Bake it into the setup script in §3
   so it isn't re-discovered per run.
-- **Gemini, headless.** Pass the diff **inline in the `-p` prompt**. Gemini's `-p` mode does not read
+- **Gemini, headless.** Invoke it as `gemini --skip-trust`, or it refuses on the trust gate and
+  exits 0. Pass the diff **inline in the `-p` prompt**. Gemini's `-p` mode does not read
   file-path arguments and cannot reach paths outside its workspace, so a `/tmp/...` diff file is
   invisible to it, and it has no shell tool in the cloud sandbox. Embed the diff text directly (the
   `/gemini` skill's review mode already does this). On `RESOURCE_EXHAUSTED` or quota errors it
