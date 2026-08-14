@@ -2,10 +2,9 @@
 name: plain-english
 description: >
   Extracts the signal from bloated or evasive text: the bottom line, every claim with its
-  strength marked, what the text conspicuously does not say, and what it implies without
-  claiming. Adds nothing from outside the source. Use for "what is this actually saying", "cut
-  through this", or "TL;DR this", and on pasted marketing, legal, policy, or AI-generated
-  writing.
+  strength marked, what it does not say, and what it implies without claiming. Adds nothing
+  from outside the source. Use for "what is this actually saying", "cut through this", "TL;DR
+  this", or on pasted marketing, legal, policy, or AI-generated writing.
 ---
 
 # Plain English
