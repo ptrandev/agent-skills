@@ -160,7 +160,9 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
     window, so nothing else on screen reaches GitHub.
 
 **Refresh the rubric (non-blocking):** invoke `/phillip-sync` once (a 24 h cooldown makes it a no-op
-when it ran in the last 24 h). If it reports it ADDED lines, **re-Read** the rubric. Then **Read
+when it ran in the last 24 h). If it reports it ADDED lines, **re-Read** the rubric. **It is a
+no-op under `GH_TRANSPORT=mcp`**: it mines resolved threads through `gh api graphql`, which a cloud
+sandbox blocks, so the rubric there is whatever shipped. Note it and continue, never block on it. Then **Read
 `~/.claude/skills/phillip/RUBRIC.md` in full**. It owns the rules this skill reviews against: three
 anchored tables (auto-synced rules, candidates, and a do-not-flag block of negative rules) plus the
 severity taxonomy and the verification discipline. Skip any row whose `Repo` column names a repo
@@ -274,8 +276,16 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
   paths include `$NAME`: PR numbers repeat across repos, and parallel per-repo agents writing
   `/tmp/review-pr-$PR-*` would clobber each other.)
   - **Headless/sandbox invocation gotchas** (API-key `codex exec` instead of `codex review`, the
-    `codex login --with-api-key` requirement, Gemini's inline-`-p` limitation, its
+    two trust-gate flags, the `< /dev/null` redirect, Gemini's inline-`-p` limitation, its
     `RESOURCE_EXHAUSTED` degradation): [routine.md](routine.md) section 8.
+  - **Materialize the Codex credential here, not in setup.** A routine's setup step runs in a
+    build phase, and `~/.codex/auth.json` written there does **not** survive into the run container
+    (verified 2026-08-14: absent at session start with `OPENAI_API_KEY` set). Check for the file
+    and create it in this phase when it is missing:
+    ```bash
+    [ -f "$HOME/.codex/auth.json" ] || printenv OPENAI_API_KEY | codex login --with-api-key
+    ```
+    Skip it when `OPENAI_API_KEY` is unset, and count Codex as missing.
   - **Model selection:** honor `$CODEX_MODEL` / `$GEMINI_MODEL` when set, otherwise take the CLIs'
     own defaults. **Never hardcode a version in this file.** The `/codex` and `/gemini` skills own
     the defaults.

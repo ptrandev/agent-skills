@@ -105,14 +105,15 @@ gh --version || echo "FATAL: gh missing. Discovery and posting will both fail."
 #     previous session is gone: without this, Tier 2b silently drops to one reviewer every run
 #     and the verdict caps at COMMENT. Verified missing at boot 2026-08-14.
 npm i -g @openai/codex @google/gemini-cli || echo "WARN: reviewer CLI install failed (Tier 2b degrades)"
-# Codex needs a materialized credential; an API key in the env alone 401s. See section 8.
+# Codex needs a materialized credential; an API key in the env alone 401s. Do it here as a
+# best-effort warm start, but it is NOT durable: this build phase's $HOME does not reach the run
+# container (verified 2026-08-14). SKILL.md Phase 4 re-creates the file at run time, which is the
+# load-bearing copy. Set OPENAI_API_KEY under Environment variables so BOTH can succeed.
 if [ -n "$OPENAI_API_KEY" ]; then
   printenv OPENAI_API_KEY | codex login --with-api-key || echo "WARN: codex login failed"
 else
-  echo "WARN: OPENAI_API_KEY unset at setup time. Codex will refuse at run time."
+  echo "WARN: OPENAI_API_KEY unset. Codex cannot authenticate at setup or at run time."
 fi
-# Assert the credential FILE, not the exit code: both CLIs refuse with exit 0 (section 8).
-[ -f "$HOME/.codex/auth.json" ] || echo "WARN: ~/.codex/auth.json absent. Codex will refuse."
 codex --version  || echo "WARN: codex missing (Tier 2b degrades to fewer reviewers)"
 gemini --version || echo "WARN: gemini missing (Tier 2b degrades to fewer reviewers)"
 
@@ -239,11 +240,16 @@ from a local, OAuth-authed run:
 > file and exits clean, so a run gating on exit status logs two reviewers that never ran, and a
 > clean pass feeds `APPROVE`. **Gate on the output contract, never the exit code**
 > ([SKILL.md](SKILL.md) Phase 4). The two flags below are mandatory here, not optional hardening.
+>
+> **`codex exec` also hangs reading stdin as a background job, so redirect it: `< /dev/null`**
+> (verified 2026-08-14). It then leaves a **39-byte** output file holding no findings. That is why
+> the gate is the findings contract and **not** a non-empty test: 39 bytes passes "non-empty" and
+> reads as a reviewer that ran clean.
 
 - **Codex, API-key environments.** When Codex is authed by API key (`OPENAI_API_KEY` /
   `CODEX_API_KEY`, e.g. this routine) rather than ChatGPT-plan OAuth, invoke it as
-  `codex exec -s read-only --skip-git-repo-check -c model_reasoning_effort=high` with the **diff
-  embedded in the prompt**
+  `codex exec -s read-only --skip-git-repo-check -c model_reasoning_effort=high < /dev/null` with
+  the **diff embedded in the prompt**
   (feed `/tmp/review-pr-$NAME-$PR.diff`). Do **not** use `/codex review` or `codex review` there: it
   requires OAuth (401s on an API key) and it reviews the **working tree**, which is empty in a
   detached read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure,
