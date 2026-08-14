@@ -35,9 +35,12 @@ review-thread tools for that phase alone, and say so in the report.
 CLI needs its own org-level app connection. A run can have working MCP and a dead `gh` at the same
 time, which is the normal cloud case.
 
-**The `cli` fix is an org admin action.** Someone with admin on the target org connects the Claude
-GitHub App to it. Until then, a cloud run is `mcp` and no amount of installing or token-setting
-changes that.
+**Do not try to "fix" `cli` in a cloud sandbox.** Its 403 names an org admin action, but that
+message is misleading: verified 2026-08-14 against `Atllas-Inc`, the app was already installed
+org-wide with `pull_requests: write`, there was no IP allow list and no SAML block, and a local
+token read the same repos fine. The sandbox simply holds a git credential, not an API one.
+`mcp` is the supported cloud path. Treat a failed `cli` probe there as normal, not as a defect to
+report or escalate.
 
 **Git transport is independent of both, and it keeps working.** Cloning, `git fetch`, and
 `/ui-walkthrough`'s evidence-ref push all succeed while the API is blocked. Never conclude from a

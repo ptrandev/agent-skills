@@ -130,16 +130,19 @@ fi
 ```
 
 Notes:
-- **Installing `gh` is not enough, and the fix is an org admin action.** Verified 2026-08-14: every
-  repo call 403s with *"an org admin must connect the Claude GitHub App for this organization"*,
-  and all GraphQL is blocked. No install, no `GH_TOKEN`, and no per-routine toggle changes that.
-  Someone with admin on `Atllas-Inc` connects the Claude GitHub App to the org. Until then the run
-  is `mcp`, which served discovery and thread reads fine. **Git transport is separate and keeps
-  working**, so the clone and the evidence-ref push are unaffected; only the GitHub **API** is
-  blocked. **Probe a repo read** (`gh api repos/$OWNER/$NAME`). **Never probe with `gh auth status`
-  or `gh api user`**: both pass while every repo call 403s, because the token is valid for the user
-  and the block is org-scoped. Under `mcp`, Phase 8 needs `pull_request_review_write` and Phase 5b
-  needs `resolve_review_thread`.
+- **`gh` cannot reach the API here, and that is not fixable from GitHub's side. Do not chase it.**
+  Verified 2026-08-14: every repo call 403s with *"an org admin must connect the Claude GitHub App
+  for this organization"*, and all GraphQL is blocked. **That message is misleading.** The same day,
+  against `Atllas-Inc`: the `claude` app (id 1236702) **is** installed org-wide, `repository_selection=all`,
+  with `pull_requests: write`; the org has **no** IP allow list and **no** SAML blocking; and the
+  maintainer's own token reads both repos and runs GraphQL fine. The org is configured correctly.
+  The sandbox's `gh` credential is simply a different credential, provisioned for **git** rather
+  than for the API. That is why the clone works and the evidence-ref push works while `gh api`
+  does not. No install, no `GH_TOKEN`, no org change, and no per-routine toggle alters it.
+  **`mcp` is the supported cloud path**, and it served discovery and thread reads fine. Under it,
+  Phase 8 needs `pull_request_review_write` and Phase 5b needs `resolve_review_thread`.
+  **Probe a repo read** (`gh api repos/$OWNER/$NAME`). **Never probe with `gh auth status` or
+  `gh api user`**: both pass while every repo call 403s.
 - **MCP costs one verification.** `evidence-hosting.md`'s `body_html` read-back needs the
   `application/vnd.github.full+json` media type, which MCP does not expose. Under `GH_TRANSPORT=mcp`
   the "images survived" check cannot run. Say so in the report rather than implying it passed.
