@@ -120,10 +120,18 @@ Establish identity, targets, and **what this environment can do**, so the same s
 whether it runs in a cloud sandbox or on a local Mac.
 
 ```bash
-gh auth status || { echo "gh not authenticated: required"; exit 1; }
-ME=$(gh api user --jq .login)
+# Probe the GitHub transport. Do NOT assume `gh` works just because it is installed.
+if gh api user --jq .login >/dev/null 2>&1; then
+  GH_TRANSPORT=cli; ME=$(gh api user --jq .login)
+else
+  GH_TRANSPORT=mcp    # fall through to the GitHub MCP tools; read ME from the MCP identity call
+fi
 SCRATCH=/private/tmp/review-pr; mkdir -p "$SCRATCH"    # NOT $TMPDIR, see below
 ```
+
+**`gh auth status` is the wrong probe.** It reports on stored credentials, not on whether the API
+is reachable. Probe with a real call (`gh api user`) so a 403 at the session boundary is caught
+here rather than at Phase 8, after the whole review is assembled.
 
 **`$SCRATCH` must live under `/private/tmp`.** The `browse` driver rejects screenshot paths outside
 `/private/tmp` or the repo root, and it fails per-screenshot, so a `$TMPDIR`-based scratch dir
@@ -136,7 +144,13 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
 
 **Capability tiers** (probe and record booleans; later phases branch on them):
 
-- **Tier 1, discover + post:** `gh` + network. Always available.
+- **Tier 1, discover + post (`GH_TRANSPORT`):** `gh` **or** the GitHub MCP tools. **Not always
+  available.** A cloud sandbox can have GitHub API access disabled at the session level, where every
+  `gh api` call 403s with "GitHub access is not enabled for this session" no matter how `gh` was
+  installed (verified 2026-08-14, routine sandbox). Installing the binary does not fix it. Record
+  which transport won and route **every** GitHub call through it. Neither -> stop: there is nothing
+  to discover from or post to. **Git transport is separate and unaffected**: the clone and
+  `/ui-walkthrough`'s evidence-ref push still work when the API is blocked.
 - **Tier 2, verify against real code (`CAN_VERIFY_<repo>`):** the repo's clone exists, is clean,
   and the toolchain runs. Probe `node`/`yarn` (codebase -> FULL) and `java`/`./gradlew`
   (aicc-queues -> COMPILE-ONLY). Without it a PR can still be reviewed from the diff, but **every
@@ -288,6 +302,13 @@ clock of every review.
     `RESOURCE_EXHAUSTED` degradation): [routine.md](routine.md) section 8.
   - **Model selection:** honor `$CODEX_MODEL` / `$GEMINI_MODEL` when set, otherwise take the CLIs'
     own defaults. Never hardcode a version in this file. See the `/codex` and `/gemini` skills.
+  - **A reviewer that refused is not a reviewer that found nothing. Never gate on exit status
+    alone.** Gemini's trust-gate refusal exits **0** with no findings (verified 2026-08-14), so an
+    exit-status check records a reviewer that never ran as a clean pass, and a clean pass is an
+    input to `APPROVE`. Gate on the **output**: a reviewer counted as having run must have a
+    non-empty output file that contains its findings contract. An empty file, a refusal, or a quota
+    error means that reviewer is **missing**, which drops the count and caps the verdict at
+    `COMMENT` (Tier 2b).
 - A **blind Claude sub-agent** (Agent tool) launched simultaneously, exactly as `/phillip` section 2
   step 3 specifies it: same role text, same instruction to Read `~/.claude/skills/phillip/RUBRIC.md`
   and apply it, same `SEVERITY | file:line | finding | why-real` output contract. The delta for

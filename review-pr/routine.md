@@ -63,7 +63,16 @@ for s in review-pr phillip phillip-sync gemini full-send ui-walkthrough; do
   fi
 done
 
-# (b) toolchains for Tier-2 verification.
+# (b) Node 20, BEFORE any install. The image ships Node 22 with no nvm, which breaks the `re2`
+#     native addon and fails the Tier-3 pre-build (stack-lifecycle.md). Installing it after
+#     `yarn install` is too late: the addon is already built against the wrong ABI.
+if ! node -v 2>/dev/null | grep -q '^v20\.'; then
+  { curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs ; } \
+    || echo "WARN: Node 20 install failed. Tier-3 pre-build will fail on re2 under $(node -v)"
+fi
+node -v || echo "WARN: no node at all. Tier-2 verification and Tier-3 both unavailable."
+
+# (c) toolchains for Tier-2 verification.
 CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
 AICC_DIR="${AICC_DIR:-./aicc-queues}"
 if [ -f "$CODEBASE_DIR/package.json" ]; then
@@ -75,9 +84,9 @@ if [ -f "$AICC_DIR/build.gradle" ]; then
     || echo "aicc-queues: gradle compile failed. Verify degrades to diff-only"
 fi
 
-# (c) `gh`. The skill and /ui-walkthrough drive GitHub through `gh` in ~30 places, with no
-#     fallback. The sandbox image does not ship it. Without this the routine cannot discover,
-#     check out, or post anything.
+# (d) `gh`. The skill and /ui-walkthrough drive GitHub through `gh` in ~30 places. Install it,
+#     but see the note below: the API may be blocked at the session level regardless, in which
+#     case the run must fall back to the GitHub MCP tools.
 if ! command -v gh >/dev/null; then
   { ( type -p curl >/dev/null || apt-get install -y curl ) \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
@@ -88,7 +97,18 @@ if ! command -v gh >/dev/null; then
 fi
 gh --version || echo "FATAL: gh missing. Discovery and posting will both fail."
 
-# (d) headless browser for the Tier-3 dynamic walkthrough (trial-verify on first run).
+# (e) external reviewer CLIs. The container is ephemeral, so an install that happened in a
+#     previous session is gone: without this, Tier 2b silently drops to one reviewer every run
+#     and the verdict caps at COMMENT. Verified missing at boot 2026-08-14.
+npm i -g @openai/codex @google/gemini-cli || echo "WARN: reviewer CLI install failed (Tier 2b degrades)"
+# Codex needs a materialized credential; an API key in the env alone 401s. See section 8.
+if [ -n "$OPENAI_API_KEY" ]; then
+  printenv OPENAI_API_KEY | codex login --with-api-key || echo "WARN: codex login failed"
+fi
+codex --version  || echo "WARN: codex missing (Tier 2b degrades to fewer reviewers)"
+gemini --version || echo "WARN: gemini missing (Tier 2b degrades to fewer reviewers)"
+
+# (f) headless browser for the Tier-3 dynamic walkthrough (trial-verify on first run).
 #     Prefer the image's preinstalled browsers; `playwright install` is often forbidden here.
 #     Test the captured path, NOT the pipeline's status: `ls ... | head -1` exits 0 on no match,
 #     which would short-circuit an `||` chain and silently skip the install.
@@ -102,15 +122,18 @@ fi
 ```
 
 Notes:
-- **`gh` is a hard dependency, not a Tier-3 nicety.** Confirm `gh --version` and `gh auth status` in
-  the first-run transcript. Both skills hard-exit on an unauthenticated `gh`
-  ([SKILL.md](SKILL.md) Phase 1, `ui-walkthrough/SKILL.md` Phase 0), so installing the binary is
-  only half the job. The connected GitHub identity authorizes **git** (cloning, pushing the
-  evidence ref); it does not necessarily populate `gh`'s own credential. If `gh auth status` fails
-  after install, set `GH_TOKEN` under **Environment variables** to a token with `repo` scope.
-  A GitHub MCP server is not a substitute: `evidence-hosting.md`'s
-  `body_html` read-back needs the `application/vnd.github.full+json` media type, which MCP does not
-  expose, and MCP connections have been observed dropping mid-session.
+- **Installing `gh` may not be enough, and often is not.** Verified 2026-08-14: in this sandbox
+  every `gh api` call 403s with *"GitHub access is not enabled for this session"*. That is a
+  session-level block, so no install and no `GH_TOKEN` fixes it. **Git transport is separate and
+  keeps working**, so the clone and the evidence-ref push are unaffected; only the GitHub **API**
+  is blocked. Check the **Connectors / Permissions** tabs first: enabling GitHub API access for
+  the routine is the cheap fix. If it cannot be enabled, the run must route every GitHub call
+  through the **GitHub MCP** tools, and Phase 8 needs `pull_request_review_write` plus
+  `resolve_review_thread` for Phase 5b. Probe with `gh api user`, never `gh auth status`, which
+  reports on stored credentials rather than on reachability.
+- **MCP costs one verification.** `evidence-hosting.md`'s `body_html` read-back needs the
+  `application/vnd.github.full+json` media type, which MCP does not expose. Under `GH_TRANSPORT=mcp`
+  the "images survived" check cannot run. Say so in the report rather than implying it passed.
 - **A preinstalled Chromium that mismatches the repo's Playwright pin still drives the walkthrough.**
   It needs an explicit `executablePath`; see `ui-walkthrough/SKILL.md` Phase 0, *Cloud browser
   build*. Only a total absence of Chromium sets `CAN_LIVE_HEADLESS=false`.
