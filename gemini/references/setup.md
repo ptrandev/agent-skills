@@ -1,13 +1,11 @@
 # One-time setup (API-key only)
 
-Run this once per machine. After it, both the auth probe and the `gemini` calls
-work under Claude Code's non-interactive Bash tool, with no rate caps beyond
-your API tier.
+Run this once per machine.
 
 **1. Get an API key (enable billing for high limits).**
-Create a key at https://aistudio.google.com/apikey. The free API tier is itself
-rate-limited; for unlimited-style pay-as-you-go usage, enable billing on the
-key's Google Cloud project.
+Create a key at https://aistudio.google.com/apikey. Enable billing on the key's
+Google Cloud project for pay-as-you-go usage, because the free API tier is
+rate-limited.
 
 **2. Tell the CLI to use API-key auth (not OAuth).**
 
@@ -22,8 +20,8 @@ print("selectedType ->", d["security"]["auth"]["selectedType"])
 PY
 ```
 
-If you previously logged in with OAuth, you can also delete
-`~/.gemini/oauth_creds.json` so it can't be selected by mistake (optional).
+**Optional.** Delete `~/.gemini/oauth_creds.json` after a previous OAuth login,
+so the CLI cannot select it by mistake.
 
 **3. Put the key where every shell sees it: `~/.zshenv`, NOT `~/.zshrc`.**
 `~/.zshrc` is only sourced for interactive shells; the Bash tool runs
@@ -33,10 +31,10 @@ non-interactive shells, which source `~/.zshenv`. Add:
 export GEMINI_API_KEY="your-key-here"
 ```
 
-If a key is currently exported in `~/.zshrc`, move that line to `~/.zshenv` so
-there's a single source of truth. Also remove any stale `GEMINI_API_KEY` in a
-`.env` the CLI auto-loads (`~/.gemini/.env` or a project `.env`). An expired key
-there can shadow the good one.
+Move the export line to `~/.zshenv` when a key is currently exported in
+`~/.zshrc`, so there is a single source of truth. Remove any stale
+`GEMINI_API_KEY` in a `.env` the CLI auto-loads (`~/.gemini/.env` or a project
+`.env`), because an expired key there shadows the good one.
 
 **4. Verify (fresh shell):**
 

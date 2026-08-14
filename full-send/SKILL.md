@@ -8,16 +8,14 @@ description: >
 
 # full-send
 
-Takes a ticket, or a raw idea, from nothing to a fully-reviewed draft PR in one shot.
-
 ## Input
 
-`$ARGS` may contain a leading **mode keyword**, then either a ticket ID (e.g. `AP-1234`) or
-free-text describing the work. Parse them in this order:
+`$ARGS` holds an optional leading **mode keyword**, then a ticket ID (e.g. `AP-1234`) or free-text
+describing the work. Parse them in this order:
 
 1. **Mode keyword** (optional, first token):
    - `interactive` / `ask` / `careful` → **interactive mode** (front-load a grill, see Phase 0.5).
-   - `auto` → explicit **autonomous mode** (the default; this alias exists only for symmetry).
+   - `auto` → explicit **autonomous mode** (the default).
    - No keyword → **autonomous mode**.
    - `loop` (orthogonal, may combine with any of the above) → force the Phase 3B Ralph loop
      regardless of size. Without it, the implement path is size-gated in Phase 3.0.
@@ -28,17 +26,12 @@ free-text describing the work. Parse them in this order:
 
 ### Modes
 
-Two modes, encoding the global working principle (*ask when interactive; pick the most reasonable
-interpretation and record it when unattended*). Autonomous is the default and takes zero stops. See
-Bail-out for what "zero stops" means and its one exception.
+Autonomous is the default and takes zero stops.
 
-**Interactive** takes exactly **one** stop: a thorough up-front grill (Phase 0.5) that removes
-ambiguity before any code is written. After the grill's plan is approved, the run is autonomous
-through Phase 9, identical to the default flow.
+**Interactive** takes exactly **one** stop: the up-front grill (Phase 0.5).
 
-**When the up-front grill (Phase 0.5) runs.** The grill is *the* alignment stop. Resolve the case
-from this table. "Attended" means a human is present to answer; a `claude -p` run or a scheduled
-routine is unattended.
+**When the up-front grill (Phase 0.5) runs.** Resolve the case from this table. "Attended" means a
+human is present to answer. A `claude -p` run or a scheduled routine is unattended.
 
 | Input | Attendedness | Grill runs? | Assumptions block? |
 |-------|--------------|-------------|--------------------|
@@ -47,14 +40,13 @@ routine is unattended.
 | Raw idea / spec (no ticket ID) | attended | yes (highest-ambiguity input, no human-authored ticket to anchor on) | no, the grill resolves it |
 | Anything, including `interactive` | unattended | no (nobody to answer) | yes |
 
-When the grill is skipped, fall back to infer-and-record-Assumptions: pick the most reasonable
-interpretation, proceed, and record it in an **Assumptions** block carried onto the PR (Phase 6)
-and the Done summary (Phase 9).
+When the grill is skipped: pick the most reasonable interpretation, proceed, and record it in an
+**Assumptions** block carried onto the PR (Phase 6) and the Done summary (Phase 9).
 
 ### Bail-out (the one exception to zero-stops)
 
-"Zero stops" means *don't pause for preferences*. It does **not** mean ship broken code. Stop
-and report instead of proceeding when the run hits an **unrecoverable** state, specifically:
+"Zero stops" means do not pause for preferences. It does **not** mean ship broken code. **Stop and
+report** instead of proceeding when the run hits an **unrecoverable** state, specifically:
 
 - Typecheck, lint, or tests cannot be made green after a genuine fix attempt, and the failure is
   caused by this change (not pre-existing).
@@ -62,10 +54,14 @@ and report instead of proceeding when the run hits an **unrecoverable** state, s
   needs a decision only a human can make).
 - A `git` rebase/push conflict can't be resolved cleanly.
 
-On bail-out: commit/stash what's safe, leave the branch intact (so it can be resumed), and report
-exactly where it stopped, why, and what's needed to continue. Do **not** open or finalize a PR
-around known-broken code. A trivial/blocked ambiguity is not a bail-out. Record an assumption and
-keep going.
+On bail-out:
+
+1. Commit or stash what is safe.
+2. Leave the branch intact.
+3. Report exactly where the run stopped, why, and what is needed to continue.
+
+**Do not** open or finalize a PR around known-broken code. A trivial or blocked ambiguity is not a
+bail-out. Record an assumption and keep going.
 
 ---
 
@@ -113,31 +109,27 @@ top of that call:
 
 ## Preflight: dependency check (runs first)
 
-Before doing any work, check the tools this run will use and print a **readiness summary**, so
-missing optional tooling surfaces now instead of 20 minutes into Phase 8.
+Check the tools this run will use before any other work. Print a **readiness summary**.
 
-**Required** (if any is missing, stop and say so clearly, the run can't complete without it):
+**Required** (**stop** and say so clearly when any is missing):
 - `gh` CLI, authenticated (`gh auth status`), needed for the PR and bot review.
 - Linear MCP available, needed to fetch/create/update the ticket.
-- **`/ui-walkthrough`** (Phase 8), required only if the change touches UI. It owns the capture and
-  its own driver detection; without it, Phase 8 degrades to no visual evidence and says so.
+- **`/ui-walkthrough`** (Phase 8), required only when the change touches UI. It owns the capture and
+  its own driver detection. Without it, Phase 8 degrades to no visual evidence and says so.
 
-  Never probe with `command -v browse`. It ships as a binary inside the gstack skill
+  **Never probe with `command -v browse`.** It ships as a binary inside the gstack skill
   (`{$PWD,$HOME}/.claude/skills/gstack/browse/dist/browse`), not on `PATH`, so a `PATH` probe
   falsely declares Phase 8 impossible. A missing `browse` is not a blocked Phase 8 either:
   `/ui-walkthrough` falls back to headed Playwright, which still produces screenshots and video.
   Report the driver, not a bare ✗.
 
-**Optional** (note what's missing and how to enable it, then continue, these degrade gracefully):
-- **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor` (which is also
-  what surfaces a missing **macOS screen-recording permission**, a TCC grant no script can make, so
-  it has to be granted once by hand). Missing → video is skipped, never blocks. To enable: install
+**Optional** (note what is missing and how to enable it, then continue):
+- **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor`. `doctor` also
+  surfaces a missing **macOS screen-recording permission**, a TCC grant no script can make, so a
+  human grants it once by hand. Missing → video is skipped, never blocks. To enable: install
   OpenCap, `opencap login` once, then approve screen recording when macOS asks.
-  The recording itself is **owned by `/ui-walkthrough`** (Phase 8) and scoped to the browser window,
-  so a recorded run leaves the rest of the screen, and the machine, free.
 - **Skill dependencies** (`/grilling`, and the Phase 5 `/phillip` + its `/codex` + `/gemini`
-  reviewers): **auto-installed when missing**, with any CLI auth walked through interactively, see
-  "Skill dependencies: auto-install and setup" just below.
+  reviewers): **auto-installed when missing**, with any CLI auth walked through interactively.
 
 Print a compact summary, e.g.:
 
@@ -147,9 +139,9 @@ Preflight:  gh ✓   Linear ✓   driver: browse ✓ (headless → Phase 8 uses 
 
 ### Skill dependencies: auto-install and setup
 
-Install missing skills; installs are idempotent. For deps wrapping an external CLI login: attended,
-walk the user through the exact steps. Headless, note the gap and let `/phillip` degrade to
-Claude-only. A missing reviewer CLI is never a bail-out.
+Install missing skills. Installs are idempotent. For a dep that wraps an external CLI login,
+attended: walk the user through the exact steps. Headless: note the gap and let `/phillip` degrade
+to Claude-only. A missing reviewer CLI is **never** a bail-out.
 
 | Dep | When needed | Detect | Install if missing | External CLI + auth |
 |-----|-------------|--------|--------------------|---------------------|
@@ -158,20 +150,18 @@ Claude-only. A missing reviewer CLI is never a bail-out.
 | **`/gemini`** (ptrandev) | always (via `/phillip`) | `gemini` in available skills | same symlink pattern as `/phillip` | CLI `gemini`: `npm install -g @google/gemini-cli`. **Auth (API-key only, no OAuth):** set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `~/.zshenv`, and add `security.auth.selectedType: "gemini-api-key"` to `~/.gemini/settings.json` |
 | **`/codex`** (garrytan/gstack) | always (via `/phillip`) | `codex` in available skills | `git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` (the `./setup` step may prompt, so it is attended) | CLI `codex`: `npm install -g @openai/codex` then `codex login` (interactive; confirm the exact steps via `codex --help` or the skill's own docs) |
 
-If `/phillip` itself can't be installed, Phase 5 holds the operative gate.
+Phase 5 holds the operative gate when `/phillip` itself cannot be installed.
 
-**Mode behavior:** Print the summary and proceed. Missing optional tools skip their features,
-missing skills auto-install silently. If the grill will run, fold this summary into that
-interaction. The operative OpenCap gate is `/ui-walkthrough`'s own `CAN_VIDEO` probe (its Phase 0);
-this preflight only reports what the operator can fix now.
+**Mode behavior:** Print the summary and proceed. Fold this summary into the grill when the grill
+runs. The operative OpenCap gate is `/ui-walkthrough`'s own `CAN_VIDEO` probe (its Phase 0). This
+preflight only reports what the operator can fix now.
 
 ---
 
 ## Resume: idempotency check (runs after Preflight)
 
-This skill is safe to re-run on the same ticket (it often crashes or is interrupted mid-way, e.g.
-during Phase 7's multi-minute poll). Before doing work, establish what's already done and **skip
-completed phases** rather than redoing them. Determine state from the world, not memory:
+This skill is safe to re-run on the same ticket. Establish what is already done before doing work,
+and **skip completed phases** rather than redoing them. Determine state from the world, not memory:
 
 ```bash
 # Is there already a branch / PR for this ticket?
@@ -185,17 +175,18 @@ PR_NUMBER=$(gh pr list --head "$TICKET_ID" --json number --jq '.[0].number // em
 ```
 
 Apply these skip rules:
-- **Ticket already In Progress / assigned** → don't reassign (Phase 0 is a no-op).
-- **Branch exists with commits** → resume on it; don't recreate it (Phase 1).
+- **Ticket already In Progress / assigned** → **do not** reassign (Phase 0 is a no-op).
+- **Branch exists with commits** → resume on it. **Do not** recreate it (Phase 1).
 - **PR already open** → reuse its number; skip `gh pr create` (Phase 6), go straight to processing
   reviews/CI (Phases 7+).
-- **Bot threads already resolved / commits already pushed** → don't duplicate replies or commits.
+- **Bot threads already resolved / commits already pushed** → **do not** duplicate replies or
+  commits.
 - **A `fix_plan.md` exists under `/tmp/full-send-$TICKET_ID/`** → the implement step took the
   Phase 3B loop path; resume it by re-reading `fix_plan.md` + `notes.md` and continuing from the
-  first unchecked task. Don't restart the decomposition or redo checked tasks.
+  first unchecked task. **Do not** restart the decomposition or redo checked tasks.
 
-The guiding rule: every phase should check "is this already true?" and become a no-op if so. When
-in doubt, prefer reading current state (`git`, `gh`, Linear) over assuming a fresh run.
+Every phase checks "is this already true?" and becomes a no-op when it is. Read current state
+(`git`, `gh`, Linear) instead of assuming a fresh run.
 
 ---
 
@@ -217,10 +208,10 @@ as if it had been fetched:
 4. Handling of the derived acceptance criteria depends on whether the grill (Phase 0.5) will run
    (see the Modes table):
    - **Grill will run** → treat the AC as **provisional** and finalize it during the grill.
-   - **Grill skipped** → keep the inferred AC and record everything you inferred in an
-     **Assumptions** block (carry it to the PR body in Phase 6 and the Done summary in Phase 9).
+   - **Grill skipped** → keep the inferred AC and record everything you inferred in the
+     **Assumptions** block.
 
-Either way, bind the two run variables from the ticket. Every later phase uses them:
+Either way, bind the two run variables from the ticket:
 
 ```bash
 TICKET_ID="AP-1234"                       # the identifier as Linear spells it, original casing
@@ -231,7 +222,7 @@ TICKET_TITLE="<the ticket title, verbatim from Linear>"
 
 ## Phase 0.5: Up-front alignment grill
 
-Run this phase only when the Modes table says the grill runs. When it runs, before writing any code:
+Run this phase only when the Modes table says the grill runs. Run it before writing any code:
 
 1. Invoke `/grilling` via the Skill tool, scoped to this ticket/idea. Interrogate edge cases,
    scope boundaries, data shapes, non-goals, and any unclear acceptance criteria until you are
@@ -249,8 +240,8 @@ like the default flow, with no further per-phase checkpoints.
 
 ## Phase 1: Branch
 
-Always branch from an **up-to-date base** so you don't build on a stale `master` and hit avoidable
-conflicts later. Detect the base branch (`master`/`main`), fetch it, and branch from the fresh ref:
+Always branch from an **up-to-date base**. Detect the base branch (`master`/`main`), fetch it, and
+branch from the fresh ref:
 
 ```bash
 BASE=$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')   # usually master
@@ -263,17 +254,17 @@ done
 git fetch origin "$BASE"
 ```
 
-If the current branch is the base or unrelated, create a new branch from the freshly fetched base.
+Create a new branch from the freshly fetched base when the current branch is the base or unrelated.
 Name it after the ticket ID, preserving original casing, per the repo's `CLAUDE.md`. A headless run
-never loads `CLAUDE.md`, so if the file is absent, use `$TICKET_ID` exactly as Linear spells it:
+never loads `CLAUDE.md`, so use `$TICKET_ID` exactly as Linear spells it when the file is absent:
 
 ```bash
 git checkout -b $TICKET_ID "origin/$BASE"
 ```
 
-If the branch already exists, switch to it. **This is a resume** (see the Resume section); rebase
-it onto the latest base if it has diverged, and stop to report if the rebase conflicts rather than
-forcing through it.
+Switch to the branch when it already exists. **This is a resume.** Rebase it onto the latest base
+when it has diverged. **Stop and report** when the rebase conflicts. **Never** force through a
+conflicted rebase.
 
 ---
 
@@ -282,16 +273,11 @@ forcing through it.
 Check for an existing plan file in `~/.claude/plans/` referencing this ticket ID.
 
 - **Plan exists:** read it and proceed.
-- **No plan:** scan the codebase, identify all files to create or modify, and state the implementation plan inline as a numbered list (types → SDK → API → frontend state → UI → tests). Do not write a file. Do not wait for approval, proceed immediately.
+- **No plan:** scan the codebase, identify all files to create or modify, and state the implementation plan inline as a numbered list (types → SDK → API → frontend state → UI → tests). **Do not** write a file. **Do not** wait for approval. Proceed immediately.
 
 ---
 
 ## Phase 3: Implement
-
-Full-send implements one of two ways depending on the size of the change. Small tickets run in a
-**single pass** (no loop overhead); larger tickets decompose into a **Ralph-style loop**, one
-task per fresh sub-context, so no single context window ever carries the whole feature and focus
-doesn't rot as the diff grows.
 
 ### Phase 3.0: Size assessment (pick the path)
 
@@ -304,12 +290,11 @@ Judge the scope from the Phase 2 plan:
 
 Precedence: any 3B condition wins. Pick 3A only when no 3B condition holds.
 
-`/full-send loop <TICKET-ID>` forces 3B regardless of size; a trivial change never needs it.
-Record the chosen path in `/tmp/full-send-$TICKET_ID/path.md` (one line, `3A` or `3B`, plus the
-reason) so a resume knows which way the run went. 3B also writes `fix_plan.md` to that dir, which
-is what the Resume skip rules key on.
+`/full-send loop <TICKET-ID>` forces 3B regardless of size. Record the chosen path in
+`/tmp/full-send-$TICKET_ID/path.md` (one line, `3A` or `3B`, plus the reason).
 
-**3B runs from `full-send/ralph-loop.md`.** Read that file and follow it, then return to Phase 4.
+**Read [ralph-loop.md](ralph-loop.md) and follow it before starting 3B.** It owns the
+decomposition, the on-disk run state, and the loop. Return to Phase 4 when it finishes.
 
 ### Standing rules (both paths)
 
@@ -322,14 +307,12 @@ file, so when one is absent, follow the conventions the surrounding code already
 - Read every file before editing it.
 - **Search before assuming something isn't implemented.** Ripgrep silence is not absence.
 - Full implementations, **no placeholders or TODOs.**
-- Never add **features or abstractions** beyond what the ticket/task requires.
+- **Never** add features or abstractions beyond what the ticket/task requires.
 - **Opportunistic cleanup is allowed, within the blast radius.** When you're already editing a
   function or file, you may DRY it and raise its quality (extract a duplicated helper, tighten a
   type, delete dead code, clarify a name), but only for code the change already touches, only when
   it's low-risk and covered by tests, and without materially widening the diff. Anything bigger, or
-  in code this change doesn't touch, stays a **surfaced note** (a Linear follow-up or a PR comment),
-  per CLAUDE.md's "stay in scope, but surface smells." The line: clean what you're standing on,
-  don't wander off to refactor the neighbourhood.
+  in code this change doesn't touch, stays a **surfaced note** (a Linear follow-up or a PR comment).
 - When modifying a shared package (sdk, privs, common, ui), rebuild it: `cd packages/<name> && yarn build`.
 - Add `data-testid` attributes to every new interactive element.
 - **Cover the new behavior with tests.** Add/extend tests for the code paths this ticket
@@ -339,8 +322,8 @@ file, so when one is absent, follow the conventions the surrounding code already
 
 ### Phase 3A: Single-pass (small change)
 
-Execute the Phase 2 plan directly following the standing rules above, then continue to Phase 4.
-Use TaskCreate to track sub-steps; mark each complete as you finish it.
+Run the Phase 2 plan directly, following the standing rules above. Use TaskCreate to track
+sub-steps. Mark each sub-step complete as you finish it. Continue to Phase 4.
 
 ---
 
@@ -361,12 +344,11 @@ cd apps/api && yarn test 2>&1 | tail -30
 cd apps/agents-portal && yarn test 2>&1 | tail -30
 ```
 
-If a typecheck error is pre-existing and unrelated to this ticket, note it and do not fix it.
-Treat test failures the same way: **fix** the ones caused by this change; **note and skip**
-pre-existing or unrelated ones.
+Note a typecheck error that is pre-existing and unrelated to this ticket. **Do not** fix it. Treat
+test failures the same way: **fix** the ones caused by this change; **note and skip** pre-existing
+or unrelated ones.
 
-Confirm the Phase 3 tests actually run and pass. A green suite that never exercises the new path
-doesn't count. Check it, don't assume it: every test file added in Phase 3 must appear in the
+Confirm the Phase 3 tests run and pass. Every test file added in Phase 3 must appear in the
 runner's own output.
 
 ```bash
@@ -379,7 +361,7 @@ If typecheck, lint, or tests **cannot be made green** and the failure is caused 
 Commit any remaining uncommitted work. **Single-pass (3A):** this is where the change is committed,
 as `feat(<scope>): <ticket title>`. **Loop (3B):** the units were already committed per-task during
 the loop, so only commit stragglers from this final sweep (e.g. a test fix the full-suite run
-surfaced); don't squash the per-task history.
+surfaced). **Do not** squash the per-task history.
 
 ```bash
 git add <the specific files this phase touched>
@@ -393,14 +375,14 @@ git commit -m "feat(<scope>): <ticket title>"   # 3A; or fix(<scope>): <what the
 Run `/phillip` via the Skill tool. It writes a report to
 `~/.claude/plans/phillip-<branch-slug>-<YYYY-MM-DD>.md` (the branch slug replaces `/` with `-`).
 
-Operative gate: if `/phillip` couldn't be installed, **skip this phase** and flag prominently on the
-PR and Done summary that **no self-review ran** (a notable quality gap). If `/phillip` is present
-but a reviewer CLI (`gemini`/`codex`) is unauthenticated, let `/phillip` degrade to the reviewers
-that are available (down to Claude-only), don't block.
+Operative gate: when `/phillip` cannot be installed, **skip this phase** and flag prominently on the
+PR and Done summary that **no self-review ran**. When `/phillip` is present but a reviewer CLI
+(`gemini`/`codex`) is unauthenticated, let `/phillip` degrade to the reviewers that are available
+(down to Claude-only). **Do not** block.
 
 - Let it run to completion. It applies the HIGH/MEDIUM fixes directly to the working tree (and may commit them itself).
-- If it left any fixes uncommitted, commit them: `git add <the files it changed>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit if it changed nothing.
-- Do not stop for the verdict (zero stops). Carry it forward to Phase 9 (Done):
+- Commit any fixes it left uncommitted: `git add <the files it changed>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit when it changed nothing.
+- **Do not** stop for the verdict (zero stops). Carry it forward to Phase 9 (Done):
   - **"Ready for PR"** → proceed normally.
   - **"Needs human review -> cap hit, ..."** or any verdict with unresolved HIGH/MEDIUM → proceed, but record the unresolved items and the report path so the Done summary surfaces them on the PR.
 
@@ -410,17 +392,17 @@ For a small or low-risk diff, `/phillip quick` is acceptable (it auto-scales dow
 
 ## Phase 6: PR
 
-Read `CLAUDE.local.md` for the `username` (assignee). If the file is absent (a headless run never
+Read `CLAUDE.local.md` for the `username` (assignee). When the file is absent (a headless run never
 loads it), use `gh api user --jq .login` and say in the Done summary that the assignee was inferred.
 Read `.github/PULL_REQUEST_TEMPLATE.md` for the body format.
 
-The PR title must come from the Linear ticket title. Do not invent or summarise it.
+The PR title must come from the Linear ticket title. **Do not** invent or summarise it.
 
 The three reviewer handles and the `Pending Code Review` label below are the Atllas defaults.
 Verify both before creating, because `gh pr create` fails outright on a label the repo does not
 define. Drop `--label` when `gh label list --json name --jq '.[].name'` does not list it. Drop a
 `--reviewer` when `gh api "repos/$REPO/collaborators/<handle>"` returns non-zero. Note each drop in
-the Done summary. Never let a missing label or handle block the PR.
+the Done summary. **Never** let a missing label or handle block the PR.
 
 ```bash
 gh pr create \
@@ -452,8 +434,8 @@ gh api repos/$REPO/pulls/$PR_NUMBER/requested_reviewers \
 ```
 
 **Gemini Code Assist needs no request.** It is a GitHub App that reviews every PR automatically (it
-posts a review \~2 min after the PR opens). You do not, and cannot, add it via
-`requested_reviewers`.
+posts a review \~2 min after the PR opens). **Never** add it via `requested_reviewers`, which the
+API rejects.
 
 ---
 
@@ -468,16 +450,15 @@ inline-`comments` API, so match them exactly:
 | Gemini Code Assist | Automatic on every PR (\~2 min) | `gemini-code-assist[bot]` | `gemini-code-assist[bot]` | `gemini-code-assist` |
 
 Either, both, or (rarely) neither may land. Copilot reviews only when its usage is available: the
-Phase 6 request can error or be silently dropped when Copilot is over its limit. That is not fatal.
-**Do not block on Copilot specifically.** Gemini is the fallback and usually arrives first. Process
-whichever bot reviews are present.
+Phase 6 request can error or be silently dropped when Copilot is over its limit. **Do not** block on
+Copilot specifically. Gemini is the fallback and usually arrives first. Process whichever bot
+reviews are present.
 
 ### Step 7a: Wait for an automated review
 
 The polls below run up to 10 minutes, then up to 3 more, so this step alone can take 13 minutes. A
-headless `claude -p` run can hit its wall-clock limit inside that window and die here, which is why
-Phase 7 is the most common resume point. That is safe: the PR and its threads are the state, and a
-re-run picks up from them (see Resume).
+headless `claude -p` run can hit its wall-clock limit inside that window and die here, which makes
+Phase 7 the most common resume point.
 
 ```bash
 # Matches both bots' review-author logins.
@@ -508,7 +489,7 @@ gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
   --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | \"Reviewed by: \" + join(\", \")"
 ```
 
-If neither bot responds within the window, note the timeout and continue. Do not stop.
+Note the timeout and continue when neither bot responds within the window. **Do not** stop.
 
 ### Step 7b: Read the review summaries
 
@@ -531,7 +512,7 @@ HIGH and MEDIUM as actionable; LOW and praise/nit comments can be acknowledged a
    gh api repos/$REPO/pulls/$PR_NUMBER/comments \
      --jq '.[] | select(.user.login=="Copilot" or .user.login=="gemini-code-assist[bot]") | {id, path, line, body}'
    ```
-2. For each comment: fix if actionable, otherwise explain why not.
+2. For each comment: fix it when actionable, otherwise explain why not.
 3. Reply to every comment:
    ```bash
    gh api repos/$REPO/pulls/comments/$COMMENT_ID/replies \
@@ -562,13 +543,12 @@ HIGH and MEDIUM as actionable; LOW and praise/nit comments can be acknowledged a
      resolveReviewThread(input:{threadId:$id}) { thread { isResolved } }
    }' -F id="$THREAD_ID"
    ```
-5. If any fixes were made, commit as `fix(<scope>): address automated review findings` and push.
+5. Commit any fixes as `fix(<scope>): address automated review findings` and push.
 
 ### Step 7d: Ensure CI is green
 
-Bot reviews are advisory; the PR's **CI checks** (build, tests, lint, type) are the real gate, and
-a developer cares more that they pass than that a bot commented. After the last code push, wait
-for the checks to settle:
+Bot reviews are advisory. The PR's **CI checks** (build, tests, lint, type) are the real gate.
+After the last code push, wait for the checks to settle:
 
 ```bash
 # Waits for all required checks; exits non-zero if any fail.
@@ -577,19 +557,19 @@ gh pr checks "$PR_NUMBER" --watch --interval 30 || CI_FAILED=1
 
 - **All green** → continue.
 - **A check fails** → read its log, fix the cause, commit (`fix(<scope>): fix CI`), push, and
-  re-watch. Loop until green or until the failure is genuinely unrecoverable.
-- **Unrecoverable / failure is pre-existing & unrelated** → don't loop forever: note it, carry the
-  red-check status to the Done summary so it's surfaced on the PR, and (if the failure is caused by
-  this change) treat it as a **bail-out** rather than presenting the PR as ready.
+  re-watch. Loop until green or until the failure is unrecoverable.
+- **Unrecoverable, or the failure is pre-existing and unrelated** → **Never** loop forever. Note it
+  and carry the red-check status to the Done summary so it is surfaced on the PR. Treat a failure
+  caused by this change as a **bail-out** rather than presenting the PR as ready.
 
-If the repo has no CI configured, `gh pr checks` reports no checks. Note that and move on.
+`gh pr checks` reports no checks when the repo has no CI configured. Note that and move on.
 
 ---
 
 ## Phase 8: Evidence (screenshots and video)
 
-Runs from `full-send/evidence.md`, which also holds the skip gate for a non-UI change. Read that
-file and follow it, then continue to Phase 9.
+**Read [evidence.md](evidence.md) and follow it at Phase 8.** It owns the skip gate for a non-UI
+change, the capture, and the PR comment. Continue to Phase 9 when it finishes.
 
 ---
 
@@ -597,7 +577,7 @@ file and follow it, then continue to Phase 9.
 
 Close the Linear loop:
 - Move the ticket to **In Review** (Linear MCP update).
-- Post a comment on the Linear issue with the PR URL (and the OpenCap share link if there is one).
+- Post a comment on the Linear issue with the PR URL (and the OpenCap share link when there is one).
 
 Report:
 - PR URL
@@ -606,8 +586,8 @@ Report:
 - **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
   attached (Phase 8d): the video link, or the specific reason there isn't one (screen-recording
-  permission not granted, OpenCap not installed/logged in, reviewer mode, `--no-video`). "Video
-  skipped" with no reason isn't a report; the operator can't act on it.
+  permission not granted, OpenCap not installed/logged in, reviewer mode, `--no-video`). **Never**
+  report "video skipped" with no reason.
 - Alignment context (per the Modes table):
   - **Grill ran:** the clarifications captured during the Phase 0.5 grill.
   - **Grill skipped:** the **Assumptions** block recorded in Phase 0 for anything inferred.

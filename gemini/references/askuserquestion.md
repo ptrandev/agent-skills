@@ -9,17 +9,17 @@ no-arguments auto-detect branch in Step 1).
 (e.g. `mcp__conductor__AskUserQuestion`, which appears in your tool list when the
 host registers it) or the **native** Claude Code tool.
 
-**Rule:** if any `mcp__*__AskUserQuestion` variant is in your tool list, prefer
-it. Hosts may disable native AUQ via `--disallowedTools AskUserQuestion`
-(Conductor does, by default) and route through their MCP variant; calling native
-there silently fails.
+**Rule:** Use the `mcp__*__AskUserQuestion` variant when one is in your tool
+list. A host can disable the native AskUserQuestion via
+`--disallowedTools AskUserQuestion` (Conductor does, by default) and route
+through its MCP variant. Calling native there silently fails.
 
 **Fallback when neither variant is callable:** output the brief as prose and
 stop. **Never silently auto-decide.**
 
 ## Format
 
-Every AskUserQuestion is a decision brief and must be sent as tool_use, not prose.
+Send every AskUserQuestion as a decision brief in a tool_use call, not as prose.
 
 ```
 D<N>: <one-line question title>
@@ -38,13 +38,11 @@ B) <option label>
 Net: <one-line synthesis of what you're actually trading off>
 ```
 
-D-numbering: first question is `D1`; increment yourself.
+Number the first question `D1`, then increment for each next question.
 
-- ELI10 always present. Recommendation ALWAYS present with `(recommended)` label.
 - Completeness: use `N/10` when options differ in coverage; otherwise "differ in kind" note.
 - Min 2 ✅ and 1 ❌ per option, each ≥40 chars. Hard-stop escape: `✅ No cons. This is a hard-stop choice`.
-- Effort labels when relevant: `(human: ~X days / CC: ~Y min)`.
-- Net line closes the tradeoff.
+- Add an effort label when the options differ in time cost: `(human: ~X days / CC: ~Y min)`.
 
 ## Self-check before emitting
 

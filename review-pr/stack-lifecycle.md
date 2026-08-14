@@ -1,12 +1,8 @@
 # review-pr: stack lifecycle (Phase 6)
 
 How the Tier-3 dynamic walkthrough boots the PR's code locally, and how it stops. This file is the
-**source of truth for the machine-wide stack lock**: `/ui-walkthrough` Phase 4 reads it from here
-instead of keeping a second copy that would drift. Read it before any boot.
-
-There is no preview deploy, so the walkthrough boots the PR's code locally. Booting someone else's
-branch is the most failure-prone and highest-noise part of this skill. These rules keep its evidence
-trustworthy.
+**source of truth for the machine-wide stack lock**: `/ui-walkthrough` Phase 4 reads it from here.
+Read it before any boot.
 
 ## One stack at a time, machine-wide
 
@@ -29,20 +25,20 @@ echo $$ > "$LOCK/pid"
 ```
 
 Sequential: the ports below are pinned and `browse` is a singleton Chromium daemon, so two stacks
-cannot coexist. Per-repo agents may run in parallel (see `orchestration.md`), but Tier-3
+cannot coexist. Per-repo agents may run in parallel (`orchestration.md`), but Tier-3
 walkthroughs serialize on this lock; an agent that finds it held defers with a NEEDS-DYNAMIC-RUN note
 rather than waiting.
 
 ## Pinned ports: free-or-abort preflight, and the repo already owns this check
 
 The stack's ports come from repo config and are NOT relocatable without editing the checkout (FE
-`baseURL` is hardcoded, emulator ports live in `firebase.json`). **Prefer the harness's own
+`baseURL` is hardcoded, emulator ports live in `firebase.json`). **Use the harness's own
 preflight.** `scripts/e2e-stack.sh` runs `node scripts/e2e-preflight.mjs --ports
 "${E2E_PREFLIGHT_PORTS:-4000,3000,9099,8080,9000,9199,8085}" --checkout "$ROOT"`, which fails loudly
 naming the squatter's pid/command/cwd. A hand-maintained list here drifts from `firebase.json`, and
 did: the set below previously omitted **9000** (the `database` emulator, which `--only` *does* start)
 and included **4001** (the emulator UI, which `--only` does *not* start, so requiring it free is a
-false blocker). Never set `E2E_KILL_SQUATTERS=1`: killing a process you don't own violates the
+false blocker). **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you don't own violates the
 "provably ours" rule below.
 
 If you need a pre-lock check before invoking the harness, match its list exactly:
@@ -58,14 +54,13 @@ This probe misses squatters outside this checkout; the harness preflight is auth
 because :4000 was held by an API in a different conductor worktree.
 
 Any port occupied -> **do not boot, do not walk through**. Release the lock, add a neutral
-NEEDS-DYNAMIC-RUN note naming the port and likely cause ("is your dev stack running?"). This gate is
-load-bearing, not hygiene: `playwright.config.ts` sets `reuseExistingServer: true`, so if something
-already listens on :3000 (the user's dev server on `master`), the walkthrough would **silently
-validate that code instead of the PR's** and produce screenshots "proving" whatever is already
-running. A port conflict that errors is loud; validating the wrong stack is quiet. This preflight
-converts the quiet failure into a loud skip. Kill a leftover only if it's provably ours: its PID is
-in a previous run's `$LOCK/pid` **and** its command line matches the stack (`ps -p <pid> -o
-command=` shows `next start` / `firebase emulators`). Anything else -> skip, never kill.
+NEEDS-DYNAMIC-RUN note naming the port and likely cause ("is your dev stack running?").
+`playwright.config.ts` sets `reuseExistingServer: true`, so if something already listens on :3000
+(the user's dev server on `master`), the walkthrough would **silently validate that code instead of
+the PR's** and produce screenshots "proving" whatever is already running. Kill a leftover only if
+it's provably ours: its PID is in a previous run's `$LOCK/pid` **and** its command line matches the
+stack (`ps -p <pid> -o command=` shows `next start` / `firebase emulators`). **Anything else ->
+skip, never kill.**
 
 ## Pre-build: workspace packages, on Node 20
 
@@ -89,20 +84,17 @@ is the one gap between a fresh clone and a healthy `:3000`.)*
 
 After the stack reports healthy, confirm :3000 is owned by a process this run spawned (`lsof -nP
 -iTCP:3000 -sTCP:LISTEN` PID is a descendant of the stack we started) before driving the browser.
-This is what makes walkthrough evidence attributable to the PR's code rather than to whatever
-answered the port.
 
 ## State isolation
 
-State isolation comes free from the existing harness: `yarn e2e:stack` runs `firebase
-emulators:exec` with per-run in-memory emulators seeded by `e2e/seed/seed.mjs` (no `--import`), and
-external services are stubbed. Never point the walkthrough at the dev database or real services. If
-the stubbed stack can't exercise the surface, that's a NEEDS-DYNAMIC-RUN note, not a reason to relax
-stubbing.
+The existing harness provides state isolation: `yarn e2e:stack` runs `firebase emulators:exec` with
+per-run in-memory emulators seeded by `e2e/seed/seed.mjs` (no `--import`), and external services are
+stubbed. **Never point the walkthrough at the dev database or real services.** If the stubbed stack
+can't exercise the surface, that's a NEEDS-DYNAMIC-RUN note, not a reason to relax stubbing.
 
 ## Boot budget and teardown
 
-**Boot budget: ~120 s to healthy** (matches the Playwright `webServer` timeout). Miss it -> tear
+**Boot budget: \~120 s to healthy** (matches the Playwright `webServer` timeout). Miss it -> tear
 down, release the lock, neutral note ("stack didn't boot in budget"), move on. No retry spiral.
 
 **Guaranteed teardown, and boot failures are never findings.** `emulators:exec` tears down the
@@ -111,5 +103,5 @@ is killed by an EXIT trap that also releases the lock. Teardown must not depend 
 succeeding. Triage discipline: "didn't boot on my machine" is not "PR broken". Infra failures (ports,
 budget, emulator crash) produce **neutral report notes only**. A posted finding requires misbehavior
 observed **in the app, on a healthy, identity-verified stack**. If the stack ever gains first-class
-port parameterization, move to a dedicated review-port block then. Do not `sed` ports into the
-checkout to force one now.
+port parameterization, move to a dedicated review-port block then. **Do not `sed` ports into the
+checkout to force one now.**

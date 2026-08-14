@@ -1,18 +1,16 @@
 # babysit-prs: GitHub Actions bot (the comment-driven option)
 
-This is an autonomous, event-driven bot that lives in the repo and fires the instant a review
-comment lands, covering the whole team, no machine required. Pick it over a Routine per the runtime
-table in "Running it unattended" in [SKILL.md](SKILL.md). Running **both** is fine: the Actions bot
-for instant comment response, the Routine's hourly sweep as a backstop. Idempotency keeps them from
+An autonomous, event-driven bot that lives in the repo and fires the instant a review comment
+lands, for every author, with no machine on. Pick it over a Routine per the runtime table in
+"Running it unattended" in [SKILL.md](SKILL.md). Running **both** is fine: the Actions bot for
+instant comment response, the Routine's hourly sweep as a backstop. Idempotency keeps them from
 colliding.
 
-**Do not enable this until the Phase 1 loop's resolution quality is trusted.** A bot that pushes
-commits and resolves threads on every PR, unsupervised, is only safe once you've watched the same
-judgment work by hand.
+**Do not enable this until the local loop's resolution quality is trusted.**
 
-## How it differs from Phase 1
+## How it differs from the local loop
 
-| | Phase 1 (local skill) | Phase 2 (Actions bot) |
+| | Local loop (the skill) | Actions bot |
 |---|---|---|
 | Trigger | You / a schedule | `pull_request_review_comment`, `issue_comment` events |
 | Identity | Your `gh` login | A bot token / GitHub App |
@@ -25,13 +23,13 @@ points at.
 
 ## Safety deltas to add for unattended CI
 
-The three Phase-1 invariants still hold, plus:
+The three safety invariants in `SKILL.md` still hold, plus:
 
-- **Guard against loops.** Skip events authored by the bot itself (`github.actor == <bot login>`)
-  or you'll trigger on your own replies forever.
-- **Branch contention.** The bot must not push to a branch a human is actively editing. Push with
-  `--force-with-lease` is *not* a fix here. Instead, rebase onto the latest head and bail (reply
-  "your branch moved, leaving this for you") if it can't fast-forward cleanly.
+- **Guard against loops.** Skip events authored by the bot itself (`github.actor == <bot login>`),
+  or the bot triggers on its own replies forever.
+- **Branch contention. Never push to a branch a human is actively editing. Never use
+  `--force-with-lease` here.** Rebase onto the latest head instead. Bail when it cannot fast-forward
+  cleanly, and reply "your branch moved, leaving this for you".
 - **Permissions.** `contents: write` + `pull-requests: write` only. Resolving threads needs the
   GraphQL `resolveReviewThread` mutation, available with `pull-requests: write`.
 - **Rate / cost.** Concurrency-group per PR so rapid-fire comments collapse into one run.
@@ -102,13 +100,13 @@ jobs:
   and resolutions show as that account. Store as `BABYSIT_BOT_TOKEN`.
 - **GitHub App**: cleaner identity, per-repo install, finer permissions, higher rate limits.
   More setup. Preferred if this graduates to org-wide use.
-- **Not the default `GITHUB_TOKEN`**: its pushes don't re-trigger downstream workflows (so CI
+- **Never use the default `GITHUB_TOKEN`**: its pushes don't re-trigger downstream workflows (so CI
   wouldn't re-run on the bot's fix commit), and cross-PR thread resolution is awkward. Use a real
   bot token/App.
 
-## Rollout suggestion
+## Rollout
 
-1. Run Phase 1 on a schedule for a couple of weeks; read every report.
+1. Run the local loop on a schedule for a couple of weeks. Read every report.
 2. When the "needs you" queue is consistently the *right* things to escalate (and the auto-fixes
    are consistently correct), enable this workflow on **draft PRs only** first (add an `if` on
    `github.event.pull_request.draft == true`).

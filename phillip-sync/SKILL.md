@@ -21,8 +21,7 @@ allowed-tools:
 
 You keep the `/phillip` rubric current by mining THIS repo's recent, resolved PR-review
 comments and folding the recurring lessons back into `~/.claude/skills/phillip/RUBRIC.md`.
-You are RUN BY Claude (you read the gh JSON and judge each thread yourself). You run as a
-pre-step inside `/phillip`, so be cheap and NEVER block the review.
+You run as a pre-step inside `/phillip`.
 
 Be terse. Use `->`, not em dashes. Never print tokens or keys.
 
@@ -48,7 +47,7 @@ HARD RULE, applies to every code block below: each Bash call is a fresh shell, s
 variable survives between blocks. All cross-block state goes through two files,
 `/tmp/phillip_sync_slug.txt` (the repo slug, written in step 2) and
 `/tmp/phillip_sync_plan.json` (slug + cooldown + since window, written in step 3). Re-read
-them in every later block. Never rely on `$SLUG` or `$SINCE` carrying over.
+them in every later block. **Never** rely on `$SLUG` or `$SINCE` carrying over.
 
 ## 1. Guard: is sync even possible? (non-blocking)
 
@@ -64,7 +63,7 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo "phillip-sync: not
 echo "phillip-sync: guards passed"
 ```
 
-If the rubric file is missing, this skill has nothing to update -> warn and stop:
+If the rubric file is missing, warn and stop:
 
 ```bash
 test -f "$HOME/.claude/skills/phillip/RUBRIC.md" || { echo "phillip-sync: ~/.claude/skills/phillip/RUBRIC.md not found -> skipping."; exit 0; }
@@ -146,10 +145,9 @@ print(f"phillip-sync: {len(nodes)} merged PR(s) in window")
 PY
 ```
 
-Now READ `/tmp/phillip_sync_capped.json` with the Read tool. That JSON is your input for the
-next step. If the file is empty / `[]`, there is nothing to learn this window -> go to step 7
-(update the cursor so the cooldown still applies), then print the step 8 summary line, then
-return success.
+Now READ `/tmp/phillip_sync_capped.json` with the Read tool. If the file is empty / `[]`, go
+to step 7 (update the cursor so the cooldown still applies), then print the step 8 summary
+line, then return success.
 
 ## 5. Distill (your own reasoning over the JSON)
 
@@ -167,11 +165,11 @@ and acted on:
 
 Learn from all reviewers present in the fetched threads, not just one pair.
 
-The per-PR fetch is capped at 50 threads / 20 comments / 50 reviews. That is ample for typical
-PRs; a very busy PR may be partially sampled.
+The per-PR fetch is capped at 50 threads / 20 comments / 50 reviews, so a very busy PR is
+partially sampled.
 
-You MAY weight the repo owner / a clearly senior reviewer slightly higher, but RECURRENCE is
-the primary weight -> one senior comment is a Candidate, the same issue raised twice is rubric.
+Weight by RECURRENCE first: one senior comment is a Candidate, the same issue raised twice is
+rubric. You MAY add weight for the repo owner or a clearly senior reviewer.
 
 From the kept comments, keep only patterns that are ALL of:
 - (a) RECURRING -> the same class of issue appears in >= 2 distinct threads/PRs.
@@ -190,7 +188,7 @@ Phrase each survivor as ONE table row in the rubric's column order:
 
 - REPO: the slug from `/tmp/phillip_sync_slug.txt` when the pattern names identifiers,
   products, or services specific to this repo. `any` when the lesson holds in any codebase.
-  Never leave it blank -> readers skip rows tagged to a repo other than the one they review.
+  **Never** leave it blank, because readers skip rows tagged to a repo other than their own.
 - CATEGORY: one value from the closed set at the top of `RUBRIC.md` (Security, Races, Silent
   failures, Correctness, Performance, Data loss, Comments, Encoding, Docs, Tests, UI,
   Permissions, Firestore).
@@ -235,7 +233,7 @@ For each NEW row, APPEND it just before its block's END marker, using the Edit t
 on that END marker so insertion is deterministic. Get today's date for the Added column with
 `date +%F` and tag every new row with it.
 
-Concretely, to add one auto row, Edit the END marker like:
+To add one auto row, Edit the END marker like:
 
   old_string:
   ```
@@ -247,14 +245,13 @@ Concretely, to add one auto row, Edit the END marker like:
   <!-- phillip-sync:auto END -->
   ```
 
-Do not leave a blank line between the last row and the END marker; the rows must stay
+**Do not** leave a blank line between the last row and the END marker. The rows must stay
 contiguous with the table header or the table breaks. Repeat per row, or batch several rows
 above the marker in one Edit.
 
 ### 6b. Retirement (the blocks are capped, not monotonic)
 
-Run this AFTER inserting this run's rows. Without it the file grows about 4 rows per week per
-repo and never shrinks.
+Run this AFTER inserting this run's rows.
 
 - RECONFIRM instead of duplicating. When a survivor matches an existing row, do not insert.
   Edit that row's Added column to today's date. That is what "re-observed" means below.
@@ -272,7 +269,7 @@ repo and never shrinks.
 ## 7. Update the per-repo cursor
 
 Persist `lastSync = now` for this repo. This arms the 24h cooldown and shrinks the next
-window. Do it even when nothing was written, so a no-op still costs \~0 next time within 24h.
+window. Do it even when nothing was written.
 
 ```bash
 CUR=$(gh repo view --json owner,name -q '.owner.login + "/" + .name' 2>/dev/null)
@@ -289,7 +286,7 @@ return success so `/phillip` continues into its review loop.
 
 ## Cleanup
 
-These temp files are disposable; leaving them is fine, but you may remove them:
+Removing these temp files is optional:
 
 ```bash
 rm -f /tmp/phillip_sync_prs.json /tmp/phillip_sync_capped.json /tmp/phillip_sync_plan.json /tmp/phillip_sync_slug.txt /tmp/phillip_sync_err.txt 2>/dev/null; true

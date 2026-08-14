@@ -2,10 +2,10 @@
 name: gemini
 version: 0.1.0
 description: >
-  Google Gemini CLI wrapper with three modes. Review: independent diff review with a pass/fail
-  gate. Challenge: adversarial, tries to break your code. Consult: any question, with 1M+
-  token context for whole-repo work. Use when you want a third opinion, or when context size
-  matters more than reasoning depth.
+  Wraps the Google Gemini CLI for an independent review of your diff, an adversarial
+  challenge of it, or a consult on any question over a 1M+ token context. Use for "gemini
+  review", "gemini challenge", "third opinion", or when context size matters more than
+  reasoning depth.
 triggers:
   - gemini review
   - gemini challenge
@@ -21,19 +21,6 @@ allowed-tools:
 ---
 
 # /gemini: Multi-AI Second/Third Opinion
-
-You are running the `/gemini` skill. This wraps the Google Gemini CLI to get an
-independent opinion from a different AI system.
-
-Gemini's strengths: very long context window (1M+ tokens), strong at
-whole-codebase questions, web-grounded answers, fast on Flash, deeper on Pro.
-It's a complement to `/codex` (OpenAI), not a replacement. Present its output
-faithfully, not summarized.
-
-Reference files, loaded on demand:
-- `references/setup.md`: one-time per-machine API-key setup.
-- `references/askuserquestion.md`: decision-brief format, needed only by the
-  no-arguments auto-detect branch in Step 1.
 
 ---
 
@@ -53,8 +40,8 @@ If `NOT_FOUND`, stop and tell the user:
 
 ## Step 0.5: Auth probe (API-key only)
 
-API-key only. Auth goes through `$GEMINI_API_KEY` or `$GOOGLE_API_KEY`, never
-OAuth or gcloud ADC.
+Auth goes through `$GEMINI_API_KEY` or `$GOOGLE_API_KEY`. **Never** use OAuth or
+gcloud ADC.
 
 - **MODELS.** The `-latest` aliases and the full model catalog are served by the
   Generative Language API behind an API key. The OAuth "Code Assist" backend
@@ -66,11 +53,11 @@ OAuth or gcloud ADC.
 Two conditions must both hold:
 
 - `~/.gemini/settings.json` → `security.auth.selectedType` is `"gemini-api-key"`.
-  If it's anything else (e.g. `oauth-personal`), the CLI uses *that* method and
+  If it is anything else (e.g. `oauth-personal`), the CLI uses *that* method and
   **ignores the key**.
 - `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) is set in the environment the skill runs
   in. A non-interactive shell does **not** source `~/.zshrc`, so the export must
-  live in `~/.zshenv` (see `references/setup.md`).
+  live in `~/.zshenv`.
 
 ```bash
 GEMINI_SETTINGS="$HOME/.gemini/settings.json"
@@ -98,11 +85,12 @@ else
 fi
 ```
 
-Stop conditions (do the setup in `references/setup.md` to resolve):
+Stop conditions. **Read [references/setup.md](references/setup.md) to resolve
+either block below.** That file owns the one-time per-machine API-key setup.
 
 - **`BLOCKED: no API key`** → No `GEMINI_API_KEY`/`GOOGLE_API_KEY` in the
-  environment. The export likely lives in `~/.zshrc` (not loaded by
-  non-interactive shells) or isn't set at all. Tell the user:
+  environment. The export sits in `~/.zshrc` (not loaded by non-interactive
+  shells), or is not set at all. Tell the user:
 
   > No Gemini API key in the environment. Add `export GEMINI_API_KEY="your-key"`
   > to `~/.zshenv` (not `~/.zshrc`, which non-interactive shells don't source),
@@ -113,8 +101,8 @@ Stop conditions (do the setup in `references/setup.md` to resolve):
   for OAuth/Vertex and will ignore the key. Tell the user:
 
   > `~/.gemini/settings.json` has `selectedType: <value>`. This skill needs
-  > `gemini-api-key`. Set `security.auth.selectedType` to `"gemini-api-key"`
-  > (see `references/setup.md`).
+  > `gemini-api-key`. Set `security.auth.selectedType` to `"gemini-api-key"`.
+  > Run the setup in `references/setup.md`.
 
 ---
 
@@ -138,7 +126,8 @@ Parse the user's input:
    contract below first, then:
    - Look for a diff against the base branch: `[ -s "$TMPDIFF" ]`.
    - If a diff exists, ask via AskUserQuestion: Review / Challenge / Custom
-     prompt. Load `references/askuserquestion.md` first and follow that format.
+     prompt. **Read [references/askuserquestion.md](references/askuserquestion.md)
+     before that call.** That file owns the decision-brief format.
    - If no diff, check for a plan file scoped to the current project:
      `ls -t "$PLAN_ROOT"/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1`
    - Otherwise ask "What would you like to ask Gemini?"
@@ -152,8 +141,7 @@ Challenge the same way.
 
 ## Shared invocation contract
 
-Run this ONCE, before dispatching to any mode. All three modes depend on the
-variables and the `gemini_run` function it defines.
+Run this ONCE, before dispatching to any mode.
 
 ```bash
 # --- Repo and paths -------------------------------------------------------
@@ -235,16 +223,14 @@ gemini_run() {
 120000ms and would kill the call first, so every `gemini_run` invocation must
 pass `timeout: 600000` on the Bash call.
 
-**Model.** All three modes default to `gemini-pro-latest` for reasoning depth,
-including Consult, which is a real third opinion or plan review. Pro carries the
-same 1M context as Flash, so long-context questions lose nothing. Pass `--flash`
-for quick lookups over large context where speed and cost dominate. Both aliases
-are moving pointers to the latest *stable* Pro and Flash, so the skill tracks new
-model generations with no skill edits. A promotion can change output, cost, or
-behavior between runs. Pin a concrete version (e.g. `gemini-2.5-pro`,
-`gemini-3-pro-preview`) via `-m` or `GEMINI_MODEL` when a run must be
-reproducible, or to use a `-preview` model before it goes GA, since `-latest`
-tracks stable only.
+**Model.** All three modes default to `gemini-pro-latest` for reasoning depth.
+Pro carries the same 1M context as Flash, so long-context questions lose nothing.
+Pass `--flash` for quick lookups over large context where speed and cost
+dominate. Both aliases are moving pointers to the latest *stable* Pro and Flash,
+so a promotion can change output, cost, or behavior between runs. Pin a concrete
+version (e.g. `gemini-2.5-pro`, `gemini-3-pro-preview`) via `-m` or
+`GEMINI_MODEL` when a run must be reproducible, or to use a `-preview` model
+before it goes GA, since `-latest` tracks stable only.
 
 ---
 
@@ -291,8 +277,7 @@ Claude Code disagrees on X because Y."
 
 ## Step 2A: Review Mode
 
-Gemini has no dedicated `review` subcommand like Codex. Build the review prompt
-and inline the diff.
+Gemini has no `review` subcommand. Build the review prompt and inline the diff.
 
 ```bash
 # Parsed in Step 1 from `/gemini review <instructions>`, e.g. "focus on security".
@@ -328,9 +313,6 @@ Present per the Output contract, mode `code review`, footer including the gate.
 
 ## Step 2B: Challenge (Adversarial) Mode
 
-Gemini tries to break the code: edge cases, race conditions, security holes,
-silent failure modes.
-
 ```bash
 # Parsed in Step 1 from `/gemini challenge <focus>`, e.g. "security",
 # "performance". Empty by default.
@@ -361,13 +343,12 @@ Present per the Output contract, mode `adversarial challenge`. No gate line.
 
 ## Step 2C: Consult Mode
 
-Ask Gemini anything. Gemini's long context shines here, so whole files, plans, or
-repo summaries fit in one prompt without splitting.
+Ask Gemini anything. Inline whole files, plans, or repo summaries in one prompt.
 
-**Plan review auto-detection:** if the user said `/gemini` with no arguments and
-a plan file exists for this project, offer to review it. `-p` mode never
-auto-reads files. Inline the full content of any referenced file under 1000
-lines; for larger files, inline only the functions the plan touches and name the
+**Plan review auto-detection:** Offer to review the plan file when the user said
+`/gemini` with no arguments and a plan file exists for this project. `-p` mode
+never auto-reads files. Inline the full content of any referenced file under 1000
+lines. For a larger file, inline only the functions the plan touches and name the
 path.
 
 Build `CONSULT_PROMPT` from ONE of the two constructions below: the plan-review
@@ -399,21 +380,22 @@ gemini_run 600 "$CONSULT_PROMPT" \
 
 Present per the Output contract, mode `consult`. No gate line.
 
-**Session continuity:** Gemini CLI's non-interactive `-p` mode doesn't persist
-sessions the way `codex exec resume` does. For follow-ups, the user can either:
-- Re-run `/gemini` with the prior context inlined into the new prompt, or
-- Drop into `gemini` interactive mode manually.
+**Session continuity:** Gemini CLI's non-interactive `-p` mode does not persist
+sessions the way `codex exec resume` does. Give the user these two options for a
+follow-up:
+1. Re-run `/gemini` with the prior context inlined into the new prompt.
+2. Drop into `gemini` interactive mode manually.
 
 ---
 
 ## Long context and grounding
 
-**Long context:** Gemini's 1M-token window is the standout feature. Use it
-when Claude/Codex would have to truncate (e.g. "review every file in
-`packages/sdk/`"). Cat or concatenate the files into the prompt.
+**Long context:** Use Gemini's 1M-token window when Claude or Codex would have to
+truncate (e.g. "review every file in `packages/sdk/`"). Concatenate the files
+into the prompt.
 
-**Web search / grounding:** Add `--allowed-tools google_web_search` if you
-want Gemini to ground answers in current web docs.
+**Web search / grounding:** Add `--allowed-tools google_web_search` when Gemini
+must ground the answer in current web docs.
 
 ---
 
@@ -428,9 +410,9 @@ want Gemini to ground answers in current web docs.
 
 ## Important Rules
 
-- **Read-only.** This skill never modifies files. Pass prompts via `-p` only;
-  do not use `--yolo` / `--approval-mode auto_edit`.
-- **Present output verbatim.** Do not truncate, summarize, or editorialize
+- **Read-only. Never modify files.** Pass prompts via `-p` only. **Do not** use
+  `--yolo` or `--approval-mode auto_edit`.
+- **Present output verbatim.** **Do not** truncate, summarize, or editorialize
   Gemini's output before showing it. Verbatim block first, synthesis after.
 - **Detect skill-file rabbit holes.** If Gemini's output mentions `gstack-config`,
   `SKILL.md`, or `skills/gstack`, append: "Gemini appears to have read skill
@@ -443,7 +425,7 @@ want Gemini to ground answers in current web docs.
 
 ## Completion Status Protocol
 
-When completing a skill workflow, close with one of:
+Close every run with one of:
 
 - **DONE**: completed with evidence (model used, gate verdict, token count).
 - **DONE_WITH_CONCERNS**: completed, but list specific concerns.

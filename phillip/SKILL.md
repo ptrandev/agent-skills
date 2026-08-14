@@ -2,9 +2,8 @@
 name: phillip
 description: >
   Self-review of the current uncommitted change against Phillip's engineering bar, before it
-  becomes a PR. Runs adversarial rounds with three independent reviewers, verifies every
-  finding against the real code path, fixes all HIGH and MEDIUM findings, and loops until a
-  clean round. Use before pushing or opening a PR.
+  becomes a PR. Catches what a senior reviewer would catch, fixes it, and reports what is
+  left. Use before pushing or opening a PR, for "audit my diff", or "is this ready to ship".
 triggers:
   - /phillip
   - phillip review
@@ -36,11 +35,11 @@ arrows, not em dashes.
 ## 0. Setup for this run
 
 - Model: confirm this session runs the most capable model this build offers. If not, tell the
-  user to run `/model` and pick it. Do NOT hardcode a version, names change and Claude has no
-  rolling "latest" alias.
+  user to run `/model` and pick it. **Do not** hardcode a version, names change and Claude has
+  no rolling "latest" alias.
 - Effort: if `/effort` exists, use its top level. If not, proceed at default.
-- Multi-agent orchestration is available when the `Agent` tool is in your tool list. When it
-  is, open your reasoning with the keyword `ultracode`.
+- When the `Agent` tool is in your tool list, open your reasoning with the keyword
+  `ultracode`.
 
 ### Mode
 
@@ -48,11 +47,10 @@ arrows, not em dashes.
 - `/phillip quick` -> one round. Claude-only under 200 changed lines. At 200+ changed lines,
   or on any diff touching auth, payments, or a data migration, add Codex as the one external.
   "Claude-only" still means the blind sub-agent (reviewer #3), not an in-session pass.
-- Auto-scale by diff size: if the diff is docs-only, or under \~30 changed lines with no logic
-  change, run Claude-only and say so -> do not spin up 12 external CLI calls to confirm a
-  one-line change.
-- Under 10 changed lines, spawning a sub-agent is also overkill -> review inline, but then
-  label it `Claude (inline, not blind)` in the report so the independence claim stays honest.
+- Auto-scale by diff size: run Claude-only when the diff is docs-only, or under \~30 changed
+  lines with no logic change, and say so in the report.
+- Under 10 changed lines, review inline instead of spawning a sub-agent, then label it
+  `Claude (inline, not blind)` in the report so the independence claim stays honest.
 
 ### Capture the diff under review
 
@@ -81,7 +79,7 @@ fi
 git ls-files --others --exclude-standard
 ```
 
-Scope every reviewer to THIS diff. Do not re-review unchanged code. Do not flag
+Scope every reviewer to THIS diff. **Do not** re-review unchanged code. **Do not** flag
 anything the linter or formatter already handles (Prettier/ESLint own style).
 
 ### Refresh the rubric first (non-blocking)
@@ -89,42 +87,33 @@ anything the linter or formatter already handles (Prettier/ESLint own style).
 Before the review loop, invoke the `phillip-sync` skill once (e.g. `/phillip-sync`) to fold
 this repo's recent resolved PR-review lessons into the rubric.
 
-- It self-guards: a 24h per-repo cooldown makes most runs an instant no-op, and it
-  degrades to a single warning line if `gh` is missing/unauthenticated/offline or anything
-  errors.
-- PROCEED REGARDLESS of its outcome. Never block, fail, or retry the review because sync
-  warned or did nothing. Sync is an enhancement, not a gate.
-- If sync reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read
-  `~/.claude/skills/phillip/RUBRIC.md` NOW. The rubric you were loaded with predates sync's
-  edit THIS run, so the just-synced rows only take effect if you reread them. On a
-  cooldown/empty no-op (the common case) skip the reread.
+- PROCEED REGARDLESS of its outcome. **Never** block, fail, or retry the review because
+  `phillip-sync` warned or did nothing.
+- If `phillip-sync` reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read
+  `~/.claude/skills/phillip/RUBRIC.md` NOW, because the rubric you were loaded with predates
+  that edit. On a cooldown/empty no-op (the common case) skip the re-Read.
 
 ## 1. The review standard
 
-The rubric lives in `~/.claude/skills/phillip/RUBRIC.md`. READ IT NOW, in full, before any
-reviewer runs. It carries the auto-synced rules, the do-not-flag rules, the curated
-categories, the Atllas-monorepo-only categories, the severity taxonomy (HIGH / MEDIUM / low),
-and the verification discipline plus the HONESTY RULE that the rest of this file references.
+**Read `~/.claude/skills/phillip/RUBRIC.md` in full before any reviewer runs.** It owns the
+review standard: what to catch, what NOT to flag, the severity taxonomy (HIGH / MEDIUM / low),
+the verification discipline, and the HONESTY RULE that the rest of this file references.
 
 Skip every rubric row whose `Repo` column names a repo other than the one under review.
-`phillip-sync` maintains that file; there is no separate canonical copy to chase down.
 
 ## 2. The multi-round adversarial loop
 
 Run rounds until convergence. Each round uses three independent reviewers: Codex, Gemini,
 and a BLIND Claude sub-agent spawned via the Agent tool. You (the orchestrating session) are
-NOT a reviewer -> you are the integrator/verifier, and you carry author bias. Do not collapse
-reviewer #3 back into an in-session pass.
+NOT a reviewer -> you are the integrator/verifier, and you carry author bias. **Do not**
+collapse reviewer #3 back into an in-session pass.
 
 ### Per round (run the three reviewers in PARALLEL)
 
-Each external pass is \~1-5 min. Do NOT run them one-after-another -> start all three AT THE
-SAME TIME.
-
-1. FIRST, Read `~/.claude/skills/codex/SKILL.md` and `~/.claude/skills/gemini/SKILL.md`. This
-   read is MANDATORY, not optional. They are the source of truth for the exact CLI flags, the
-   filesystem-boundary prompt, the diff-scope prompt, and auth handling. A wrong flag writes
-   an empty output file, which reads as a dry round when it is not one.
+1. **Read `~/.claude/skills/codex/SKILL.md` and `~/.claude/skills/gemini/SKILL.md` first.**
+   They own the exact CLI flags, the filesystem-boundary prompt, the diff-scope prompt, and
+   auth handling. A wrong flag writes an empty output file, which reads as a dry round when it
+   is not one.
 2. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
    true`, one job per model), mirroring the review/challenge CLI calls you just read. Group
    each model's review + challenge into its OWN job so that model runs its two passes
@@ -163,19 +152,13 @@ SAME TIME.
    from the blind reviewer's `Claude (blind)`, so the report stays honest about which findings
    came from an independent voice.
 
-Fallback if you cannot background jobs in your environment: issue the Codex and Gemini CLI
-calls as two Bash calls in a SINGLE message (the harness runs independent calls
-concurrently); worst case, invoke the `/codex` and `/gemini` skills sequentially -> still
-correct, just slower. Parallelism is a speedup, never a correctness requirement.
+Fallbacks:
 
-Fallback if the Agent tool is unavailable (older harness / sub-agents unsupported): run
-reviewer #3 as an INLINE Claude pass on the diff, exactly as the orchestrator would, AND state
-in the report "reviewer #3 ran inline, not blind (Agent tool unavailable)." Never claim a
-blind third reviewer you did not actually run as a sub-agent -> that violates the HONESTY RULE.
-
-If the gemini skill is not installed (no `~/.claude/skills/gemini/SKILL.md`) or its CLI
-auth is missing, do NOT silently drop a reviewer: run with Codex + Claude and state in
-the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it's absent.
+| Situation | Do this |
+|---|---|
+| You cannot background jobs in this environment | Issue the Codex and Gemini CLI calls as two Bash calls in a SINGLE message (the harness runs independent calls concurrently). Worst case, invoke the `/codex` and `/gemini` skills sequentially: still correct, just slower. |
+| The Agent tool is unavailable (older harness / sub-agents unsupported) | Run reviewer #3 as an INLINE Claude pass on the diff, exactly as the orchestrator would. State in the report "reviewer #3 ran inline, not blind (Agent tool unavailable)." **Never** claim a blind third reviewer you did not run as a sub-agent, it violates the HONESTY RULE. |
+| The gemini skill is not installed (no `~/.claude/skills/gemini/SKILL.md`) or its CLI auth is missing | Run with Codex + Claude and state in the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it is absent. **Do not** silently drop a reviewer. |
 
 ### Verification gate (run BEFORE changing any code)
 
@@ -196,13 +179,13 @@ Then classify:
   - Finding valid + LOW/nit -> list it, do not implement. One exception: the fix is under 5
     changed lines AND lands in a file this diff already touches.
 
-Never silently drop a finding; every one ends as Fixed, Listed, or Rejected-with-reason.
+**Never** silently drop a finding. Every one ends as Fixed, Listed, or Rejected-with-reason.
 
 ### Cross-model disagreement
 
-When Codex and Gemini disagree, YOU adjudicate by reading the actual code path -> do not
-average them, do not defer to whoever sounds more confident. The losing suggestion is
-documented as rejected-with-reason, not dropped.
+When Codex and Gemini disagree, YOU adjudicate by reading the actual code path. **Do not**
+average them. **Do not** defer to whoever sounds more confident. Document the losing
+suggestion as rejected-with-reason, never dropped.
 
 ### Implement
 
@@ -226,15 +209,14 @@ NOT dry) and re-fix.
 - Hard cap at 3 rounds. If round 3 still surfaces verified HIGH/MEDIUM issues, stop,
   implement them, and flag in the report that the change is churny and the final fixes
   are UNCONFIRMED (no dry round followed them).
-- Do not start another round just to feel thorough. A dry round means done.
+- **Do not** start another round after a dry round.
 
 ## 3. Final review report
 
 Write the report to a stable file AND print it. Save to
 `~/.claude/plans/phillip-<branch-slug>-<YYYY-MM-DD>.md` (create the dir if needed).
 `<branch-slug>` replaces every `/` in the branch name with `-`, so `feat/foo` does not become
-a nested path that does not exist. This survives the session and can be pasted into the PR
-body as proof the self-review ran.
+a nested path that does not exist.
 
 ```
 ### Phillip self-review -> <branch>, <date>

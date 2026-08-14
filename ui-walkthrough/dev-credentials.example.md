@@ -3,9 +3,9 @@
 The single source of truth for who `/ui-walkthrough` logs in as. `SKILL.md` Phase 0 reads the values
 at runtime and points here for the table.
 
-**You almost certainly do not need to copy this file.** `/ui-walkthrough` drives the **e2e stack**,
-whose accounts are seeded per run by `apps/agents-portal/e2e/seed/seed.mjs` with credentials already
-committed in `apps/agents-portal/e2e/.env.e2e`. The skill reads them from the checkout at runtime, so
+`/ui-walkthrough` drives the **e2e stack**, whose accounts are seeded per run by
+`apps/agents-portal/e2e/seed/seed.mjs` with credentials already committed in
+`apps/agents-portal/e2e/.env.e2e`. The skill reads them from the checkout at runtime, so
 the default path needs **no credentials provisioned anywhere**: nothing gitignored, nothing set in a
 routine's environment, nothing to leak. Copy this file to `dev-credentials.md` (gitignored) only for
 the `--target=dev` opt-in at the bottom.

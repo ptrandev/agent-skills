@@ -14,8 +14,7 @@ boot, no seed, usually already running.
   falls back to `e2e` silently, because the evidence would describe a different environment than the
   run intended.
 - **Reuse an existing `:3000` only if it serves this branch**: `git rev-parse HEAD` equals the PR
-  head **and** the tree is clean. Otherwise restart it. Screenshotting a stale dev server is the
-  quiet failure this check exists to prevent.
+  head **and** the tree is clean. Otherwise restart it.
 - **Dev mode shows overlays.** Next's dev indicator, hydration warnings, and Fast Refresh toasts can
   land in a screenshot and read as UI defects. Dismiss or hide them (`browse prettyscreenshot
   --cleanup --hide`) and never report an overlay as a finding.
@@ -36,10 +35,10 @@ env -> pubsub topics -> **seed** -> API -> `next build` -> **Playwright** -> tea
 - **Externals are stubbed** (`E2E_STUB_EXTERNAL=1`, `STUB_FORGE=1` from `e2e/.env.e2e`): no real
   Stripe/Vapi/Twilio/Cloudinary/Forge.
 - **Interception is env-var-driven** (`*_EMULATOR_HOST` in `e2e/.env.e2e`). A process started
-  **outside** that env talks to **real atllas-dev**. So never hand-start the FE/API for a
-  walkthrough: everything must run **inside** `emulators:exec` with `.env.e2e` loaded. This is the
-  single most dangerous way to get this wrong, and it fails *silently*. The app works, the
-  screenshots look fine, and you were driving production-adjacent data.
+  **outside** that env talks to **real atllas-dev**. **Never hand-start the FE/API for a
+  walkthrough:** everything must run **inside** `emulators:exec` with `.env.e2e` loaded. It fails
+  *silently*: the app works, the screenshots look fine, and you were driving production-adjacent
+  data.
 
 ## `yarn e2e:stack` alone cannot host a walkthrough
 
@@ -60,9 +59,8 @@ test('ui-walkthrough hold', async () => {
 **The hold spec must never take a `{ page }` fixture.** Playwright launches a browser lazily, when a
 fixture asks for one, so a fixture-free test holds the stack open without ever launching a browser.
 That is the only reason the hold survives a cloud sandbox whose bundled Chromium does not match the
-repo's Playwright pin (SKILL.md Phase 0, *Cloud browser build*). Verified 2026-08-13 in a routine
-sandbox: this spec passed, the same spec with `{ page }` failed at launch. Add the fixture and the
-hold dies on exactly the runtimes that have no other way to boot a stack.
+repo's Playwright pin (`SKILL.md` Phase 0, *Cloud browser build*). Verified 2026-08-13 in a routine
+sandbox: this spec passed, the same spec with `{ page }` failed at launch.
 
 ```bash
 # Invoke the SCRIPT, not `yarn e2e:stack`. See "backgrounding" below.

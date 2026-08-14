@@ -10,24 +10,22 @@ description: >
 
 # Plain English
 
-Pull the signal out of the noise. Do not rewrite the text. Select from it.
+Pull the signal out of the noise. **Do not** rewrite the text. Select from it.
 
 The reader is someone who has to act on this text. The bottom line is the
 consequence for the reader, not the topic of the text.
-
-This file is self-contained. Open the reference only when the trigger at the
-bottom fires.
 
 ## The guarantee
 
 > Add nothing. Drop nothing that would change the reader's take.
 
-A hedge, bound, condition, scope limit, or attribution is never carried forward
-as text. It rides along as part of the claim it modifies.
+**Never** carry a hedge, bound, condition, scope limit, or attribution forward as
+its own text. It rides along as part of the claim it modifies.
 
 ## Output contract
 
-Nothing before the bottom line. No preamble, no "Here's the breakdown".
+**Never** write anything before the bottom line. No preamble, no "Here's the
+breakdown".
 
 ```
 **Bottom line:** <the one thing that matters to this reader, or "Nothing actionable.">
@@ -46,16 +44,15 @@ Nothing before the bottom line. No preamble, no "Here's the breakdown".
 Rules for the shape:
 
 - Length tracks real content, not input length. Three sentences of substance
-  produce three bullets. A 2,000-word post with one claim gets one. Never pad a
-  section to make the output look proportionate to the input.
+  produce three bullets. A 2,000-word post with one claim gets one. **Never** pad
+  a section to make the output look proportionate to the input.
 - Drop **Not stated** only when nothing material is missing. That is rare.
 - Drop **What it implies but never claims** whenever there is no gap. That is
   common, and an empty section is worse than none.
 
 ## Strength labels
 
-Every claim gets exactly one. Slop's trick is making a soft thing feel firm. The
-label exposes it.
+Every claim gets exactly one label.
 
 | Label | Means | Trigger words |
 | --- | --- | --- |
@@ -73,12 +70,11 @@ Judgment calls:
 - Attribution outranks the rest. "The vendor says it cuts costs 40%" is
   `attributed`, even though the inner claim is a fact.
 - If a sentence carries two separately falsifiable claims, split it into two
-  bullets. Never merge two claims under one label.
+  bullets. **Never** merge two claims under one label.
 
 ## What must ride along with a claim
 
-Losing one of these changes what the text asserts. Each stays attached to its
-bullet, in plain words.
+Attach each of these to its bullet, in plain words.
 
 | Carry | Words and test |
 | --- | --- |
@@ -98,17 +94,15 @@ when it does not.
 
 ## Add nothing
 
-Selection makes invention easy to hide.
-
-- No context, examples, definitions, or corrections from your own knowledge,
-  however right. If the source is wrong, say the source claims it and put the
-  correction nowhere.
-- Keep an undefined domain term as the source wrote it. Do not gloss it. If it
+- **Never** add context, examples, definitions, or corrections from your own
+  knowledge, however right. If the source is wrong, say the source claims it and
+  put the correction nowhere.
+- Keep an undefined domain term as the source wrote it. **Do not** gloss it. If it
   blocks meaning, that belongs under **Not stated**.
 - Vagueness is data. "significant improvement" with no number is extracted as a
   claim with no number, so the reader learns the number is missing.
-- Do not resolve an ambiguous pronoun by guessing.
-- Do not add a cause the source only implies by adjacency. That belongs under
+- **Do not** resolve an ambiguous pronoun by guessing.
+- **Do not** add a cause the source only implies by adjacency. That belongs under
   **What it implies but never claims**.
 
 ## Finding what is not stated
@@ -143,7 +137,7 @@ bullet names the device, so the reader can check you.
 - **A retracted commitment stated as progress.** "We have decided to focus
   elsewhere" for work that was cancelled.
 
-Name the mechanism and stop. Never speculate about motive, and never write a
+Name the device and stop. **Never** speculate about motive. **Never** write a
 bullet you cannot point at a specific sentence for.
 
 ## When the source says nothing
@@ -153,13 +147,12 @@ Write the bottom line as `Nothing actionable.` followed on the same line by what
 the text is doing instead, in one clause: announcing an announcement, restating
 its own title, or promising detail later.
 
-Do not manufacture claims to fill the section. An empty **What it claims** is a
-finding, and it is the most useful output this skill produces.
+**Do not** manufacture claims to fill the section. An empty **What it claims** is
+a finding.
 
 ## Reference
 
-Open [references/examples.md](references/examples.md) for four worked cases: an
-empty announcement, one claim buried in filler, a legal clause where the hedges
-carry the meaning, and a hedged research finding. Read it for four calls only:
-`may` as granted permission versus `may` as a hedge, the author as their own
-source, stacked qualifiers on one claim, and an empty claims list.
+[references/examples.md](references/examples.md) owns the worked cases.
+**Read it for these four calls only:** `may` as granted permission versus `may`
+as a hedge, the author as their own source, stacked qualifiers on one claim, and
+an empty claims list.

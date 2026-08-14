@@ -1,6 +1,6 @@
 # Worked cases
 
-Four sources and the output each should produce. Commentary is never part of the
+Four sources and the output each produces. Commentary is **never** part of the
 output.
 
 ---

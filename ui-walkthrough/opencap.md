@@ -1,8 +1,7 @@
 # OpenCap recording contract
 
 The walkthrough video. Read this before touching `opencap` anywhere in this repo's skills. This
-file is the single source of truth, and the CLI has three behaviors that silently produce a useless
-recording if you guess.
+file is the single source of truth for the recording.
 
 **The one-line rule:** record the **browser window**, never the display, and record **one desktop
 user journey**, never the capture matrix.
@@ -10,8 +9,6 @@ user journey**, never the capture matrix.
 ---
 
 ## What the recording is
-
-A reviewer watching this should see the feature being used, not a test suite running.
 
 The video is a **threaded journey**: one continuous route that starts at the app's normal entry
 point, navigates to each changed surface **by clicking**, performs the action the PR changes, and
@@ -23,9 +20,9 @@ skipped from a surface the PR did not change. **Length is never a reason to drop
 account is on Pro, so one recording runs to 60 minutes and a journey uses a fraction of that. When a
 run feels slow, tighten the dwell budget, never the surface list. See *Dwell*.
 
-The video is **not** the screenshot sweep. The sweep visits the same surface three times at three widths,
-reloading between each, which is correct for evidence and unwatchable as a video. The two passes are
-therefore separated in time: `SKILL.md` Phase 5a captures the matrix silently, Phase 5b runs the
+The video is **not** the screenshot matrix. The matrix visits the same surface three times at three
+widths, reloading between each, which is correct for evidence and unwatchable as a video. The two
+passes are therefore separated in time: `SKILL.md` Phase 5a captures the matrix silently, Phase 5b runs the
 detectors silently, and only Phase 5c records.
 
 That ordering buys three things, and each is a reason not to re-merge the passes:
@@ -55,7 +52,7 @@ What video adds is motion and sequencing, and three widths actively damage both:
   inside the artifact meant to replace it.
 
 So the video answers "what is it like to use this", and the screenshots answer "is it built right at
-every width". Do not merge the two questions back together.
+every width". **Do not merge the two questions back together.**
 
 ---
 
@@ -82,8 +79,7 @@ browser has no window to target either, which is the only reason this skill ever
    `~/.opencap/active`, and `opencap event` appends to *the* active recording, so with two live
    sessions marker routing is undefined. If `record status` reports an active session, it isn't
    yours: skip with a note.
-5. **Never record the matrix or the detectors.** They are Phase 5a and 5b, both silent. A recording
-   that contains the sweep is the artifact this contract exists to stop producing.
+5. **Never record the matrix or the detectors.** They are Phase 5a and 5b, both silent.
 6. **Start recording after login, never before.** The credential entry must not be in the video.
    This is free if you follow the sequence below, and unfixable afterwards.
 7. **Never change viewport during a recording.** OpenCap fixes the frame size at capture start, so a
@@ -122,10 +118,8 @@ then CAN_VIDEO=1; else echo "video: skipped (see neutral note)"; fi
 
 ### The role does not gate the video, and attendance does not either
 
-**Both roles record on a local Mac.** A reviewer-mode video is the more useful of the two: it shows a
-colleague's change being used, by someone who did not write it, which is the artifact a PR discussion
-usually lacks. `/review-pr` Phase 6 calls this skill in reviewer mode, so its posted review carries
-the link whenever the run is local.
+**Both roles record on a local Mac.** `/review-pr` Phase 6 calls this skill in reviewer mode, so its
+posted review carries the link whenever the run is local.
 
 **Attendance does not gate it.** Recording does not occupy the machine (see the focus note below), so
 an unattended local `/loop` run records exactly like an attended one. `UIW_UNATTENDED=1` still
@@ -186,7 +180,7 @@ GUTTER=$($B js 'window.outerWidth - window.innerWidth')
   echo "video: skipped: window is ${GUTTER}px wider than the page, frame would be mostly chrome"; }
 ```
 
-A gutter within 40px is browser chrome and is fine. Never resize a window this run did not open.
+A gutter within 40px is browser chrome and is fine. **Never resize a window this run did not open.**
 
 ### Quota and duration
 
@@ -245,7 +239,7 @@ instead. **Do not** drop the `--window` flag to make the command succeed (invari
 
 ## The sequence
 
-Order is load-bearing. Each step exists because doing it later breaks something.
+Order is load-bearing.
 
 ```bash
 # 0. Phase 5a and 5b have already run, silently: the screenshot matrix is captured and the
@@ -286,7 +280,7 @@ to display capture, which invariant 1 forbids.
 
 ## Authoring the journey
 
-The route is the deliverable. Three rules make it read as usage rather than automation.
+Three rules make the route read as usage rather than automation.
 
 ### 1. Click, don't `goto`
 
@@ -300,16 +294,14 @@ $B wait --networkidle
 
 `goto` is allowed **only** for the entry point (step 3 above) and for a surface with no reachable
 in-app link. Every `goto` after the first is a jump cut, so **count them and name them in the
-report**: `journey: 6 beats, 1 jump (no nav link to /billing/invoices)`. A journey that is mostly
-jumps is the old sweep wearing a costume, and it should say so rather than imply a route that
-doesn't exist.
+report**: `journey: 6 beats, 1 jump (no nav link to /billing/invoices)`.
 
 Dynamic routes keep Phase 3's rule: navigate to the parent list and click the first row. Never
 construct an id.
 
 ### 2. Dwell, so a human can follow
 
-Playwright at machine speed is unreadable. Three fixed budgets, applied by every beat:
+Three fixed budgets, applied by every beat:
 
 | Pause | Value | After |
 |---|---|---|
@@ -361,20 +353,17 @@ is a `pointer-events:none` div, so it cannot intercept a click or change what th
 not survive a navigation, which is why it is re-injected per page.
 
 If injection fails on a surface (a strict CSP, a page that replaces `document.body`), continue
-without it on that surface. A cursorless beat is a cosmetic loss, not a failure. Never retry into a
-loop, and never let it delay the journey.
+without it on that surface. A cursorless beat is a cosmetic loss, not a failure. **Never retry into
+a loop, and never let it delay the journey.**
 
 ---
 
 ## Markers: the beats of the route
 
 A marker is a timestamped entry in the recording's event log. On the share page they are a clickable
-index: click one, the video seeks. Without them a reviewer gets an unlabeled screen capture and
-closes the tab.
+index: click one, the video seeks.
 
-Markers are also the reason `record start` is worth doing at all rather than screenshotting alone,
-so **emit them or turn the video off**. A marker-less recording is not the artifact this skill
-claims to produce.
+**Emit markers, or turn the video off.**
 
 **Name them in user language, not matrix coordinates.** `"3. Save the new retry window"` is a beat.
 `"agents · desktop 1440"` is a cell in a table, and it belongs to the pass that no longer records.
@@ -392,9 +381,8 @@ Emit inline, never from a shell function: see the `$1` note in `SKILL.md` Phase 
 | `marker "<n>. <what the user just did>"` | at each navigation and each interaction | `session.marker` |
 | an `error` event | at the moment a Phase 5b defect **reproduces on screen** | `error` |
 
-The error case is the highest-value one, and the new ordering is what makes it reliable. Phase 5b has
-already fired, so the journey knows which surface and which state to route through, and the marker
-lands on the frame that actually shows the defect:
+Phase 5b has already fired, so the journey knows which surface and which state to route through, and
+the marker lands on the frame that actually shows the defect:
 
 ```bash
 opencap event "$(jq -nc --arg s "modal footer clips the Save button on /agents" \
@@ -445,7 +433,8 @@ contract, so the line states it rather than leaving a reader to assume. A route 
 a surface at all names it and says why (`7 of 8 surfaces, /billing never rendered`). That is a
 defect in the run or in the PR, never a length decision, and it is reported as one.
 
-Never write "video captured" without a URL, and never describe a display capture as a walkthrough.
+**Never write "video captured" without a URL, and never describe a display capture as a
+walkthrough.**
 
 **Never let the video's desktop scope imply desktop-only coverage.** The same report carries the
 matrix, which walked every viewport. Where the video line sits next to a coverage block, that block
@@ -467,11 +456,9 @@ opencap trim "$SESSION" --start $((TS-15000)) --end $((TS+10000)) \
   --name "PR #$PR: <defect>" --save-as-copy --json | jq -r '.share_url'
 ```
 
-Post the clip **in addition to** the full recording, never instead of it. The full run is the
-evidence, the clip is the courtesy.
+Post the clip **in addition to** the full recording, never instead of it.
 
-A journey is short enough that this is rarely needed. Reach for it when one defect matters much more
-than the rest of the route, not by default.
+Reach for a clip when one defect matters much more than the rest of the route, never by default.
 
 ---
 

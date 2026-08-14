@@ -5,9 +5,9 @@ Custom [Claude Code](https://claude.ai/code) skills. Each skill lives in its own
 ## Skills
 
 ### `/full-send`
-End-to-end feature workflow: Linear ticket (or raw idea) → implement (size-adaptive: small tickets in one pass, large ones decomposed into a Ralph-style one-task-per-iteration loop) → `/phillip` self-review → commit → draft PR → automated bot review (Copilot and/or Gemini Code Assist) → address all threads → green CI → UI screenshots + walkthrough video (via [OpenCap](https://opencap.dev)) attached to the PR → Linear moved to In Review.
+End-to-end feature workflow. Takes a Linear ticket or a raw idea and ships a reviewed PR. Small tickets run in one pass. Large ones decompose into a Ralph-style loop, one task per iteration. Every run then does `/phillip` self-review, commit, draft PR, bot review (Copilot and Gemini Code Assist), thread replies, green CI, and UI screenshots plus a walkthrough video (via [OpenCap](https://opencap.dev)) on the PR. It moves the Linear ticket to In Review at the end.
 
-Autonomous (zero stops) by default; opt into an up-front grill with the `interactive` mode. Safe to re-run, since it resumes and skips completed phases. The loop phase runs from [`full-send/ralph-loop.md`](full-send/ralph-loop.md); the screenshot and video phase runs from [`full-send/evidence.md`](full-send/evidence.md).
+Autonomous by default, with zero stops. The `interactive` mode grills you first. Safe to re-run, since it resumes and skips completed phases. The loop phase runs from [`full-send/ralph-loop.md`](full-send/ralph-loop.md). The screenshot and video phase runs from [`full-send/evidence.md`](full-send/evidence.md).
 
 **Usage:**
 - `/full-send <TICKET-ID>`: run autonomously from an existing ticket
@@ -19,7 +19,7 @@ Autonomous (zero stops) by default; opt into an up-front grill with the `interac
 ---
 
 ### `/phillip`
-Self-reviews the current diff to a senior engineering bar before it becomes a PR. Runs multiple adversarial rounds with three independent reviewers (Claude + Codex via `/codex` + Gemini via `/gemini`), verifies every finding against the real code path, implements the genuine HIGH/MEDIUM fixes, rejects false positives with a written reason, and loops until a clean round. Writes a report to `~/.claude/plans/phillip-<branch>-<date>.md`.
+Self-reviews the current diff to a senior engineering bar before it becomes a PR. Runs adversarial rounds with three independent reviewers: Claude, Codex via `/codex`, and Gemini via `/gemini`. Verifies every finding against the real code path. Implements the genuine HIGH and MEDIUM fixes. Rejects false positives with a written reason. Loops until a clean round. Writes a report to `~/.claude/plans/phillip-<branch>-<date>.md`.
 
 - `/phillip`: full multi-round, all three reviewers.
 - `/phillip quick`: one round, Claude-only (auto-scales down on trivial diffs anyway).
@@ -28,16 +28,16 @@ The rubric lives in [`phillip/RUBRIC.md`](phillip/RUBRIC.md), not in `phillip/SK
 
 **Usage:** `/phillip` or `/phillip quick`
 
-**Requires:** `/codex` (gstack) and `/gemini` skills for the external reviewers; degrades to fewer reviewers if either is absent.
+**Requires:** the `/codex` (gstack) and `/gemini` skills for the external reviewers. It degrades to fewer reviewers when either one is absent.
 
 **First-time setup:** [`docs/phillip-agent-setup.md`](docs/phillip-agent-setup.md) is a paste-to-Claude script that provisions a Mac end-to-end (gstack/`/codex`, the Codex + Gemini CLIs, `gh`, and symlinks these skills). [`docs/phillip-agent-usage.md`](docs/phillip-agent-usage.md) is the day-to-day guide.
 
 ---
 
 ### `/phillip-sync`
-Keeps the `/phillip` rubric fresh by mining the current repo's recent resolved-and-acted-on PR reviews (merged PRs, 30-day window) and folding recurring, generalizable lessons into [`phillip/RUBRIC.md`](phillip/RUBRIC.md): high-confidence patterns into the auto-synced table, weaker one-offs into the candidates table. `RUBRIC.md` holds three anchored markdown tables (auto-synced, candidates, do-not-flag), and sync only ever writes between those anchors. Honors a 24h per-repo cooldown and is fully non-blocking: degrades to a single warning line if `gh` is missing/unauthenticated/offline. Run automatically by `/phillip`; can also be invoked directly.
+Keeps the `/phillip` rubric fresh. Mines the current repo's resolved-and-acted-on PR reviews from merged PRs over a 30-day window. Folds high-confidence patterns into the auto-synced table of [`phillip/RUBRIC.md`](phillip/RUBRIC.md), and weaker one-offs into the candidates table. `RUBRIC.md` holds three anchored markdown tables: auto-synced, candidates, do-not-flag. Sync only writes between those anchors. Honors a 24h per-repo cooldown. Non-blocking: it prints one warning line when `gh` is missing, unauthenticated, or offline.
 
-Its two Python helpers live in [`phillip-sync/scripts/plan.py`](phillip-sync/scripts/plan.py) (builds the mining plan) and [`phillip-sync/scripts/cursor.py`](phillip-sync/scripts/cursor.py) (reads and writes the per-repo cooldown cursor). The skill invokes them by their installed path under `~/.claude/skills/phillip-sync/scripts/`.
+Two Python helpers do the work. [`phillip-sync/scripts/plan.py`](phillip-sync/scripts/plan.py) builds the mining plan. [`phillip-sync/scripts/cursor.py`](phillip-sync/scripts/cursor.py) reads and writes the per-repo cooldown cursor. The skill invokes them by their installed path under `~/.claude/skills/phillip-sync/scripts/`.
 
 **Usage:** `/phillip-sync` (or runs automatically inside `/phillip`)
 
@@ -46,7 +46,7 @@ Its two Python helpers live in [`phillip-sync/scripts/plan.py`](phillip-sync/scr
 ---
 
 ### `/babysit-prs`
-Watches your open PRs on the Atllas repos and triages every unresolved review thread, bot (Copilot, Gemini Code Assist) and teammate alike. Fixes the safe, mechanical ones, replies everywhere with evidence (the fixing commit), and auto-resolves only threads it actually fixed and verified green; questions and judgment calls are answered and left open for you. Dispatches one sub-agent per PR so contexts stay isolated. Idempotent and concurrency-guarded, so it runs headless on a schedule: cloud Routine hourly ([`babysit-prs/routine.md`](babysit-prs/routine.md)) or local `/loop`.
+Triages every unresolved review thread on the open PRs you authored on the Atllas repos. Covers bot threads (Copilot, Gemini Code Assist) and teammate threads alike. Fixes the safe, mechanical ones. Replies everywhere with the fixing commit as evidence. Resolves only the threads it fixed and verified green. Answers questions and judgment calls, then leaves them open for you. Dispatches one sub-agent per PR so contexts stay isolated. Idempotent and concurrency-guarded, so it runs headless on an hourly cloud Routine ([`babysit-prs/routine.md`](babysit-prs/routine.md)) or a local `/loop`.
 
 **Usage:**
 - `/babysit-prs`: all open PRs you authored across the default repos
@@ -56,7 +56,7 @@ Watches your open PRs on the Atllas repos and triages every unresolved review th
 ---
 
 ### `/review-pr`
-The reviewer side of the PR loop: reviews PRs where you're the **requested reviewer**, applying the same bar as `/phillip` (its rubric, three independent reviewers, verify-every-finding), then posts the review to GitHub as inline comments plus a conservative verdict (`REQUEST_CHANGES` only on a verified HIGH, `APPROVE` only on a clean fully-verified pass). Also adjudicates existing bot threads: surfaces the legit ones, resolves verified-false noise with a written reason. One sub-agent per PR. Idempotent via the reviews-API `commit_id`; runs headless on a Routine ([`review-pr/routine.md`](review-pr/routine.md)). Booting, reusing, and tearing down the sealed e2e stack for the live walkthrough runs from [`review-pr/stack-lifecycle.md`](review-pr/stack-lifecycle.md).
+The reviewer side of the PR loop. Reviews PRs where you are the **requested reviewer**, at the same bar as `/phillip`: its rubric, three independent reviewers, every finding verified. Posts the review to GitHub as inline comments plus a conservative verdict. `REQUEST_CHANGES` needs a verified HIGH. `APPROVE` needs a clean, fully verified pass. Also adjudicates existing bot threads: it surfaces the legit ones and resolves verified-false noise with a written reason. One sub-agent per PR. Idempotent via the reviews-API `commit_id`. Runs headless on a Routine ([`review-pr/routine.md`](review-pr/routine.md)). Booting, reusing, and tearing down the sealed e2e stack for the live walkthrough runs from [`review-pr/stack-lifecycle.md`](review-pr/stack-lifecycle.md). Every GitHub call goes through one transport, `gh` or the MCP connector, mapped in [`review-pr/github-transport.md`](review-pr/github-transport.md), because a cloud sandbox can block the API while MCP keeps working.
 
 **Usage:**
 - `/review-pr`: all PRs awaiting your review across the default repos
@@ -66,7 +66,9 @@ The reviewer side of the PR loop: reviews PRs where you're the **requested revie
 ---
 
 ### `/ui-walkthrough`
-Walks a PR's UI changes in a real browser at desktop/tablet/mobile, judges what it sees against the design-review rubric, and posts the evidence back to GitHub: a `REQUEST_CHANGES` review with screenshots on a blocking defect, or a proof comment with screenshots when it's clean. Role-aware: runs as the PR's reviewer (posts a review) or its author (posts a walkthrough comment). Local runs under either role also record a desktop walkthrough video: one user journey through the change, covering every surface walked, clicked not scripted, indexed by markers, while the screenshots carry the responsive evidence. Never mutates source. Stack boot and the persona hold spec run from [`ui-walkthrough/stack.md`](ui-walkthrough/stack.md); publishing and linking the screenshots runs from [`ui-walkthrough/evidence-hosting.md`](ui-walkthrough/evidence-hosting.md); the recording contract is [`ui-walkthrough/opencap.md`](ui-walkthrough/opencap.md).
+Walks a PR's UI changes in a real browser at desktop, tablet, and mobile widths. Judges what it sees against the design-review rubric. Posts the evidence back to GitHub: a `REQUEST_CHANGES` review with screenshots on a blocking defect, or a proof comment with screenshots when it is clean. Role-aware: as the PR's reviewer it posts a review, as its author it posts a walkthrough comment. Local runs under either role also record a desktop walkthrough video: one user journey through the change, covering every surface walked, clicked not scripted, indexed by markers. The screenshots carry the responsive evidence. Never mutates source.
+
+Stack boot and the persona hold spec run from [`ui-walkthrough/stack.md`](ui-walkthrough/stack.md). Publishing and linking the screenshots runs from [`ui-walkthrough/evidence-hosting.md`](ui-walkthrough/evidence-hosting.md). The recording contract is [`ui-walkthrough/opencap.md`](ui-walkthrough/opencap.md). GitHub calls go through the transport shared with `/review-pr`, [`review-pr/github-transport.md`](review-pr/github-transport.md).
 
 **Usage:** `/ui-walkthrough`, `/ui-walkthrough <PR#|URL>`, plus `--author`/`--reviewer`, `--viewports=`, `--personas=`, `--target=e2e|dev`, `--no-post`, `--embedded`
 
@@ -79,16 +81,16 @@ Google Gemini CLI wrapper with three modes (defaults to `gemini-pro-latest`; pas
 - **Challenge**: adversarial mode that tries to break your code
 - **Consult**: ask Gemini anything, leveraging its 1M+ token context for whole-repo questions
 
-One-time per-machine setup lives in [`gemini/references/setup.md`](gemini/references/setup.md). The decision-brief format the skill uses when it must ask you something lives in [`gemini/references/askuserquestion.md`](gemini/references/askuserquestion.md).
+One-time per-machine setup lives in [`gemini/references/setup.md`](gemini/references/setup.md). The decision-brief format the skill uses to ask you something lives in [`gemini/references/askuserquestion.md`](gemini/references/askuserquestion.md).
 
 **Usage:** `/gemini review`, `/gemini challenge`, `/gemini <question>`
 
-**Requires:** `gemini` CLI (`npm install -g @google/gemini-cli`) and **API-key auth**: `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in your environment (in `~/.zshenv` so non-interactive shells see it) plus `security.auth.selectedType: "gemini-api-key"` in `~/.gemini/settings.json`. OAuth / Code Assist login is not supported, because it 404s on the `-latest` model aliases.
+**Requires:** the `gemini` CLI (`npm install -g @google/gemini-cli`) and **API-key auth**. Put `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `~/.zshenv`, so non-interactive shells see it. Set `security.auth.selectedType: "gemini-api-key"` in `~/.gemini/settings.json`. OAuth and Code Assist login are not supported, because they 404 on the `-latest` model aliases.
 
 ---
 
 ### `/debrief`
-End-of-session confidence audit, distilled from the "I end every AI session with two questions" workflow. Interrogates the session just completed: least-confident assumptions, early decisions never revisited, what you don't realize, the most likely 3-month failure. It then converts every uncertainty into a concrete check (command / test / file read), runs the safe ones, and separates real gaps from confident-sounding filler. Optionally spawns a blind, context-free sub-agent on the diff (skipped when `/phillip` already ran, since it does blind review). Read-only: reports ranked findings, never fixes unprompted.
+End-of-session confidence audit. Interrogates the session just completed: least-confident assumptions, early decisions never revisited, what you do not realize, the most likely 3-month failure. Converts every uncertainty into a concrete check: a command, a test, or a file read. Runs the safe ones. Separates real gaps from confident-sounding filler. Spawns a blind, context-free sub-agent on the diff, skipped when `/phillip` already ran, since that does blind review. Read-only: it reports ranked findings and never fixes unprompted.
 
 **Usage:**
 - `/debrief`: audit the current session
@@ -98,16 +100,16 @@ End-of-session confidence audit, distilled from the "I end every AI session with
 ---
 
 ### `/merge-master`
-Brings the current branch up to date with `master` and pushes: fetches `origin/master`, merges it in, resolves any conflicts, then commits and pushes. Refuses to run on `master`/`main` itself, and stops to ask before clobbering a dirty tree.
+Brings the current branch up to date with `master`. Fetches `origin/master`, merges it in, resolves any conflicts, then commits and pushes. Refuses to run on `master` or `main` itself. Stops to ask before it clobbers a dirty tree.
 
 **Usage:** `/merge-master` (or "merge master", "sync with master", "update my branch")
 
 ---
 
 ### `/launch-summary`
-Generates a non-developer-friendly summary of merged PRs across the Atllas `codebase` and `aicc-queues` repos, split into **Mobile** and **App** sections. Only counts PRs merged into `master`. Produces a categorized, bulleted summary suitable for stakeholders or changelog posts.
+Summarizes merged PRs across the Atllas `codebase` and `aicc-queues` repos for a non-developer reader. Splits the output into **Mobile** and **App** sections. Counts only PRs merged into `master`. The result is categorized and bulleted, for stakeholders or changelog posts.
 
-The window is the only difference between the two modes. `daily` is a rolling last 24 hours. `weekly` is the calendar week, Monday 00:00 UTC through today. Everything else is shared: the `gh` calls, the Mobile/App split, the categories, and the output template.
+The window is the only difference between the two modes. `daily` is a rolling last 24 hours. `weekly` is the calendar week, Monday 00:00 UTC through today. The `gh` calls, the Mobile/App split, the categories, and the output template are shared.
 
 **Usage:**
 - `/launch-summary daily` (also what you get with no argument)
@@ -116,7 +118,7 @@ The window is the only difference between the two modes. `daily` is a rolling la
 ---
 
 ### `/plain-english`
-Extracts the signal out of bloated or evasive text. It does not rewrite; it selects. Output is a bottom line, every falsifiable claim with its strength marked (`fact` / `hedged` / `attributed` / `promise` / `opinion`), what the text conspicuously does not say, and what it implies without ever claiming. Hedges, bounds, scope limits, and attribution ride along with the claim they modify, so "up to 40%" never becomes "40%" and "the vendor says X" never becomes "X". Nothing from outside the source is ever added. When a source makes no checkable claim, an empty claims list is the finding.
+Extracts the signal out of bloated or evasive text. It selects, it does not rewrite. The output is a bottom line, every falsifiable claim with its strength marked (`fact`, `hedged`, `attributed`, `promise`, `opinion`), what the text conspicuously does not say, and what it implies without claiming. Hedges, bounds, scope limits, and attribution ride along with the claim they modify, so "up to 40%" never becomes "40%" and "the vendor says X" never becomes "X". Nothing from outside the source is added. An empty claims list is the finding when a source makes no checkable claim.
 
 **Usage:** `/plain-english` then paste the text, or paste the text and ask what it is actually saying.
 
@@ -166,16 +168,17 @@ this machine. It is symlinked to `~/.claude/CLAUDE.md`, so it is versioned here 
 machine rebuild. It is not a skill, so it has no `SKILL.md` and is never invoked.
 
 Its **Writing style** section is reproduced **verbatim** inside `babysit-prs/SKILL.md`,
-`full-send/SKILL.md`, and `ui-walkthrough/SKILL.md`. Those three skills post text that teammates
-read, and they run in cloud Routines and headless sandboxes that never load `~/.claude/CLAUDE.md`,
-so the in-skill copy is the binding one there. The duplication is deliberate: a reference to a
-file the sandbox does not have would silently drop the rules in the one place they matter most.
+`full-send/SKILL.md`, `review-pr/SKILL.md`, and `ui-walkthrough/SKILL.md`. Those four skills post
+text that teammates read, and they run in cloud Routines and headless sandboxes that never load
+`~/.claude/CLAUDE.md`, so the in-skill copy is the binding one there. The duplication is deliberate:
+a reference to a file the sandbox does not have would silently drop the rules in the one place they
+matter most.
 
-When the section changes here, copy it into all three unchanged instead of paraphrasing. Rewording
+When the section changes here, copy it into all four unchanged instead of paraphrasing. Rewording
 one copy is how they drifted apart the first time. Verify no copy has drifted:
 
 ```bash
-for f in babysit-prs full-send ui-walkthrough; do
+for f in babysit-prs full-send review-pr ui-walkthrough; do
   diff <(sed -n '/^Apply ASD-STE100/,/backticks instead\.$/p' global/CLAUDE.md) \
        <(sed -n '/^Apply ASD-STE100/,/backticks instead\.$/p' $f/SKILL.md) >/dev/null \
     && echo "$f ok" || echo "$f DRIFTED"

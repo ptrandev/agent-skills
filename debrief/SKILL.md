@@ -9,13 +9,8 @@ description: >
 
 # debrief
 
-An LLM asked "are you sure?" mid-thread defends its own earlier calls. Two mechanisms work
-around that: every uncertainty carries a **falsifiable check** that gets executed, and a
-**blind sub-agent** reviews the artifacts. The in-thread model flags what it knew was
-shaky, never what it is confidently wrong about.
-
-This is a **read-only audit**. It never edits files, never commits, never pushes. It ends
-with a ranked report; the user decides what to act on.
+This is a **read-only audit**. **Never** edit a file, commit, or push. End with a ranked
+report.
 
 ## Input
 
@@ -41,13 +36,12 @@ Answer four questions **against this session specifically**, not in the abstract
    scale assumptions, hardcoded values, drift-prone couplings, missing edge cases.
 
 Rules:
-- 3-7 items across questions 1 and 2, ranked by expected damage. Not a laundry list.
-  Questions 3 and 4 produce one entry each, reported separately.
-- **Every item under questions 1-2 must name a check that would settle it**: a command to
-  run, a test to execute, a file/line to read, a doc to consult. An item with no
-  conceivable check is labeled `JUDGMENT CALL` explicitly, never dressed up as an
-  investigation.
-- Do not investigate a doubt using the same assumption that created it. If the doubt is
+- 3-7 items across questions 1 and 2, ranked by expected damage. Questions 3 and 4 produce
+  one item each, reported separately.
+- **Name a check that would settle every item under questions 1-2**: a command to run, a
+  test to execute, a file/line to read, a doc to consult. Label an item with no conceivable
+  check `JUDGMENT CALL` explicitly. **Never** dress it up as an investigation.
+- **Do not** investigate a doubt using the same assumption that created it. If the doubt is
   "I assumed the API returns X", the check is reading the API's actual code or calling
   it, not re-reading the call site written under that assumption.
 
@@ -69,9 +63,8 @@ Each item resolves to:
 
 ## Phase 3: Blind fresh eyes
 
-Skip when `/phillip` already ran on this diff this session (it does blind multi-reviewer
-work already) unless `$ARGS` contains `deep`. Skip entirely when the session produced no
-diff and no artifact.
+Skip when `/phillip` already ran on this diff this session, unless `$ARGS` contains `deep`.
+Skip entirely when the session produced no diff and no artifact.
 
 Otherwise spawn **one sub-agent with no conversation history**: the `Agent` tool with
 `subagent_type: general-purpose` and `run_in_background: false`, because the Phase 2 merge
@@ -110,7 +103,7 @@ Print (no file written unless the user asks):
 <one scenario, concrete>
 ```
 
-Offer to fix the real gaps as a follow-up; do not start fixing unprompted.
+Offer to fix the real gaps as a follow-up. **Do not** start fixing unprompted.
 
 ## Relationship to sibling skills
 

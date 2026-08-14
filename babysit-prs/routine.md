@@ -1,24 +1,26 @@
 # babysit-prs: Routine (cloud) setup
 
-The recommended way to run `/babysit-prs` unattended. A Claude Code **Routine** runs in an
-Anthropic-managed cloud environment that **clones your repo and runs a setup step**, so unlike a
-bare cloud agent it has the *actual code* and a real toolchain, enough to make fixes and verify
-them (typecheck/lint/test). No machine on, no open session. The runtime choice itself (Routine vs.
-local vs. GitHub Actions) is in "Running it unattended" in [SKILL.md](SKILL.md).
+A Claude Code **Routine** runs `/babysit-prs` unattended in an Anthropic-managed cloud environment.
+It **clones your repo and runs a setup step**, so it has the *actual code* and a real toolchain,
+enough to make fixes and verify them (typecheck/lint/test).
 
 > Source of truth: <https://code.claude.com/docs/en/routines> (research preview, limits/labels may
 > change). Configure at **claude.ai/code/routines** (web), the Desktop app (**Routines → New
-> routine → Remote**), or `/schedule` in the CLI. These can't be created from inside this skill.
+> routine → Remote**), or `/schedule` in the CLI. **Do not create a Routine from inside this
+> skill.**
 
-What it can and can't do (see the skill's capability tiers):
+Capability tiers in a Routine:
 - ✅ **Tier 1** triage/reply/resolve and ✅ **Tier 2** fix + verify, fully in-cloud.
 - ❌ **Tier 3** visual evidence (screenshots/video), no display/OpenCap in the cloud session.
-  Threads needing visual proof are left open, tagged *"needs local visual run,"* for a local pass.
+  Leave a thread needing visual proof open, tagged *"needs local visual run,"* for a local pass.
 
-Routines support exactly three trigger types, and you can combine them: **Schedule** (1 hour
-minimum cadence, or a one-off time), **GitHub event** (`pull_request.*` and `release.*` actions
-only, no review-comment or issue-comment event), and **API** (an HTTP POST to a per-routine `/fire`
-endpoint with a bearer token). Configure them in §5.
+Routines support these three trigger types and combine them. Configure them in §5.
+
+| Trigger | Cadence and limits |
+|---|---|
+| **Schedule** | 1 hour minimum cadence, or a one-off time. |
+| **GitHub event** | `pull_request.*` and `release.*` actions only. No review-comment or issue-comment event. |
+| **API** | An HTTP POST to a per-routine `/fire` endpoint with a bearer token. |
 
 ---
 
@@ -31,14 +33,14 @@ endpoint with a bearer token). Configure them in §5.
    degrades to triage-only.
 2. **The session starts on the default branch.** Each run clones `master`. The prompt/skill must
    `git fetch` and `gh pr checkout <PR>` onto the PR head before editing. The skill's Phase 4 does
-   this, which is why the Routine runs the *skill*, not a hand-rolled one-liner.
+   this, so the Routine runs the *skill*. **Never run a hand-rolled one-liner instead.**
 
 ---
 
 ## 1. Connect GitHub (no PAT)
 
 Routines use your **connected GitHub identity**, not a pasted token (that's the separate Managed
-Agents API). Two paths, per the docs' [GitHub authentication options]:
+Agents API). Two paths:
 
 - **`/web-setup`** in the CLI: grants repo access for **cloning**. Sufficient for a
   **schedule-only** routine.
@@ -55,12 +57,12 @@ At **claude.ai/code/routines → New routine**:
    selector, pick your model; it's used every run.)
 2. **Select repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`. Each is cloned
    fresh from its default branch every run.
-3. **Select an environment:** see §3 (setup script).
-4. **Select a trigger:** see §5.
+3. **Select an environment:** §3 (setup script).
+4. **Select a trigger:** §5.
 5. **Connectors / Permissions tabs** (bottom of the form):
    - **Permissions → enable "Allow unrestricted branch pushes"** for both repos (gotcha #1).
-   - **Connectors:** all your connected MCP connectors are included by default; remove any this
-     routine doesn't need (it needs none beyond git/gh, so you can strip them).
+   - **Connectors:** all your connected MCP connectors are included by default. Strip every one,
+     because this routine needs none beyond git/gh.
 6. **Create**, then use **Run now** on the detail page for the validation run (§6).
 
 ## 3. Environment + setup script
@@ -101,22 +103,22 @@ fi
 
 Notes:
 - **Skill discovery:** `$HOME/.claude/skills` matches how Claude Code normally loads user skills and
-  works regardless of cwd. The docs also guarantee "skills **committed to the cloned repository**",
-  so if `$HOME` discovery doesn't take, the fallback is committing `babysit-prs` into a repo's
-  `.claude/skills/`, or **inlining** SKILL.md into the prompt (the docs stress a self-contained one).
+  works regardless of cwd. The docs also guarantee "skills **committed to the cloned repository**".
+  When `$HOME` discovery does not take, commit `babysit-prs` into a repo's `.claude/skills/`, or
+  **inline** SKILL.md into the prompt (the docs stress a self-contained one).
 - **Per-repo verification depth sets the auto-resolve bar.** The rule lives in Phase 4 of
   [SKILL.md](SKILL.md) because the agent applies it every run. It is why (c) compiles rather than
   tests.
 - **Network:** Gradle pulls its distribution from `services.gradle.org` and deps from Maven Central
-  / Google's Maven. If those aren't in the Default Trusted allowlist, add them under **Network
+  / Google's Maven. When those are not in the Default Trusted allowlist, add them under **Network
   access → Custom** (keep the default package-manager list checked), or `aicc-queues` setup fails
   and that repo drops to triage-only. The npm registry `codebase` needs is in the default list.
 - First run is slow (cold install / Gradle distribution download); cached afterward.
 
 ## 4. The prompt
 
-The docs stress the prompt must be **self-contained**. Invoke the skill and state the guardrails so
-a fresh session has full context:
+Make the prompt **self-contained**: invoke the skill and state the guardrails, so a fresh session
+has full context.
 
 ```
 Run the /babysit-prs skill across my open PRs on Atllas-Inc/codebase and Atllas-Inc/aicc-queues.
@@ -129,27 +131,27 @@ visual proof OPEN, tagged for me. You start on the default branch, so `git fetch
 last reply is already mine. End with the report table and an explicit "Needs you" list.
 ```
 
-Keep it pointing at the skill so cloud and local runs stay identical and SKILL.md improvements apply
-everywhere.
+Keep the prompt pointing at the skill, so cloud and local runs stay identical and SKILL.md
+improvements apply everywhere.
 
-## 5. Triggers (recommended: schedule, + optional label accelerator)
+## 5. Triggers
 
 - **Schedule (primary):** pick the **Hourly** preset. For a gentler off-minute cadence, create it,
   then `/schedule update` in the CLI to set cron `17 * * * *` (1-hour minimum is enforced).
 - **GitHub event (optional):** **Add another trigger → GitHub event →** repo → **Pull request**,
   filtered to **Labels include `babysit`** (a manual "do this PR now" nudge) and/or
-  **action `opened`**. This installs/uses the Claude GitHub App. Remember: it can **not** fire on
-  comments, and that limitation is why the schedule is primary.
-- **API (optional):** add later if you want an external system to POST-trigger a run.
+  **action `opened`**. This installs/uses the Claude GitHub App. It can **not** fire on comments,
+  which is why the schedule is primary.
+- **API (optional):** add this trigger when an external system must POST-trigger a run.
 
 ## 6. First-run validation (before trusting it)
 
 `green` in the run list only means the session didn't crash. **Open the run transcript** to confirm
-what actually happened. Two things to verify (both undocumented for this workload):
+what actually happened. Verify two things:
 
-1. **Setup succeeded:** did `yarn install` + a typecheck run in-session? If not → triage-only until
-   the env is fixed. Also confirm the skill was discovered (the prompt invoked `/babysit-prs` and it
-   ran, rather than the agent improvising).
+1. **Setup succeeded:** confirm `yarn install` + a typecheck ran in-session. If not → triage-only
+   until the env is fixed. Also confirm the skill was discovered (the prompt invoked `/babysit-prs`
+   and it ran, rather than the agent improvising).
 2. **Branch push works:** point it at one PR with a trivial nit and confirm a **commit lands on the
    PR head** + the thread gets a reply and resolve. Proves the unrestricted-push toggle took.
 

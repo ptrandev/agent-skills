@@ -34,7 +34,7 @@ protection, never in the PR diff, and not fetched by a default `git fetch` (so n
 **One ref per PR head, flat namespace**: `refs/ui-walkthrough/pr-<n>-<head-sha>`. Each run's ref is
 independent, so older heads' screenshots stay reachable without chaining anything.
 
-Two things here are load-bearing, both learned by testing rather than reasoning:
+Two rules here are load-bearing, both learned by testing:
 
 - **Flat, hyphenated, never `pr-<n>/<sha>`.** A nested form collides with any existing
   `refs/ui-walkthrough/pr-<n>` ref as a git **directory/file conflict**, and the push is rejected.

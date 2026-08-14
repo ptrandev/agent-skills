@@ -1,9 +1,9 @@
 # review-pr: Routine (cloud) setup
 
 The primary way to run `/review-pr` unattended. A Claude Code **Routine** runs in a managed cloud
-sandbox (Ubuntu, ~16 GB RAM / 30 GB disk / 4 vCPU) that **clones your repos and runs a setup step**,
+sandbox (Ubuntu, \~16 GB RAM / 30 GB disk / 4 vCPU) that **clones your repos and runs a setup step**,
 so it has the real code + toolchain to verify findings, and enough memory to run the **Tier-3
-dynamic walkthrough** headlessly. No machine on, no open session.
+dynamic walkthrough** headlessly.
 
 > Source of truth: <https://code.claude.com/docs/en/routines> (research preview, so labels and limits
 > may change). Configure at **claude.ai/code/routines**, the Desktop app (**Routines -> New routine
@@ -17,7 +17,7 @@ dynamic walkthrough** headlessly. No machine on, no open session.
 - **It calls other skills**, so the setup script must install them into the sandbox: `phillip`
   (whose `RUBRIC.md` it reads), `phillip-sync`, `codex`, `gemini`.
 - **It can run Tier-3 headlessly** (16 GB is enough for the stack). Setup must supply `gh` and a
-  Chromium; the image ships neither reliably. See §3.
+  Chromium (§3); the image ships neither reliably.
 
 ## 1. Connect GitHub (no PAT)
 
@@ -32,21 +32,21 @@ At **claude.ai/code/routines -> New routine**:
 1. **Name + prompt.** Name `review-pr`; prompt in §4. Pick your model in the selector.
 2. **Select repositories.** `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues` (cloned fresh from
    the default branch each run).
-3. **Select an environment.** See §3.
-4. **Select a trigger.** See §5.
+3. **Select an environment** (§3).
+4. **Select a trigger** (§5).
 5. **Connectors / Permissions tabs.** Strip connectors this routine doesn't need. **No branch-push
    toggle required** (read-only checkout).
 6. **Create**, then **Run now** for the validation pass (§6).
 
 ## 3. Environment + setup script
 
-Default **Trusted** network is fine (github.com + package registries reachable). Setup script (runs
+Keep the default **Trusted** network (github.com + package registries reachable). Setup script (runs
 once, cached). **The two repos differ: codebase is Yarn 3 Berry, aicc-queues is Gradle/JVM.**
 
 > **The runner aborts the whole script on the first non-zero command.** Verified 2026-08-13: a
 > `cp` of a non-existent skill directory ended setup at that line, and steps (b) onward never ran.
 > So **every** step needs a guard: `|| echo …`, an `if`, or a `[ -d … ]` test. A step that is
-> allowed to fail must say so in its own line. Do not add a bare command to this script.
+> allowed to fail must say so in its own line. **Do not add a bare command to this script.**
 
 ```bash
 # (a) install the skills this one reads/calls (public repo, no auth).
@@ -129,17 +129,17 @@ Notes:
   is blocked. Check the **Connectors / Permissions** tabs first: enabling GitHub API access for
   the routine is the cheap fix. If it cannot be enabled, the run must route every GitHub call
   through the **GitHub MCP** tools, and Phase 8 needs `pull_request_review_write` plus
-  `resolve_review_thread` for Phase 5b. Probe with `gh api user`, never `gh auth status`, which
-  reports on stored credentials rather than on reachability.
+  `resolve_review_thread` for Phase 5b. Probe with `gh api user`. **Never probe with `gh auth
+  status`**, which reports on stored credentials rather than on reachability.
 - **MCP costs one verification.** `evidence-hosting.md`'s `body_html` read-back needs the
   `application/vnd.github.full+json` media type, which MCP does not expose. Under `GH_TRANSPORT=mcp`
   the "images survived" check cannot run. Say so in the report rather than implying it passed.
 - **A preinstalled Chromium that mismatches the repo's Playwright pin still drives the walkthrough.**
-  It needs an explicit `executablePath`; see `ui-walkthrough/SKILL.md` Phase 0, *Cloud browser
-  build*. Only a total absence of Chromium sets `CAN_LIVE_HEADLESS=false`.
+  It needs an explicit `executablePath` (`ui-walkthrough/SKILL.md` Phase 0, *Cloud browser build*).
+  Only a total absence of Chromium sets `CAN_LIVE_HEADLESS=false`.
 - **No credentials to provision for the walkthrough.** Step (a) clones the **public** skills repo, so
   any gitignored credential file is absent here by construction, and nothing needs it: the Tier-3
-  walkthrough logs in as a seeded e2e persona. Details in SKILL.md Phase 6.
+  walkthrough logs in as a seeded e2e persona ([SKILL.md](SKILL.md) Phase 6).
 - **The `codex` skill ships with gstack, not with this repo**, so step (a) cannot install it and
   Tier 2b runs gemini-only here. That is a permanent one-reviewer degrade, not a per-run blip:
   the skill says so in its report and caps the verdict at `COMMENT`
@@ -167,18 +167,17 @@ at the current head SHA. For UI PRs, run the Tier-3 headless walkthrough (extern
 real external calls). End with the report and a "needs your eyes" list.
 ```
 
-Keep it pointed at the skill so cloud and local stay identical. (For the first cycle or two, append
-`--draft` so it assembles and reports **without** posting while you validate. See §6.)
+Keep it pointed at the skill so cloud and local stay identical. Append `--draft` until the §6
+checks pass, so it assembles and reports **without** posting.
 
 ## 5. Triggers
 
 - **Schedule (primary):** **Hourly** (the minimum). `/schedule update` in the CLI for an off-minute
-  cron like `23 * * * *`. The hourly sweep is the workhorse, idempotent via the reviews-API
-  `commit_id`.
+  cron like `23 * * * *`. The hourly sweep is idempotent via the reviews-API `commit_id`.
 - **GitHub event (optional):** a `pull_request` trigger fires on PR updates, but its filters don't
   expose "which reviewer," and there's **no review-requested filter**, so it can't reliably mean
-  "I was just added." The skill self-filters every run regardless; treat the event trigger as a
-  best-effort accelerator and rely on the schedule. *(Whether `pull_request` exposes the
+  "I was just added." The skill self-filters every run regardless; treat the event trigger as an
+  accelerator and rely on the schedule. *(Whether `pull_request` exposes the
   `review_requested` action is research-preview-dependent. Confirm in the UI.)*
 
 ## 6. First-run validation (before trusting it to post)
@@ -186,6 +185,8 @@ Keep it pointed at the skill so cloud and local stay identical. (For the first c
 `green` only means the session didn't crash. **Open the transcript.** Run the prompt with `--draft`
 first and confirm:
 
+0. **`GH_TRANSPORT` is recorded**, and every GitHub call used it. Expect `mcp` here until the
+   sandbox stops blocking the API. A run that says `cli` on a blocked sandbox never probed.
 1. **Discovery** lists the right PRs (requested-of-me, not authored-by-me).
 2. **Setup worked:** `yarn install` / `gradle compile` ran, the skills installed, and `/review-pr`
    was actually invoked (not improvised).
@@ -204,7 +205,7 @@ first and confirm:
 
    If any fails, the skill sets `CAN_LIVE_HEADLESS=false` and falls back to static review.
 
-Drop `--draft` once the drafts look right.
+Drop `--draft` after every check above passes.
 
 ## 7. Limits to know (research preview)
 

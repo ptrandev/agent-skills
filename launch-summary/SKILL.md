@@ -13,17 +13,9 @@ allowed-tools:
 
 ## Instructions
 
-You are generating a **non-developer-friendly launch summary** from merged pull requests across two GitHub repos: `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
+Generate a **non-developer-friendly launch summary** from merged pull requests across two GitHub repos: `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
 
-The skill takes one argument, the window: `daily` or `weekly`. **If the user gives no argument, use `daily`.**
-
-The two windows behave identically. The timeframe is the only difference. The `case "$WINDOW"` block in Step 2 sets three values and nothing else:
-
-1. `SINCE`, the start of the window.
-2. `HEADER`, the output header line.
-3. `EMPTY`, the line printed when nothing shipped.
-
-Everything after that block is shared: the `gh` calls, the jq, the categorization, the Mobile and App split, the output template, the tone rules, and the footer.
+The skill takes one argument, the window: `daily` or `weekly`. **If the user gives no argument, use `daily`.** The window sets the timeframe and nothing else. Every later step is shared.
 
 ### Step 1: Determine the date range
 
@@ -34,9 +26,9 @@ If the user specified a different range, a specific day, or a specific week, use
 
 ### Step 2: Fetch merged PRs from both repos
 
-Only PRs merged **into `master`** count. `--base master` excludes PRs merged into release branches and feature branches. `--json files` returns each PR's changed files. Step 3 uses those paths to tell Mobile PRs apart from App PRs.
+Only PRs merged **into `master`** count. `--base master` excludes PRs merged into release branches and feature branches. `--json files` returns each PR's changed files, which Step 3 uses to tell Mobile PRs apart from App PRs.
 
-`gh pr list --state merged` orders results by creation date, not merge date. Without a server-side filter, `--limit 100` can silently drop a PR that was opened long ago and merged inside the window. `--search "merged:>=$SINCE"` makes GitHub do the filtering, so the limit only ever trims PRs already outside the window.
+Keep `--search "merged:>=$SINCE"`. `gh pr list --state merged` orders results by creation date, not merge date, so `--limit 100` alone can silently drop a PR that was opened long ago and merged inside the window.
 
 Run both calls in one Bash invocation so `SINCE` is computed once:
 
@@ -81,7 +73,7 @@ gh pr list \
   --jq "[.[] | select(.mergedAt >= \"$SINCE\")] | map({repo: \"aicc-queues\", number: .number, title: .title, mergedAt: .mergedAt, body: .body, labels: [.labels[].name], mobile: false})"
 ```
 
-Note: `gh pr list --jq` does not support jq's `--arg` flag. It errors with "unknown arguments", because `gh` consumes `--arg` as the jq program itself. The `$SINCE` value must be interpolated directly into the jq program string as shown above.
+Note: `gh pr list --jq` does not support jq's `--arg` flag. It errors with "unknown arguments", because `gh` consumes `--arg` as the jq program itself. Interpolate the `$SINCE` value directly into the jq program string, as shown above.
 
 `aicc-queues` has no mobile app, so every PR from it is hardcoded `mobile: false` (App).
 
@@ -95,7 +87,7 @@ select(.mergedAt >= "$SINCE" and .mergedAt < "$UNTIL")
 
 ### Step 3: Analyze and categorize
 
-For each PR, read the **title** and the **Description** and **Changes** sections of the body. Write plain-English summaries. Never copy developer jargon or ticket IDs into the output.
+For each PR, read the **title** and the **Description** and **Changes** sections of the body. Write plain-English summaries. **Never** copy developer jargon or ticket IDs into the output.
 
 **Exclude** these from the summary:
 - PRs that only touch CI/CD pipelines, linting configs, test infrastructure, or dev tooling with no user impact
@@ -154,8 +146,8 @@ If no PRs merged in the window, print the `EMPTY` string from Step 2 and nothing
 - Ultra-concise: each bullet is a fragment, not a full sentence. Think changelog entry, not explanation.
 - No filler words: drop "now", "previously", "instead", "in order to". Just the fact.
 - "AI calling" not "AICC", "contacts" not "recipients", "dashboard" not "portal"
-- Avoid all technical terms: no Firestore, Redis, UUID, cron, CSV (say "spreadsheet"), API, etc.
-- Group closely related PRs into a single bullet, including PRs from both repos. Never merge a Mobile PR and an App PR into one bullet.
-- Bold name should be 1–3 words maximum
+- **Never** use a technical term: no Firestore, Redis, UUID, cron, CSV (say "spreadsheet"), API, etc.
+- Group closely related PRs into a single bullet, including PRs from both repos. **Never** merge a Mobile PR and an App PR into one bullet.
+- Keep the bold name to 1 to 3 words maximum
 
-Print the formatted summary to the user. Do not save it to a file unless the user asks.
+Print the formatted summary to the user. **Do not** save it to a file unless the user asks.
