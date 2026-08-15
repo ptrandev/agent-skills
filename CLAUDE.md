@@ -57,7 +57,7 @@ paragraph that describes three cases costs more tokens and reads worse than a th
 
 **One owner per fact.** State a procedure in exactly one file. Duplicated rules drift, and the
 agent then follows whichever copy it read last. The one documented exception is the Writing style
-block copied verbatim into three skills, explained in `README.md`, because headless sandboxes
+block copied verbatim into four skills, explained in `README.md`, because headless sandboxes
 never load `~/.claude/CLAUDE.md`.
 
 ## Progressive disclosure: split what most runs do not read

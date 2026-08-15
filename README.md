@@ -185,6 +185,12 @@ for f in babysit-prs full-send review-pr ui-walkthrough; do
 done
 ```
 
+[`global/ai-tells.md`](global/ai-tells.md) is the deep reference behind those Writing style rules:
+the full list of AI writing tells, the patterns that are *not* tells, and its own quarterly refresh
+procedure against the upstream Wikipedia source. `global/CLAUDE.md` points at it, and that pointer
+sits **outside** the copied block on purpose. The four skills above run against other repositories,
+where this file is not on disk, so their copy of the Writing style rules has to stand alone.
+
 ## Adding a new skill
 
 1. Create a directory in this repo: `mkdir my-skill`

@@ -72,6 +72,19 @@ gets the same pass, not a looser one.
   `LABEL: text` for a header or severity separator, and a period or comma mid-sentence.
 - Let the completed work show the result. No preamble, no self-congratulation.
 - Include all necessary context. Concise and complete, not concise and partial.
+- Apply the swap test. If a sentence stays true after you replace its subject with a
+  different subject, delete it. Never claim significance, legacy, or a broader trend that
+  no source stated.
+- Keep the copula. Write `is`, `are`, `has`. Never `serves as`, `stands as`, `represents`,
+  `functions as`, `boasts`, `features`, `offers`.
+- End a sentence at the fact. Never append an `-ing` clause that interprets it, such as
+  `..., highlighting its importance` or `..., ensuring consistency`.
+- Never use negative parallelism: `not just X but Y`, `not X, but Y`, `X rather than Y`.
+- Name a thing the same way every time. Never rename a referent for variety.
+- Use the plain verb. `wrote` not `authored`, `used` not `utilized`, `moved` not
+  `relocated`, `tried` not `attempted`.
+- Bold-header bullet lists (`- **Thing**: text`) are a layout decision, not a default. Use
+  prose unless the content is a lookup table.
 - In any markdown that will be rendered (chat responses, PR/issue bodies, reports, docs),
   escape delimiter characters used literally, since two of them in one paragraph silently
   corrupt everything between: `\~` for "approximately" tildes (`~...~` is strikethrough in
