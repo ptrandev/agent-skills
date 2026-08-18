@@ -71,13 +71,13 @@ doc, a PR body, a skill, or a summary for people who did not watch the work happ
 the full list of AI writing tells, the ones that are not tells, and its own refresh
 procedure. The rules above bind on their own when that file is not on disk.
 
-## Model delegation (latency + quality)
+## Model delegation (cost + latency + quality)
 
-Optimize for latency, but never at the expense of quality. Faster/smaller
-models are ONLY for work where the model tier cannot affect output quality.
-All judgment stays with the main-loop model (whatever model this session
-runs, e.g. Fable, Opus, or Sonnet). Never delegate to a model stronger than
-the main loop; the verifier must not be weaker than the workers.
+Pick the smallest model that can do the task at full quality. Match the tier
+to the task, not to the session model. Never delegate to a model stronger
+than the main loop; the verifier must not be weaker than the workers. All
+final judgment stays with the main-loop model (whatever model this session
+runs, e.g. Fable, Opus, or Sonnet).
 
 1. **Parallelize first.** Independent multi-item work (searches, reads,
    verifications, per-file mechanical edits) → concurrent subagents in one
@@ -86,39 +86,43 @@ the main loop; the verifier must not be weaker than the workers.
 2. **Single quick task → inline.** One grep/read/lookup is faster done
    directly in the main loop; subagent spawn overhead loses.
 
-3. **Mechanical work → haiku, effort low.** Searches, file location,
-   extraction, summarizing docs/logs. Tasks where a wrong answer is
-   obvious or cheap to check, and speed is the whole point.
+3. **Mechanical work → `haiku`.** Searches, file location, extraction,
+   summarizing docs and logs. A wrong answer is obvious and cheap to check.
 
-4. **Substantive delegable work → inherit the main model (omit `model`),
-   with one exception:** when the session runs Fable, use `opus` for
-   self-contained coding subtasks, deep reads, and verification fan-outs.
-   It's near-Fable on that work and passes review first-try. On Opus or
-   Sonnet sessions there is no near-equivalent tier below, so subagents
-   just inherit. No middle tiers: if haiku can't do it, the inherited/opus
-   tier does it.
+4. **Well-specified work → `sonnet`.** One clear goal, a known pattern to
+   follow, a success test I can state in a sentence before spawning: a test
+   for a described function, a documented refactor across files, a build
+   script, a structured read of one subsystem.
 
-5. **The main-loop model verifies delegated work.** Any delegated output
+5. **Open-ended or judgment-heavy work → inherit the main model (omit
+   `model`).** No stated success test, cross-file design choices,
+   correctness or security calls, verification fan-outs whose verdicts I
+   act on. Exception: when the session runs Fable, use `opus` here. It is
+   near-Fable on self-contained coding and deep reads.
+
+6. **Two tiers equally plausible → take the smaller one, then verify.** A
+   main-loop reread costs less than an Opus subagent I did not need.
+   Escalate on a failed verification, not on a hunch.
+
+7. **The main-loop model verifies delegated work.** Any delegated output
    that feeds a decision or lands in the codebase gets a main-loop pass:
    review the diff, spot-check findings, re-derive anything surprising.
    Verification is fast; redoing bad work is not.
 
-6. **Hard reasoning → main loop, inline.** Architecture, debugging,
+8. **Hard reasoning → main loop, inline.** Architecture, debugging,
    cross-cutting analysis, anything needing full conversation context,
    final review. Exception: hard + independent + non-blocking → same-model
    subagent in the background while the main loop continues (fresh context
    also avoids re-reading a long conversation).
 
-7. **Never serialize delegable work; never block on background agents**
-   you can check on later.
+9.  **Never serialize delegable work; never block on background agents**
+    you can check on later.
 
-8. **Do NOT delegate:** work needing built-up conversation context (subagents
-   start blank, so the handoff is lossy), tight feedback loops like debugging
-   (main loop needs raw evidence, not summaries), sequential dependent steps
-   (no fan-out = pure overhead), small precision edits, and stateful/risky
-   ops (git, deploys, prod data: one visible actor, in order).
-
-Same rules apply to Workflow `agent()` calls via `opts.model` / `opts.effort`.
+10. **Do NOT delegate:** work needing built-up conversation context (subagents
+    start blank, so the handoff is lossy), tight feedback loops like debugging
+    (main loop needs raw evidence, not summaries), sequential dependent steps
+    (no fan-out = pure overhead), small precision edits, and stateful/risky
+    ops (git, deploys, prod data: one visible actor, in order).
 
 ## gstack
 
