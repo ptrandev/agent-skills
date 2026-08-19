@@ -94,11 +94,13 @@ runs, e.g. Fable, Opus, or Sonnet).
    for a described function, a documented refactor across files, a build
    script, a structured read of one subsystem.
 
-5. **Open-ended or judgment-heavy work → inherit the main model (omit
-   `model`).** No stated success test, cross-file design choices,
-   correctness or security calls, verification fan-outs whose verdicts I
-   act on. Exception: when the session runs Fable, use `opus` here. It is
-   near-Fable on self-contained coding and deep reads.
+5. **Open-ended or judgment-heavy work → `opus` when the session runs
+   Fable; otherwise inherit the main model (omit `model`).** No stated
+   success test, cross-file design choices, correctness or security calls,
+   verification fan-outs whose verdicts I act on. Opus is near-Fable on
+   self-contained coding and deep reads, so a Fable session spawns Fable
+   subagents only when the subagent's verdict is final or verifying it
+   would mean redoing it (see 6, 7, 8).
 
 6. **Two tiers equally plausible → take the smaller one, then verify.** A
    main-loop reread costs less than an Opus subagent I did not need.
