@@ -290,7 +290,9 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
   `/tmp/review-pr-$PR-*` would clobber each other.)
   - **Headless/sandbox invocation gotchas** (API-key `codex exec` instead of `codex review`, the
     two trust-gate flags, the `< /dev/null` redirect, Gemini's inline-`-p` limitation, its
-    `RESOURCE_EXHAUSTED` degradation): [routine.md](routine.md) section 8.
+    `RESOURCE_EXHAUSTED` degradation): [routine.md](routine.md) section 8. **`RUBRIC.md` sits
+    outside Gemini's workspace, so "Read the rubric" silently no-ops there.** Section 8 owns the
+    fix. Apply it on every run, local included. Codex is unaffected.
   - **Materialize the Codex credential here, not in setup.** A routine's setup step runs in a
     build phase, and `~/.codex/auth.json` written there does **not** survive into the run container
     (verified 2026-08-14: absent at session start with `OPENAI_API_KEY` set). Check for the file
@@ -309,11 +311,16 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
     non-empty output file that contains its findings contract. An empty file, a refusal, or a quota
     error means that reviewer is **missing**, which drops the count and caps the verdict at
     `COMMENT` (Tier 2b).
-- A **blind Claude sub-agent** (Agent tool) launched simultaneously, exactly as `/phillip` section 2
+- A **blind Claude reviewer** launched simultaneously, exactly as `/phillip` section 2
   step 3 specifies it: same role text, same instruction to Read `~/.claude/skills/phillip/RUBRIC.md`
   and apply it, same `SEVERITY | file:line | finding | why-real` output contract. The delta for
   cross-review: its diff is the PR diff and it gets `$WORKDIR` to read the real code, and it is
   **never** given the PR description or the author's login.
+  - Use the Agent tool when you have it. **You will not have it inside a per-PR sub-agent**
+    (sub-agents get no Agent tool). There, run the blind reviewer as a `claude -p` subprocess per
+    `/phillip` section 2 "Reviewer #3 without the Agent tool", which owns the command and its
+    flags. Add `--add-dir "$WORKDIR"` when `$WORKDIR` is not the subprocess's cwd. An inline pass
+    is the last resort, and it is labelled `Claude (inline, not blind)` in the report.
 
 ---
 
@@ -471,7 +478,7 @@ Write `${REVIEW_PR_PLANS_DIR:-$HOME/.claude/plans}/review-pr-<owner>-<repo>-<PR>
 
 ```
 ### /review-pr -> Atllas-Inc/codebase#1773, <date>
-Reviewers: Claude(blind) + Codex + Gemini   Verify: FULL   Dynamic: yes/skipped(reason)   Head: <sha>
+Reviewers: Claude(blind|blind,subprocess|inline,not blind) + Codex + Gemini   Verify: FULL   Dynamic: yes/skipped(reason)   Head: <sha>
 Verdict: <event>   Mode: <post|draft>
 
 | # | Sev | File:line | Finding | Source | Verified | Posted |

@@ -229,10 +229,11 @@ Drop `--draft` after every check above passes.
 - The cloud session is **headless**. It produces screenshots (attached to the PR), not a
   human-watchable live browser or video. For that, run `/review-pr` locally.
 
-## 8. Codex and Gemini in the sandbox
+## 8. Codex and Gemini CLI invocation
 
-SKILL.md Phase 4 launches both CLIs as concurrent background jobs. Their headless invocation differs
-from a local, OAuth-authed run:
+SKILL.md Phase 4 launches both CLIs as concurrent background jobs. The trust-gate, stdin, and auth
+items below are headless-only. The Gemini workspace-boundary item binds on **every** run, local
+included.
 
 > **Both CLIs refuse with EXIT CODE 0 in this sandbox until their trust gates are bypassed**
 > (verified 2026-08-14). Codex: *"Not inside a trusted directory and `--skip-git-repo-check` was not
@@ -262,6 +263,10 @@ from a local, OAuth-authed run:
   exits 0. Pass the diff **inline in the `-p` prompt**. Gemini's `-p` mode does not read
   file-path arguments and cannot reach paths outside its workspace, so a `/tmp/...` diff file is
   invisible to it, and it has no shell tool in the cloud sandbox. Embed the diff text directly (the
-  `/gemini` skill's review mode already does this). On `RESOURCE_EXHAUSTED` or quota errors it
+  `/gemini` skill's review mode already does this). **Embed the `RUBRIC.md` text the same way, and
+  never send Gemini the rubric's path.** The rubric sits outside its workspace, and the `/gemini`
+  skill's `FS_BOUNDARY` prompt orders it to ignore `~/.claude/` on top of that. A path instruction
+  no-ops silently, so Gemini reviews against the prompt's summary of the bar only (verified
+  2026-08-24, PR #2010). On `RESOURCE_EXHAUSTED` or quota errors it
   degrades to a thinner voice. Say so in the report; the fix is enabling billing on the
   `GEMINI_API_KEY` project (the free tier is rate-capped).

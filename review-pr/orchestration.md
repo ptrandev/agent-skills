@@ -19,9 +19,10 @@ gate -> dispatch -> aggregate.
   found a prior review, and the rubric path `~/.claude/skills/phillip/RUBRIC.md`. Tell the agent to
   execute Phases 3 through 9 of `~/.claude/skills/review-pr/SKILL.md` for **exactly that one PR**,
   reading the rubric itself.
-- **Nesting is expected:** the per-PR agent spawns its *own* blind Claude reviewer and runs its own
+- **Nesting is expected:** the per-PR agent runs its *own* blind Claude reviewer and its own
   Codex/Gemini background jobs (Phase 4). **Never give the blind reviewer the PR description or the
-  author's login**, whatever the per-PR agent knows.
+  author's login**, whatever the per-PR agent knows. A per-PR agent has **no Agent tool**, so its
+  blind reviewer is a `claude -p` subprocess (Phase 4).
 - **Concurrency:** agents for **different repos run in parallel** (separate clones). Agents for PRs
   in the **same repo run sequentially** (shared clone, serial checkouts). Do **not** split same-repo
   PRs across `git worktree`s to parallelize them: a fresh worktree's `node_modules` is empty, so
@@ -69,7 +70,7 @@ end-of-run batch.
 
 ### Nested dispatch: a per-PR agent may spawn its own helpers, bounded
 
-A per-PR agent already spawns the blind reviewer. Extend the pattern to other **read-only** work when
+A per-PR agent already runs the blind reviewer. Extend the pattern to other **read-only** work when
 one PR is itself too big for one context: chunked review of a large diff (one reader agent per chunk,
 findings merged before Phase 5), parallel verification of independent findings, or adjudicating a
 pile of bot threads. Two hard rules:
@@ -78,4 +79,4 @@ pile of bot threads. Two hard rules:
   threads, or touches the checkout. Helpers return findings and verdicts; invariant 2
   (only-verified-posts) is enforced in exactly one place.
 - **Depth cap:** orchestrator -> per-PR agent -> helpers. No deeper, and no speculative spawning: a
-  normal-sized PR runs Phases 4 and 5 inline (plus the blind reviewer it always spawns).
+  normal-sized PR runs Phases 4 and 5 inline (plus the blind reviewer it always runs).

@@ -24,7 +24,7 @@ Self-reviews the current diff to a senior engineering bar before it becomes a PR
 - `/phillip`: full multi-round, all three reviewers.
 - `/phillip quick`: one round, Claude-only (auto-scales down on trivial diffs anyway).
 
-The rubric lives in [`phillip/RUBRIC.md`](phillip/RUBRIC.md), not in `phillip/SKILL.md`. All three reviewers read it at runtime. Before each run `/phillip` invokes `/phillip-sync` (non-blocking) to refresh it from this repo's recent PR reviews.
+The rubric lives in [`phillip/RUBRIC.md`](phillip/RUBRIC.md), not in `phillip/SKILL.md`. All three reviewers apply it at runtime: Claude and Codex read the file, Gemini gets the text pasted into its prompt because it cannot reach `~/.claude`. Before each run `/phillip` invokes `/phillip-sync` (non-blocking) to refresh it from this repo's recent PR reviews.
 
 **Usage:** `/phillip` or `/phillip quick`
 

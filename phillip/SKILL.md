@@ -104,9 +104,10 @@ Skip every rubric row whose `Repo` column names a repo other than the one under 
 ## 2. The multi-round adversarial loop
 
 Run rounds until convergence. Each round uses three independent reviewers: Codex, Gemini,
-and a BLIND Claude sub-agent spawned via the Agent tool. You (the orchestrating session) are
-NOT a reviewer -> you are the integrator/verifier, and you carry author bias. **Do not**
-collapse reviewer #3 back into an in-session pass.
+and a BLIND Claude reviewer in its own context (an Agent-tool sub-agent, or a `claude -p`
+subprocess). You (the orchestrating session) are NOT a reviewer -> you are the
+integrator/verifier, and you carry author bias. **Do not** collapse reviewer #3 back into an
+in-session pass.
 
 ### Per round (run the three reviewers in PARALLEL)
 
@@ -125,11 +126,18 @@ collapse reviewer #3 back into an in-session pass.
    Skill invocations CANNOT parallelize, because skill calls are sequential.
 
    ALL THREE reviewers review against the rubric, not a generic bar. Add this line to the
-   Codex prompt and the Gemini prompt: "Read `~/.claude/skills/phillip/RUBRIC.md` and apply
-   it, skipping any row whose Repo column names a repo other than this one."
-3. Reviewer #3 is a BLIND Claude sub-agent, launched via the Agent tool right after the two
-   background jobs are running. The sub-agent must derive everything from the repo, never
-   from you. Feed it ONLY:
+   Codex prompt: "Read `~/.claude/skills/phillip/RUBRIC.md` and apply it, skipping any row
+   whose Repo column names a repo other than this one."
+
+   **Never give Gemini that line. Paste the rubric TEXT into its `-p` prompt instead**, the
+   same way the diff is pasted. Gemini cannot reach `~/.claude` (outside its workspace), and
+   the `/gemini` skill's `FS_BOUNDARY` prompt orders it to ignore that tree anyway. A path
+   instruction there silently no-ops, and Gemini reviews against a generic bar (verified
+   2026-08-24). Codex is unaffected, it reads the real filesystem.
+3. Reviewer #3 is a BLIND Claude reviewer, launched right after the two background jobs are
+   running: an Agent-tool sub-agent, or a `claude -p` subprocess when this session has no Agent
+   tool (see "Reviewer #3 without the Agent tool" below). It must derive everything from the
+   repo, never from you. Feed it ONLY:
    - the role: "You are an independent code reviewer. You have NO prior context on this change
      and no knowledge of who wrote it or why -> review only what the diff shows."
    - instructions to capture the diff ITSELF using the section-0 "Capture the diff under
@@ -157,8 +165,37 @@ Fallbacks:
 | Situation | Do this |
 |---|---|
 | You cannot background jobs in this environment | Issue the Codex and Gemini CLI calls as two Bash calls in a SINGLE message (the harness runs independent calls concurrently). Worst case, invoke the `/codex` and `/gemini` skills sequentially: still correct, just slower. |
-| The Agent tool is unavailable (older harness / sub-agents unsupported) | Run reviewer #3 as an INLINE Claude pass on the diff, exactly as the orchestrator would. State in the report "reviewer #3 ran inline, not blind (Agent tool unavailable)." **Never** claim a blind third reviewer you did not run as a sub-agent, it violates the HONESTY RULE. |
+| The Agent tool is unavailable (older harness, or you are yourself a sub-agent, which has no Agent tool) | Run reviewer #3 as a `claude -p` subprocess. See "Reviewer #3 without the Agent tool" below. Fall back to an INLINE pass only when that subprocess also fails. |
 | The gemini skill is not installed (no `~/.claude/skills/gemini/SKILL.md`) or its CLI auth is missing | Run with Codex + Claude and state in the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it is absent. **Do not** silently drop a reviewer. |
+
+### Reviewer #3 without the Agent tool
+
+A `claude -p` subprocess is a **separate process with an empty context**, so it is genuinely
+blind. Prefer it over an inline pass whenever the Agent tool is missing. Sub-agents get no Agent
+tool, so any nested run (`/review-pr` per-PR agents, `/full-send`) takes this path.
+
+Write the same blind-reviewer prompt from step 3 to a file, then run the CLI from the directory
+holding the code under review:
+
+```bash
+timeout 900 claude -p "$(cat /tmp/phillip-blind-prompt.txt)" \
+  --add-dir "$HOME/.claude/skills/phillip" \
+  --allowed-tools "Read" "Grep" "Glob" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" \
+  --model "$BLIND_MODEL" < /dev/null > /tmp/phillip-blind.out 2>&1
+```
+
+- `--add-dir` is **mandatory**: without it the subprocess cannot Read `RUBRIC.md`, and it reviews
+  against a generic bar (verified 2026-08-24).
+- `--allowed-tools` must list every tool by name. In `-p` mode an unlisted tool is denied with no
+  prompt, so an omitted `Read` yields a review of nothing.
+- `< /dev/null` stops it blocking on stdin as a background job.
+- Set `$BLIND_MODEL` to this session's model, never a smaller one.
+- Gate on the **output**, not the exit code: `/tmp/phillip-blind.out` must carry the
+  `SEVERITY | file:line | ...` contract. An empty or contract-free file means reviewer #3 did not
+  run, so report it missing.
+- Label the source `Claude (blind, subprocess)`. Label an inline pass
+  `Claude (inline, not blind)`. **Never** claim a blind reviewer you did not run in a separate
+  process or agent, it violates the HONESTY RULE.
 
 ### Verification gate (run BEFORE changing any code)
 
@@ -220,7 +257,7 @@ a nested path that does not exist.
 
 ```
 ### Phillip self-review -> <branch>, <date>
-Reviewers: Claude (blind) + Codex + Gemini   Rounds run: <n>
+Reviewers: Claude (blind|blind, subprocess|inline, not blind) + Codex + Gemini   Rounds run: <n>
 Stopped because: dry round / 3-round cap
 
 | # | Severity | File:line | Finding | Source | Status |
