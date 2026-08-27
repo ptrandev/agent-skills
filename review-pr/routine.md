@@ -131,6 +131,13 @@ fi
 ```
 
 Notes:
+- **The setup script does not re-run every session, so the skills it clones go stale.** Per
+  <https://code.claude.com/docs/en/cloud-environments>, the script runs on the **first** session in an
+  environment. Anthropic then snapshots the filesystem and reuses that snapshot, skipping the script.
+  It re-runs only when you change the environment's setup script or its allowed network hosts, or when
+  the cache expires after **roughly seven days**. So step (a)'s `git clone` of `ptrandev/claude-skills`
+  can be up to a week behind master. **After pushing a skill change the next run must have, edit the
+  environment's setup script to invalidate the snapshot.** Bumping a trailing comment is enough.
 - **`gh` cannot reach the API here, and that is not fixable from GitHub's side. Do not chase it.**
   Verified 2026-08-14: every repo call 403s with *"an org admin must connect the Claude GitHub App
   for this organization"*, and all GraphQL is blocked. **That message is misleading.** The same day,
@@ -170,29 +177,81 @@ Notes:
 The docs stress a **self-contained** prompt. Invoke the skill and state the guardrails:
 
 ```
-Run the /review-pr skill. Review every open PR on Atllas-Inc/codebase and Atllas-Inc/aicc-queues
-where I am the requested reviewer (and not the author). Apply Phillip's engineering bar: read
-~/.claude/skills/phillip/RUBRIC.md, run the three-reviewer pass, and VERIFY every finding against
-the checked-out head before it can post. Post the review autonomously (inline comments + verdict).
+Use maximum reasoning effort and rigor throughout — treat this as a high-stakes review.
+
+Run the /review-pr skill and POST the review to GitHub autonomously (inline comments + verdict).
 REQUEST_CHANGES only on a verified HIGH, APPROVE only on a clean fully-verified pass, else COMMENT.
-NEVER post an unverified finding (route those to the report). The session starts on the default
-branch, so `gh pr checkout <PR>` onto each PR head first. Be idempotent: skip PRs already reviewed
-at the current head SHA. For UI PRs, run the Tier-3 headless walkthrough (externally stubbed, no
-real external calls). End with the report and a "needs your eyes" list.
+NEVER post an unverified finding: route those to the report instead.
+
+Review every OPEN, READY-FOR-REVIEW PR on Atllas-Inc/codebase and Atllas-Inc/aicc-queues where I am
+the requested reviewer (and NOT the author). NEVER review a GitHub draft PR (isDraft) — exclude
+drafts entirely at discovery and never post to one.
+
+This routine fires three times each weekday, so be idempotent: skip any PR that already carries a
+review by me at its current head SHA.
+
+Follow the skill's TWO-PHASE BATCH MODEL: Pass A — static review ALL PRs in parallel (Phases 3–5,7);
+non-UI PRs are complete after static. Pass B — process UI PRs (apps/agents-portal) ONE AT A TIME,
+largest UI diff first: pre-build workspace packages (`yarn turbo run build --filter='./packages/*'`)
+under Node 20, boot `yarn e2e:stack`, run the headless Playwright walkthrough, merge live findings,
+and assemble that PR's full review. Any UI PR not reached in the runtime budget gets its static
+review + a NEEDS-DYNAMIC-RUN note — never drop a PR.
+
+Apply Phillip's engineering bar (read phillip Section 1), run the full three-reviewer pass (Claude +
+codex + gemini; note any reviewer that fails rather than silently dropping it), and VERIFY every
+finding against the checked-out head. End with the aggregate report, an explicit "needs your eyes"
+list, a line stating which reviewers actually ran, and a line stating which PRs got a dynamic
+walkthrough vs static-only.
 ```
 
-Keep it pointed at the skill so cloud and local stay identical. Append `--draft` until the §6
-checks pass, so it assembles and reports **without** posting.
+This block mirrors the prompt deployed on `trig_01DTU43x2w86zkJzwqLDZj1t`. **The routine is the
+source of truth. Re-read it with `RemoteTrigger` `get` before trusting this copy.**
+
+Keep it pointed at the skill so cloud and local stay identical. **The live prompt posts.** Add
+`--draft` to opt back down to assemble-and-report-only whenever §6 needs re-validating.
 
 ## 5. Triggers
 
-- **Schedule (primary):** **Hourly** (the minimum). `/schedule update` in the CLI for an off-minute
-  cron like `23 * * * *`. The hourly sweep is idempotent via the reviews-API `commit_id`.
-- **GitHub event (optional):** a `pull_request` trigger fires on PR updates, but its filters don't
-  expose "which reviewer," and there's **no review-requested filter**, so it can't reliably mean
-  "I was just added." The skill self-filters every run regardless; treat the event trigger as an
-  accelerator and rely on the schedule. *(Whether `pull_request` exposes the
-  `review_requested` action is research-preview-dependent. Confirm in the UI.)*
+**Schedule only.** `9 10,16,21 * * 1-5` (UTC) fires the routine three times each weekday: 6:09am,
+12:09pm, and 5:09pm America/Toronto under EDT. Each run sweeps the whole queue. Idempotency via the
+reviews-API `commit_id` is what makes the midday and end-of-day runs skip what the morning run
+already posted.
+
+Three runs per weekday against the **15-run daily account cap** (Max) leaves headroom for `Run now`.
+
+**The dashboard's Custom-cron summary line is NOT timezone-converted.** For `9 10,16,21 * * 1-5` it
+reads *"At 10:09 AM, 04:09 PM and 09:09 PM, Monday through Friday"*, which is the cron fields
+rendered verbatim as UTC, four hours off local. Note the missing zone suffix: a preset schedule
+renders converted **and labelled** (*"Runs weekdays at 6:00 AM EDT"*), a Custom cron renders raw and
+unlabelled. **Trust the "Next run" line instead**, which is real local time. Confirmed 2026-08-27:
+the summary said 09:09 PM while "Next run today at 5:09 PM" matched `next_run_at:
+2026-08-27T21:09:00Z`.
+
+**Verify the timezone from the API, never from the UI.** Compare `cron_expression` against
+`next_run_at` in one `RemoteTrigger` `get` response. `next_run_at` is an unambiguous UTC timestamp,
+so it settles the reading on its own. Confirmed 2026-08-27: cron `9 10,16,21 * * 1-5` returned
+`next_run_at: 2026-08-27T21:09:00Z`, and the earlier `0 10 * * 1-5` fired at `10:10:51Z`. A local
+reading of that second one would put it at `14:00Z`. The UI's "6:00 AM EDT" label is computed at
+display time from the browser's zone.
+
+**Cron is stored in UTC and does not track DST.** These local times shift one hour earlier when
+Toronto returns to EST. Re-cut the cron to `9 11,17,22 * * 1-5` in November to hold the same local
+times.
+
+**A GitHub event trigger is a poor fit here, and this was measured (2026-08-27).** A `pull_request`
+trigger exposes no "which reviewer" filter. The filter fields are author, title, body, base branch,
+head branch, labels, is-draft, is-merged. So `pull_request.review_requested` fires when **anyone** is
+requested on the repo. `Atllas-Inc/codebase` alone opened 85 PRs in the preceding 14 days, roughly 8
+per weekday, which puts event fires at 10 to 20 per weekday. Each fire starts a session and costs one
+run against the daily cap, so the cap goes to no-op runs before a real request arrives.
+
+Three `RemoteTrigger` API gaps, if you ever revisit event triggers:
+
+- The API does **not** validate the `events` strings. A typo returns HTTP 200 and creates a trigger
+  that never fires.
+- `RemoteTrigger` `get` on the routine does **not** list its webhook triggers.
+- There is **no** delete action for a webhook trigger. **Delete them at
+  <https://claude.ai/code/routines>.**
 
 ## 6. First-run validation (before trusting it to post)
 
@@ -221,10 +280,19 @@ first and confirm:
 
 Drop `--draft` after every check above passes.
 
+**Current state, 2026-08-27: the deployed prompt posts, and checks 3 and 6 were never signed off.**
+The live runs are watched instead. To return to validation, add `--draft` to the §4 prompt.
+
 ## 7. Limits to know (research preview)
 
-- **1-hour minimum** schedule cadence; per-account daily routine-run cap; runs may start a few
-  minutes late (consistent stagger).
+- **1-hour minimum** schedule cadence. Runs start a few minutes late on a consistent stagger: the
+  `0 10` slot fired at `10:10:51Z`.
+- **Daily run cap, per account, shared across every routine**: Pro 5, Max 15, Team and Enterprise 25
+  (<https://claude.com/blog/introducing-routines-in-claude-code>). One-off runs do not count. Past the
+  cap, further runs need usage credits enabled at <https://claude.ai/settings/usage>. Read the live
+  remaining count at <https://claude.ai/code/routines>. This routine spends **3 of 15** on Max.
+- GitHub webhook events carry separate per-routine and per-account **hourly** caps. Those numbers are
+  not published.
 - Requires a **Pro/Max/Team/Enterprise** plan with **Claude Code on the web** enabled.
 - The cloud session is **headless**. It produces screenshots (attached to the PR), not a
   human-watchable live browser or video. For that, run `/review-pr` locally.
