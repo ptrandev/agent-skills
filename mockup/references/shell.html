@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FILL: Surface name — interactive mockup</title>
+
+<!-- FILL: the product's real font. Keep the full fallback stack below in --font too, so a
+     blocked network changes the glyphs and nothing else. Delete these three lines when the
+     product uses a system stack. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700&display=swap" rel="stylesheet" />
+
+<style id="mk-chrome">
+/* Walkthrough chrome. NEVER product tokens: this must read as scaffolding. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #EFEEEB; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+.mk-bar { position: sticky; top: 0; z-index: 60; background: #14161d; color: #fff;
+  padding: 12px 24px; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.25); }
+.mk-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mk-tag { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: #8b8fa3; }
+.mk-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.mk-chip { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
+  border: 1px solid #33364a; background: transparent; color: #b9bcc9; cursor: pointer; }
+.mk-chip:hover { border-color: #565b78; color: #fff; }
+.mk-chip[aria-current="true"] { background: #4b6bff; border-color: #4b6bff; color: #fff; }
+.mk-chip.alt { border-style: dashed; }
+.mk-btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 13px; border-radius: 7px;
+  border: 1px solid #33364a; background: #22242f; color: #fff; cursor: pointer; }
+.mk-btn:hover { background: #2c2f3d; }
+.mk-btn[disabled] { opacity: .35; cursor: default; }
+.mk-seg { display: flex; border: 1px solid #33364a; border-radius: 7px; overflow: hidden; }
+.mk-seg button { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 12px;
+  background: #22242f; color: #b9bcc9; border: 0; border-right: 1px solid #33364a; cursor: pointer; }
+.mk-seg button:last-child { border-right: 0; }
+.mk-seg button.on { background: #4b6bff; color: #fff; }
+.mk-grow { flex: 1; }
+.mk-note { font-size: 13px; line-height: 1.5; color: #d9dbe4; max-width: 100ch; }
+.mk-note strong { color: #fff; }
+.mk-stage { display: flex; justify-content: center; padding: 32px 24px 96px; overflow-x: auto; }
+.mk-frame-wrap { position: relative; flex: 0 0 auto; }
+.mk-grip { position: absolute; top: 0; bottom: 0; right: -14px; width: 14px; cursor: ew-resize;
+  display: flex; align-items: center; justify-content: center; touch-action: none; }
+.mk-grip::before { content: ""; width: 4px; height: 56px; border-radius: 2px; background: #b9bcc9; }
+.mk-grip:hover::before, .mk-grip.on::before { background: #4b6bff; }
+.mk-w-read { font-size: 12px; font-weight: 600; color: #b9bcc9; font-variant-numeric: tabular-nums;
+  min-width: 96px; text-align: right; }
+.mk-w-read b { color: #fff; }
+/* The changed region. Flashes once on entry, then holds a static outline. */
+/* Drawn INSIDE the element's own box: a marker with a positive offset is clipped by the
+   frame's overflow:hidden, and it must inherit the element's own radius, not impose one. */
+@keyframes mk-flash { from { box-shadow: inset 0 0 0 3px rgba(75,107,255,.6); } to { box-shadow: inset 0 0 0 3px rgba(75,107,255,0); } }
+.mk-new { outline: 2px solid rgba(75,107,255,.45); outline-offset: -2px; }
+.mk-new.mk-flash { animation: mk-flash 320ms ease-out 1; }
+@media (prefers-reduced-motion: reduce) { .mk-new.mk-flash { animation: none; } }
+</style>
+
+<style id="product-tokens">
+/* FILL: transcribed from the theme, one citation per line. See references/grounding.md.
+   Every hex anywhere else in this file must appear here. */
+:root {
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --canvas: #FCFCFB;
+  --surface: #FFFFFF;
+  --hairline: #E7E6E2;
+  --ink: #1A1D26;
+  --ink-2: #5B5F6B;
+  --accent: #2857E5;
+  --radius: 8px;
+}
+</style>
+
+<style id="product-css">
+/* FILL: components, built only from the tokens above. Keep the product's own variant names
+   (.h2, .body2, .caption) so a reviewer can diff them against the theme. */
+.frame { width: 1280px; background: var(--canvas); color: var(--ink); font-family: var(--font);
+  font-size: 14px; line-height: 1.43; border: 1px solid var(--hairline); border-radius: 12px;
+  overflow: hidden; }
+</style>
+</head>
+<body>
+
+<header class="mk-bar">
+  <div class="mk-row">
+    <span class="mk-tag">Mockup</span>
+    <nav class="mk-chips" id="mk-chips"></nav>
+    <span class="mk-grow"></span>
+    <div class="mk-seg" id="mk-ab" hidden>
+      <button data-ab="before">Before</button><button data-ab="after" class="on">After</button>
+    </div>
+    <div class="mk-seg" id="mk-var" hidden></div>
+    <div class="mk-seg" id="mk-dev"></div>
+    <span class="mk-w-read" id="mk-w-read"></span>
+    <button class="mk-btn" id="mk-back">&larr; Back</button>
+    <button class="mk-btn" id="mk-next">Next &rarr;</button>
+    <button class="mk-btn" id="mk-reset">Reset</button>
+  </div>
+  <p class="mk-note" id="mk-note"></p>
+</header>
+
+<main class="mk-stage">
+  <div class="mk-frame-wrap" id="mk-wrap">
+    <div class="frame" id="frame" data-variant="a"></div>
+    <div class="mk-grip" id="mk-grip" title="Drag to resize"></div>
+  </div>
+</main>
+
+<script type="application/json" id="brief">
+{
+  "surface": "FILL: the screen this changes",
+  "source": "FILL: ticket id or plan path, with a link",
+  "shape": "flow",
+  "grounding": "FILL: the theme files read, or the route + viewport measured",
+  "openQuestions": ["FILL: what you want the reader to decide"]
+}
+</script>
+
+<script>
+/* ---------- FILL: seed data. One object. Every number in every state derives from it, so no
+   two states can contradict each other. Realistic names, ids, amounts and dates only. ---------- */
+const DATA = {
+  example: 14320,
+};
+
+/* ---------- FILL: local UI state the reader can toggle without leaving the step ---------- */
+const UI = {};
+
+/* ---------- FILL: design directions. Leave empty for a single direction. Each id becomes
+   [data-variant="<id>"] on .frame, so a variant can be pure CSS token overrides. ---------- */
+const VARIANTS = [];
+
+/* ---------- FILL: the product's breakpoint scale, smallest first. The name of the band the
+   frame currently sits in lands on .frame as [data-bp], so responsive CSS branches on the real
+   breakpoint rather than on a device name. Default is the MUI scale; replace it with the
+   project's own. ---------- */
+const BREAKPOINTS = [
+  { id: 'xs', min: 0 },
+  { id: 'sm', min: 600 },
+  { id: 'md', min: 900 },
+  { id: 'lg', min: 1200 },
+  { id: 'xl', min: 1536 },
+];
+
+/* ---------- FILL: the device presets the toolbar jumps to. Pick widths that land in different
+   bands, so the three buttons show three different layouts. The frame also drags to any width
+   between MIN_W and MAX_W. ---------- */
+const DEVICES = [
+  { id: 'laptop', label: 'Laptop', px: 1280 },
+  { id: 'tablet', label: 'Tablet', px: 834 },
+  { id: 'mobile', label: 'Mobile', px: 390 },
+];
+const MIN_W = 320;
+const MAX_W = 1600;
+
+/* ---------- FILL: the storyboard. One entry per state from SKILL.md Phase 3.
+   main:true puts it on the Next/Back line. ab:true shows the Before/After toggle.
+   render(ab) returns the frame's innerHTML. Mark the changed region class="mk-new". ---------- */
+const STATES = [
+  {
+    id: 'today',
+    chip: '1 · Today',
+    main: true,
+    line: 'FILL: where the reader is, what changed, and what to click next.',
+    render: () => `<div style="padding:24px">FILL: the screen as it looks today.
+      <button data-go="proposed">Continue</button></div>`,
+  },
+  {
+    id: 'proposed',
+    chip: '2 · Proposed',
+    main: true,
+    ab: true,
+    line: 'FILL.',
+    render: (ab) => ab === 'before'
+      ? `<div style="padding:24px">FILL: before</div>`
+      : `<div style="padding:24px" class="mk-new">FILL: after</div>`,
+  },
+];
+
+/* ---------- FILL: handlers for data-act="name" controls that change UI without changing state.
+   Anything that moves the reader to another step uses data-go="<state-id>" instead: the harness
+   wires that for you, so nothing needs re-binding after a render. ---------- */
+const ACTIONS = {
+  // toggleDetails: () => { UI.details = !UI.details; render(); },
+};
+
+/* ================= harness — do not edit below ================= */
+const $ = (id) => document.getElementById(id);
+const byId = (id) => STATES.find((s) => s.id === id);
+const MAIN = STATES.filter((s) => s.main);
+let state = (location.hash.slice(1) && byId(location.hash.slice(1))) ? location.hash.slice(1) : STATES[0].id;
+let ab = 'after';
+let variant = VARIANTS.length ? VARIANTS[0].id : 'a';
+let frameW = DEVICES[0].px;
+
+function setState(id) {
+  if (!byId(id)) return;
+  state = id;
+  ab = 'after';
+  history.replaceState(null, '', '#' + id);
+  render();
+}
+
+function render() {
+  const s = byId(state);
+  const frame = $('frame');
+  frame.dataset.variant = variant;
+  frame.innerHTML = s.render(ab);
+  $('mk-note').innerHTML = s.line;
+
+  $('mk-chips').innerHTML = STATES.map((x) =>
+    `<button class="mk-chip${x.main ? '' : ' alt'}" data-chip="${x.id}"` +
+    ` aria-current="${x.id === state}">${x.chip}</button>`).join('');
+
+  $('mk-ab').hidden = !s.ab;
+  [...$('mk-ab').children].forEach((b) => b.classList.toggle('on', b.dataset.ab === ab));
+
+  $('mk-var').hidden = !VARIANTS.length;
+  $('mk-var').innerHTML = VARIANTS.map((v) =>
+    `<button data-var="${v.id}" class="${v.id === variant ? 'on' : ''}">${v.label}</button>`).join('');
+
+  $('mk-dev').innerHTML = DEVICES.map((d) =>
+    `<button data-dev="${d.id}" class="${d.px === frameW ? 'on' : ''}">${d.label}</button>`).join('');
+  applyWidth();
+
+  const i = MAIN.indexOf(s);
+  $('mk-back').disabled = i <= 0;
+  $('mk-next').disabled = i < 0 || i >= MAIN.length - 1;
+
+  frame.querySelectorAll('.mk-new').forEach((el) => {
+    el.classList.add('mk-flash');
+    setTimeout(() => el.classList.remove('mk-flash'), 400);
+  });
+}
+
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-chip]');
+  if (chip) return setState(chip.dataset.chip);
+  const go = e.target.closest('[data-go]');
+  if (go) return setState(go.dataset.go);
+  const act = e.target.closest('[data-act]');
+  if (act && ACTIONS[act.dataset.act]) return ACTIONS[act.dataset.act](act);
+  const abBtn = e.target.closest('[data-ab]');
+  if (abBtn) { ab = abBtn.dataset.ab; return render(); }
+  const varBtn = e.target.closest('[data-var]');
+  if (varBtn) { variant = varBtn.dataset.var; return render(); }
+  const devBtn = e.target.closest('[data-dev]');
+  if (devBtn) { frameW = DEVICES.find((d) => d.id === devBtn.dataset.dev).px; return render(); }
+});
+
+const step = (d) => {
+  const i = MAIN.indexOf(byId(state));
+  if (i >= 0 && MAIN[i + d]) setState(MAIN[i + d].id);
+};
+$('mk-next').onclick = () => step(1);
+$('mk-back').onclick = () => step(-1);
+const UI0 = JSON.parse(JSON.stringify(UI));   // captured before any interaction
+$('mk-reset').onclick = () => {
+  Object.keys(UI).forEach((k) => delete UI[k]);
+  Object.assign(UI, JSON.parse(JSON.stringify(UI0)));
+  setState(STATES[0].id);
+};
+
+/* The band the frame currently sits in. Product CSS branches on this, never on a device name. */
+function bandOf(px) {
+  let hit = BREAKPOINTS[0];
+  for (const b of BREAKPOINTS) if (px >= b.min) hit = b;
+  return hit.id;
+}
+
+/* Width is applied straight to the DOM rather than through render(), so a drag stays smooth and
+   the CSS does the reflow. render() runs again only when the drag ends. */
+function applyWidth() {
+  frameW = Math.max(MIN_W, Math.min(MAX_W, Math.round(frameW)));
+  const band = bandOf(frameW);
+  $('frame').style.width = frameW + 'px';
+  $('frame').dataset.bp = band;
+  $('mk-w-read').innerHTML = `<b>${frameW}</b>px · ${band}`;
+  [...$('mk-dev').children].forEach((b) => {
+    const d = DEVICES.find((x) => x.id === b.dataset.dev);
+    b.classList.toggle('on', !!d && d.px === frameW);
+  });
+}
+
+/* Drag the right edge. The frame is centred, so a pointer moves the edge at half the rate the
+   width changes; doubling the delta keeps the handle under the cursor. */
+$('mk-grip').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startW = frameW;
+  const grip = e.currentTarget;
+  grip.setPointerCapture(e.pointerId);
+  grip.classList.add('on');
+  const move = (ev) => { frameW = startW + (ev.clientX - startX) * 2; applyWidth(); };
+  const up = () => {
+    grip.classList.remove('on');
+    grip.removeEventListener('pointermove', move);
+    grip.removeEventListener('pointerup', up);
+    render();                        // states that branch on the band in JS catch up here
+  };
+  grip.addEventListener('pointermove', move);
+  grip.addEventListener('pointerup', up);
+});
+
+// A link to #state-id must work after load, not only on it.
+window.addEventListener('hashchange', () => {
+  const id = location.hash.slice(1);
+  if (id && id !== state && byId(id)) { state = id; ab = 'after'; render(); }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'Escape') setState(STATES[0].id);
+});
+
+render();
+</script>
+</body>
+</html>

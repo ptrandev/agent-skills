@@ -65,6 +65,15 @@ The reviewer side of the PR loop. Reviews PRs where you are the **requested revi
 
 ---
 
+### `/mockup`
+Builds one self-contained HTML file that looks like the real product and walks a proposed change through every state, interactively, before the change is built. The reader clicks through the flow, toggles before against after, drags the frame to any width or jumps to laptop, tablet and mobile, and reaches every terminal outcome, the unhappy ones and the one where the change does not work included. Portable: one file, no server, no build step, send it to anyone. Every colour, size, radius and shadow is transcribed from the product's theme, so the mockup cannot look nearly right. The state list it produces is the spec the implementation is checked against.
+
+Token extraction and component measurement run from [`mockup/references/grounding.md`](mockup/references/grounding.md). The file layout, the chrome, the click wiring and the seed-data rules run from [`mockup/references/document.md`](mockup/references/document.md), which starts every run from the verified harness in [`mockup/references/shell.html`](mockup/references/shell.html). The post-approval difference inventory and the proof pass run from [`mockup/references/implement.md`](mockup/references/implement.md).
+
+**Usage:** `/mockup`, `/mockup <TICKET-ID>`, `/mockup <path.md>`, `/mockup <free text>`, plus `--variants=N`, `--out=<path>`, `--publish`
+
+---
+
 ### `/ui-walkthrough`
 Walks a PR's UI changes in a real browser at desktop, tablet, and mobile widths. Judges what it sees against the design-review rubric. Posts the evidence back to GitHub: a `REQUEST_CHANGES` review with screenshots on a blocking defect, or a proof comment with screenshots when it is clean. Role-aware: as the PR's reviewer it posts a review, as its author it posts a walkthrough comment. Local runs under either role also record a desktop walkthrough video: one user journey through the change, covering every surface walked, clicked not scripted, indexed by markers. The screenshots carry the responsive evidence. Never mutates source. Always walks the sealed e2e stack: `--target=dev` runs only when a human types it.
 
@@ -140,6 +149,7 @@ ln -s ~/Git/claude-skills/review-pr ~/.claude/skills/review-pr
 ln -s ~/Git/claude-skills/gemini ~/.claude/skills/gemini
 ln -s ~/Git/claude-skills/launch-summary ~/.claude/skills/launch-summary
 ln -s ~/Git/claude-skills/merge-master ~/.claude/skills/merge-master
+ln -s ~/Git/claude-skills/mockup ~/.claude/skills/mockup
 ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip
 ln -s ~/Git/claude-skills/phillip-sync ~/.claude/skills/phillip-sync
 ln -s ~/Git/claude-skills/plain-english ~/.claude/skills/plain-english
