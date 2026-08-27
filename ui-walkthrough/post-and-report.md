@@ -5,7 +5,7 @@ Owns the post payloads, both body templates, the local report, and the teardown 
 
 ## Phase 8: post
 
-**Re-check before posting** (invariant 9): re-read `draft` and `author`, and re-run the Phase 2
+**Re-check before posting** (invariant 10): re-read `draft` and `author`, and re-run the Phase 2
 marker query. A concurrent routine may have posted since discovery, or the PR may have flipped to
 draft. Either -> skip with a note. Every body posted here, both modes, is held to **Writing style**.
 
@@ -116,11 +116,11 @@ walkthrough having succeeded. It must leave the machine exactly as it was found:
 - [ ] the local branch `gh pr checkout` created **deleted** (`git branch -D <branch>`): it's fully
       pushed, and leaving one per reviewed PR silts up their branch list
 - [ ] any worktree removed (`git worktree remove --force`)
-- [ ] stack lock released, pinned ports free
+- [ ] the lane's lock released, and the lane's ports free (`concurrency.md` *Teardown*)
 - [ ] **no orphaned recording**: if a session was started and no `share_url` came back,
       `opencap record discard` (it holds the active lock and burns a Free-tier slot otherwise)
-- [ ] the headed `browse` daemon disconnected **only if this run started it**; a reused daemon is
-      left exactly as found
+- [ ] **this lane's** `browse` daemon stopped, and no other lane's touched. A daemon this run did
+      not start is left exactly as found
 - [ ] `git status --porcelain` **identical** to the pre-run capture: diff them and say so in the
       report. A walkthrough that leaves residue in someone's clone will not be run twice
 

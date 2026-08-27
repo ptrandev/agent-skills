@@ -26,7 +26,7 @@ is not obviously wrong downstream: a viewport that was resized instead of reload
 plausible screenshot of a layout no user can reach.
 
 The sub-agent **measures and reports. It never classes, never attributes, never posts.**
-Give it the surface list, the viewports, the personas, `$BASE_URL`, `$SHOTS`, and `$B`, and require
+Give it the surface list, the viewports, the personas, `$BASE_URL`, `$SHOTS`, `$B`, and `$B_ENV`, and require
 back exactly:
 
 ```
@@ -85,10 +85,10 @@ $B viewport 1440x900
 $B goto "$BASE_URL/<surface>"
 $B wait --networkidle
 $B console --clear                      # so the next read is scoped to THIS surface
-$B "$SHOT" "$SHOTS/01-agents-desktop.png"
+$B_ENV $B "$SHOT" "$SHOTS/01-agents-desktop.png"
 $B viewport 375x812
 $B reload && $B wait --networkidle      # re-layout, don't just resize a laid-out page
-$B "$SHOT" "$SHOTS/01-agents-mobile.png"
+$B_ENV $B "$SHOT" "$SHOTS/01-agents-mobile.png"
 ```
 
 **Reload after a viewport change.** Resizing a page that already laid out at 1440 leaves

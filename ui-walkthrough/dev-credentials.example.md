@@ -38,9 +38,12 @@ that database.
 ## `--target=dev` (opt-in, author mode, local only, attended only)
 
 For deliberately walking the **real dev** stack (`yarn agents-portal`, which is not emulator-scoped).
-**Never in reviewer mode, never in a routine, never unattended**: reviewer evidence must come from a
-deterministic stack, and a shared environment means real external side effects and other engineers'
-data in your screenshots.
+`e2e` is the default in every role and environment, so nothing reaches this file unless a human typed
+`--target=dev` (`SKILL.md` invariant 7). **Never in reviewer mode, never in a routine, never
+unattended**: reviewer evidence must come from a deterministic stack, and a shared environment means
+real external side effects and other engineers' data in your screenshots. The one exception to the
+unattended half is `/full-send`'s rung-4 escape hatch (`full-send/evidence.md`), which sets
+`UIW_ALLOW_DEV=1`.
 
 ```
 DEV_BASE_URL=http://localhost:3000
@@ -52,5 +55,6 @@ Resolution order for `--target=dev`: `UIW_DEV_PREMIUM_EMAIL` / `UIW_DEV_PREMIUM_
 then this directory's `dev-credentials.md`, then `~/.claude/skills/full-send/dev-credentials.md`
 (legacy `DEV_EMAIL`/`DEV_PASSWORD`). Nothing resolvable -> skip with a neutral note, never a finding.
 
-> `/full-send` keeps its own `dev-credentials.md` and should not be pointed at the seeded accounts:
-> it boots `yarn agents-portal` against **real dev**, so real dev credentials are correct there.
+> `/full-send` keeps its own `dev-credentials.md`. It delegates every capture to `/ui-walkthrough`
+> on `e2e`, so that file is read only on the rung-4 escape hatch, where real dev credentials are
+> correct. **Never** point it at the seeded accounts.

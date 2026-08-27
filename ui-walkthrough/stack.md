@@ -1,18 +1,29 @@
 # Stack boot and lifecycle
 
 How `/ui-walkthrough` gets the PR's code running and healthy before Phase 5 drives it. Read this at
-the start of Phase 4. `SKILL.md` keeps only the two target rules and the pointer here.
+the start of Phase 4, after [concurrency.md](concurrency.md) has set the lane. `SKILL.md` keeps only
+the two target rules and the pointer here.
 
-## `--target=dev` (author, local, attended)
+Every port below is written at its lane-0 value. **Use the lane's value**, from
+[concurrency.md](concurrency.md)'s port map, in every command you actually run.
 
-The fast path: `yarn agents-portal` (`npm run set-dev` + `turbo run dev --filter=agents-portal
---filter=api --filter=ui`) against **real atllas-dev**. Dev-mode Next, no `next build`, no emulator
-boot, no seed, usually already running.
+## `--target=dev`: the typed opt-in, lane 0 only
+
+Reached only when a human typed `--target=dev` or exported `UIW_TARGET=dev`, or `/full-send` set
+`UIW_ALLOW_DEV=1` under its own escape hatch. **Nothing derives this target** (invariant 7). Read
+*Target selection* in `SKILL.md` before booting it.
+
+`yarn agents-portal` (`npm run set-dev` + `turbo run dev --filter=agents-portal --filter=api
+--filter=ui`) against **real atllas-dev**. Dev-mode Next, no `next build`, no emulator boot, no
+seed, usually already running.
 
 - **Unattended runs never get `dev`.** Phase 0 sets `ATTENDED=0` when `UIW_UNATTENDED=1`, `CI` is
-  set, or the environment is a routine. `dev` under `ATTENDED=0` exits with a neutral note. It never
-  falls back to `e2e` silently, because the evidence would describe a different environment than the
-  run intended.
+  set, or the environment is a routine. `dev` under `ATTENDED=0` exits with a neutral note, unless
+  `UIW_ALLOW_DEV=1`. It never falls back to `e2e` silently, because the evidence would describe a
+  different environment than the run intended.
+- **It occupies the machine.** `yarn agents-portal` binds `:3000` and `:4000` with no port
+  parameterization, so a `dev` walkthrough takes the ports the operator's own dev server needs and
+  blocks lane 0 for every concurrent run. That cost is the reason `e2e` is the default.
 - **Reuse an existing `:3000` only if it serves this branch**: `git rev-parse HEAD` equals the PR
   head **and** the tree is clean. Otherwise restart it.
 - **Dev mode shows overlays.** Next's dev indicator, hydration warnings, and Fast Refresh toasts can
@@ -23,7 +34,7 @@ boot, no seed, usually already running.
 - **Real data lands in published screenshots.** Prefer your own records. If another user's data is
   visible on a surface, capture a narrower element shot rather than the full page.
 
-## `--target=e2e`: what the stack actually is (verified in the checkout, not assumed)
+## `--target=e2e` (the default): what the stack actually is (verified in the checkout, not assumed)
 
 `yarn e2e:stack` -> `scripts/e2e-stack.sh` -> `firebase emulators:exec --project atllas-dev --only
 auth,firestore,database,storage,pubsub 'bash scripts/e2e-ci.sh'`, and `e2e-ci.sh` does
@@ -64,6 +75,8 @@ sandbox: this spec passed, the same spec with `{ page }` failed at launch.
 
 ```bash
 # Invoke the SCRIPT, not `yarn e2e:stack`. See "backgrounding" below.
+# The lane vars (E2E_LANE, E2E_FE_PORT, BACK_PORT, NEXT_PUBLIC_BACK_URL, E2E_PREFLIGHT_PORTS) are
+# already exported by concurrency.md, so the backgrounded script inherits them.
 env -u VSCODE_CWD UIW_HOLD_SECONDS=900 bash scripts/e2e-stack.sh uiw-hold.spec.ts --project="$PROJ" &
 ```
 
@@ -89,11 +102,18 @@ the two expensive steps in their own foreground calls first, then boot:
 
 ```bash
 npx turbo run build --filter=@atllasinc/sdk           # usually a full cache hit (~1 s)
+_LANE_BACK_URL="$NEXT_PUBLIC_BACK_URL"                 # capture: `set -a; .` clobbers it
 set -a; . apps/agents-portal/e2e/.env.e2e; set +a      # build with the same env the stack uses
+export NEXT_PUBLIC_BACK_URL="$_LANE_BACK_URL"          # re-export, exactly as e2e-ci.sh does
 yarn workspace agents-portal e2e:build                 # ~2 min cold, and it is the long pole
 ```
 
-Then poll `http://localhost:3000` for a 200 and wait for the hold spec's own log line before driving.
+**The re-export is required on every lane, including lane 0.** `NEXT_PUBLIC_BACK_URL` is baked into
+the bundle at `next build`. Sourcing `.env.e2e` without capturing it first builds a frontend that
+calls `:4000`, so lane 1 would screenshot lane 0's API. `e2e-ci.sh` does the same capture for the
+same reason.
+
+Then poll `$BASE_URL` (the lane's FE port) for a 200 and wait for the hold spec's own log line before driving.
 **Poll with `curl`, never `pgrep -f`.** A `pgrep -f` wait loop matches the waiting shell's own
 command line, so the condition can never go false and the loop spins forever. **Budget \~120 s** for
 readiness. Miss it -> teardown, neutral note, no retry spiral. The FE is `next start` over a
@@ -143,17 +163,22 @@ Worktree path -> `git worktree remove --force` instead, and expect the install c
 2026-07-30: a hand-rolled `lsof` sweep reported every port free, then `e2e-preflight.mjs` refused the
 boot because :4000 was held by an API from a **different conductor worktree** on the same machine,
 naming its pid, command, and cwd. Multi-worktree setups make this the normal case. `e2e-stack.sh`
-runs `node scripts/e2e-preflight.mjs --ports 4000,3000,9099,8080,9000,9199,8085 --checkout "$ROOT"`,
-which fails loudly naming the squatter's pid/command/cwd. Reimplementing an `lsof` list here would
-drift from `firebase.json`; it already has. **Never set `E2E_KILL_SQUATTERS=1`**: killing a process
-you don't own is exactly the "provably ours" rule violation `/review-pr` forbids. Its failure is a
-**neutral note**, never a finding.
+runs `node scripts/e2e-preflight.mjs --ports "${E2E_PREFLIGHT_PORTS:-4000,3000,9099,8080,9000,9199,8085}"
+--checkout "$ROOT"`, which fails loudly naming the squatter's pid/command/cwd.
+[concurrency.md](concurrency.md) exports `E2E_PREFLIGHT_PORTS` for the lane, so the preflight checks
+the ports this run will actually bind. Reimplementing an `lsof` list here would drift from
+`firebase.json`; it already has. **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you don't
+own is exactly the "provably ours" rule violation `/review-pr` forbids. Its failure is a **neutral
+note**, never a finding.
 
-For everything else (the machine-wide stack lock, post-boot identity assertion, `yarn turbo run
-build --filter='./packages/*'` pre-build, Node 20 per `.nvmrc`, EXIT-trap teardown) read
+**[concurrency.md](concurrency.md) owns the lock**, one per lane, taken in Phase 0. Lane 0's path is
+the literal `/private/tmp/ui-walkthrough/review-pr-stack.lock` that
+`~/.claude/skills/review-pr/stack-lifecycle.md` names, so a `/review-pr` walkthrough and a lane-0
+`/ui-walkthrough` still cannot both boot. `/review-pr` has no lane concept and always uses lane 0.
+**Do not add a second lock here.**
+
+For everything else (post-boot identity assertion, `yarn turbo run build --filter='./packages/*'`
+pre-build, Node 20 per `.nvmrc`, EXIT-trap teardown) read
 `~/.claude/skills/review-pr/stack-lifecycle.md` and follow it. It's verified against a cloud boot; a
-second copy would drift. **Share its lock rather than adding a second**, so a `/review-pr`
-walkthrough and a standalone `/ui-walkthrough` can't both boot. The lock is pinned at the literal
-path `/private/tmp/ui-walkthrough/review-pr-stack.lock`, outside `/review-pr`'s own
-`SCRATCH=/private/tmp/review-pr`, so both skills agree on it regardless of either process's
-`$TMPDIR`. Lock held -> defer with a neutral note.
+second copy would drift. Read its lock block as the lane-0 case of
+[concurrency.md](concurrency.md)'s.

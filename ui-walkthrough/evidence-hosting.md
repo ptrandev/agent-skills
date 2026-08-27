@@ -42,7 +42,7 @@ Two rules here are load-bearing, both learned by testing:
   images reachable; a per-head ref achieves that with no parent, no `read-tree` of a remote object,
   and one less failure mode.
 
-`GIT_INDEX_FILE` keeps the user's real index and working tree untouched, which invariant 8 requires
+`GIT_INDEX_FILE` keeps the user's real index and working tree untouched, which invariant 9 requires
 because this may run against a dirty clone.
 
 ```bash

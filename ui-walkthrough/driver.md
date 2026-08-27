@@ -15,12 +15,16 @@ exists for it to scope to.
 | Video | OpenCap **scoped to the browser window**, either role, needs a HEADED browser | none (skip, never block) |
 | Credentials | `dev-credentials.md` | **env vars only** (the file is gitignored, so it is absent) |
 
+**Every `browse` call that touches the daemon carries `$B_ENV`**, the lane's
+`BROWSE_STATE_FILE` + `BROWSE_PORT` prefix from [concurrency.md](concurrency.md). Without it two
+concurrent runs drive one browser. `--help` is the one exception below.
+
 **Probe the `browse` build, do not assume this table.** Some builds are **headless-only**: no
 `--headed`, no `prettyscreenshot` (verified 2026-08-05: that build's `--help` advertises only
 `screenshot`, and its banner reads "Fast **headless** browser for AI coding agents").
 
 ```bash
-BROWSE_HELP=$("$B" --help 2>&1)
+BROWSE_HELP=$("$B" --help 2>&1)      # --help needs no daemon, so it needs no $B_ENV
 case "$BROWSE_HELP" in *prettyscreenshot*) SHOT=prettyscreenshot;; *) SHOT=screenshot;; esac
 case "$BROWSE_HELP" in *--headed*) BROWSE_CAN_HEAD=1;; *) BROWSE_CAN_HEAD=0;; esac
 ```

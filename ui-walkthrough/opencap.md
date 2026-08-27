@@ -140,11 +140,15 @@ naming because the target is someone else's PR:
 `--headed` is a **daemon-startup** setting in `browse`. A daemon already running headless will not
 serve a headed request; it refuses and tells you to `browse disconnect` first.
 
+**Read the state of this lane's daemon, not the default one.** Every probe and every call here
+carries `$B_ENV` ([concurrency.md](concurrency.md)). On any lane above 0 the daemon is this run's own
+and starts headed, so the headless row below is a lane-0 case in practice.
+
 **Do not disconnect a daemon you did not start.** It may be holding the operator's logged-in
 session, tabs, and cookies, and taking it out to get a nicer PR artifact is the same class of
 mistake as killing a port squatter. The rule:
 
-| Daemon state | Action |
+| Daemon state (this lane) | Action |
 |---|---|
 | none running | start ours headed: `$B` calls carry `--headed`; we own it, we tear it down |
 | running **headed** already | reuse it, record |

@@ -20,7 +20,8 @@ description: >
 | `--author` / `--reviewer` | Force the role. Default: inferred from `author == ME` (see Phase 1). |
 | `--viewports=desktop,tablet,mobile` | Default all three. Any subset. |
 | `--personas=premium[,free,admin]` | Default `premium`. Each extra persona is one extra login, not a second stack boot. |
-| `--target=e2e\|dev` | Which stack to walk. Default is **role- and environment-derived**, see *Target selection*. |
+| `--target=e2e\|dev` | Which stack to walk. **Always defaults to `e2e`**, in every role and environment. `dev` runs only when this flag is typed, see *Target selection*. |
+| `--lane=N` | Which port lane to boot on. Default: the first free lane. See [concurrency.md](concurrency.md). |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
 | `--no-post` | Assemble the report + print the exact payload, **don't post**. |
 | `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
@@ -47,16 +48,25 @@ description: >
    call. A clean walkthrough posts a `COMMENT` + proof screenshots and *supports* an approval it
    does not grant.
 6. **Never boot onto a stack you didn't start.** `playwright.config.ts` sets
-   `reuseExistingServer: true`, so a foreign server on `:3000` would be silently screenshotted and
-   the evidence would "prove" whatever was already running. Free-or-abort (Phase 4).
-7. **Reviewer mode never leaves the sealed stack.** `--target=e2e` only: stubbed externals
-   (`E2E_STUB_EXTERNAL`), per-run emulator state. Walking *someone else's unreviewed code* against a
-   shared backend can fire real Stripe/Vapi/Twilio calls and write to shared dev data, and dev data
-   would land in screenshots **published** to everyone with repo access. `--target=dev` is an
-   author-mode, local, attended opt-in. **Never** staging, **never** production, under any role.
-8. **Never touch source, the index, or the PR branch.** Screenshots are published to a *detached
+   `reuseExistingServer: true`, so a foreign server on the lane's FE port would be silently
+   screenshotted and the evidence would "prove" whatever was already running. Free-or-abort
+   (Phase 4).
+7. **`e2e` is the target. `dev` is a typed opt-in.** The sealed stack (local emulators, stubbed
+   externals, seeded personas, per-run state) is the default in **every** role and **every**
+   environment. `dev` is a shared backend: it can fire real Stripe/Vapi/Twilio calls, its data
+   drifts so the evidence is not reproducible, other users' records land in screenshots
+   **published** to everyone with repo access, and one walkthrough occupies the port the operator's
+   own dev server needs. `dev` therefore runs only when a human types `--target=dev` or exports
+   `UIW_TARGET=dev`. **Never** infer it, **never** fall back to it, **never** use it in reviewer
+   mode. **Never** staging, **never** production, under any role. `/full-send` holds the one
+   autonomous exception, defined in `full-send/evidence.md`.
+8. **Never take a lane you did not win.** Ports, the stack lock, the `browse` daemon, and the
+   scratch dir are all lane-scoped so two walkthroughs can run at once
+   ([concurrency.md](concurrency.md)). Take one lane, hold it for the whole run, release it in
+   teardown. Never touch another lane's ports, processes, or lock.
+9. **Never touch source, the index, or the PR branch.** Screenshots are published to a *detached
    custom ref* (Phase 7), built through an isolated `GIT_INDEX_FILE` so a dirty clone is safe.
-9. **Never post a REVIEW to a draft PR**, and **never review your own**. Re-check both immediately
+10. **Never post a REVIEW to a draft PR**, and **never review your own**. Re-check both immediately
    before posting, not just at discovery. **Author mode is exempt from the draft half**: the rule
    exists to stop unrequested reviewer noise on unready work, and an author commenting evidence on
    their own draft is neither unrequested nor noise. Reviewer mode still skips drafts outright.
@@ -127,6 +137,9 @@ if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; 
 SCRATCH=/private/tmp/ui-walkthrough; mkdir -p "$SCRATCH"     # NOT $TMPDIR, see below
 ```
 
+`$SCRATCH` narrows to `$SCRATCH/lane-$LANE` once *Lane selection* has run. Do that before the first
+capture, so two concurrent runs cannot overwrite each other's PNGs.
+
 **Read [../review-pr/github-transport.md](../review-pr/github-transport.md) before any GitHub
 call.** It owns the probe, the `cli`/`mcp` mapping, and `ME`, for this skill and `/review-pr` both.
 **Never gate on `gh auth status`**: it passes in a sandbox where every `gh api` call 403s, so this
@@ -140,9 +153,9 @@ anything outside `/private/tmp` or the repo root with
 `$TMPDIR`-based scratch dir fails **every capture**, one per screenshot, and the run looks healthy
 until there are no images. Verified 2026-07-30.
 
-The stack lock is a **fixed absolute path** too, `/private/tmp/ui-walkthrough/review-pr-stack.lock`,
-so this skill and `/review-pr` agree on it whatever either process's `$TMPDIR` is. Two `$TMPDIR`s
-would each take "the" lock and boot two stacks onto the same pinned ports.
+Every lane lock is a **fixed absolute path** too, so this skill and `/review-pr` agree on lane 0's
+whatever either process's `$TMPDIR` is. Two `$TMPDIR`s would each take "the" lock and boot two
+stacks onto the same ports. [concurrency.md](concurrency.md) owns the paths.
 
 **Read [driver.md](driver.md) before driving anything.** It owns driver selection, the `browse`
 build probe, the headed Playwright fallback, the cloud launch arguments, and the **capacity gate
@@ -158,43 +171,59 @@ and **always** best-effort: no `opencap` call may block, fail, or slow the walkt
 
 ### Target selection
 
-Two stacks are reachable. The default is derived **role first, then environment**, because the risk
-isn't symmetric. `--target=` overrides; `UIW_TARGET` forces one for a whole session.
+**The target is `e2e`.** Every role, every environment, attended or not. Nothing derives it and
+nothing falls back to it. `dev` runs only when the invocation carries `--target=dev`, or the session
+exports `UIW_TARGET=dev`, or `/full-send` sets `UIW_ALLOW_DEV=1` under its own escape hatch
+(`full-send/evidence.md`).
 
-| Role | Environment | Default target | Why |
-|---|---|---|---|
-| **author** | local Mac | **`dev`** | Your branch, your data, attended. No emulator boot, no `next build`, so much faster, and often already running. Richer data than seed fixtures, which makes better reviewer evidence. |
-| **author** | routine | `e2e` | No session, no creds, unattended. |
-| **reviewer** | *either* | **`e2e`** | Invariant 7. Unreviewed code must not write to a shared backend, dev data drifts (so evidence isn't reproducible), and dev data would be published in the screenshots. |
+The asymmetry that used to justify a `dev` default is gone: `e2e` seeds its own personas, holds a
+port lane of its own ([concurrency.md](concurrency.md)), and leaves the operator's `:3000` dev
+server alone. A `dev` walkthrough occupies the machine the operator is working on.
 
 ```bash
 case "$(uname)" in Darwin) ENVIRONMENT=local;; *) ENVIRONMENT=routine;; esac
 
 # Attended probe. `[ -t 0 ]` is NOT usable: Claude Code's Bash tool gives every command a non-TTY
-# stdin, so a TTY test marks an attended local session unattended and deletes the dev default.
+# stdin, so a TTY test marks an attended local session unattended.
 # Every caller running with no operator MUST export UIW_UNATTENDED=1: /loop, /schedule,
 # `claude -p`, and the /review-pr routine all set it.
 ATTENDED=1
-[ "${UIW_UNATTENDED:-0}" = 1 ] && ATTENDED=0
-[ -n "${CI:-}" ] && ATTENDED=0
-[ "$ENVIRONMENT" = routine ] && ATTENDED=0
+if [ "${UIW_UNATTENDED:-0}" = 1 ] || [ -n "${CI:-}" ] || [ "$ENVIRONMENT" = routine ]; then ATTENDED=0; fi
 
-TARGET="${UIW_TARGET:-$( [ "$ROLE" = author ] && [ "$ENVIRONMENT" = local ] \
-                        && [ "$ATTENDED" = 1 ] && echo dev || echo e2e )}"
+# `if`, not `cond && { ... }`: a false `&&` list returns 1, which aborts the run under `set -e`.
+TARGET=e2e                                  # the only default, in every role and environment
+if [ "${UIW_TARGET:-}" = dev ]; then TARGET=dev; fi   # session-wide operator opt-in
+if [ "${ARG_TARGET:-}" = dev ]; then TARGET=dev; fi   # --target=dev typed on this invocation
 
-[ "$ROLE" = reviewer ] && [ "$TARGET" = dev ] && {
-  echo "REFUSING --target=dev in reviewer mode (invariant 7). Using e2e."; TARGET=e2e; }
+if [ "$ROLE" = reviewer ] && [ "$TARGET" = dev ]; then
+  echo "REFUSING --target=dev in reviewer mode (invariant 7). Using e2e."; TARGET=e2e
+fi
+
+if [ "$ENVIRONMENT" = routine ] && [ "$TARGET" = dev ]; then
+  echo "REFUSING --target=dev off a local Mac (invariant 7). Using e2e."; TARGET=e2e
+fi
 
 # Unattended dev is refused outright, in EITHER role, and never downgraded to e2e:
-# silently swapping environments would mislabel the evidence.
-[ "$ATTENDED" = 0 ] && [ "$TARGET" = dev ] && {
+# silently swapping environments would mislabel the evidence. UIW_ALLOW_DEV=1 is the single
+# exception, set only by /full-send, which owns the conditions in full-send/evidence.md.
+if [ "$ATTENDED" = 0 ] && [ "$TARGET" = dev ] && [ "${UIW_ALLOW_DEV:-0}" != 1 ]; then
   echo "SKIP: --target=dev in an unattended run fires real Stripe/Vapi/Twilio calls with nobody watching."
-  exit 0; }
+  exit 0
+fi
 ```
 
 **The posted comment always names the target**, so a reader can weigh the evidence:
 `Stack: e2e (emulators, stubbed, seeded)` or
 `Stack: local dev (real atllas-dev data, not reproducible)`.
+
+### Lane selection
+
+**Read [concurrency.md](concurrency.md) before Phase 4.** It owns lane allocation, the port map, the
+per-lane lock, `browse` daemon scoping, the codebase capability probe, and lane teardown. Carry
+`$LANE`, `$LOCK`, `$SCRATCH`, `$BASE_URL`, `$WORKDIR`, and `$B_ENV` out of it.
+
+The lane is infra, so it belongs in the readiness line and the neutral notes, **never** in a
+finding and never in the posted `Stack:` line.
 
 ### Credentials
 
@@ -231,7 +260,7 @@ done < <(grep -E '^[A-Z][A-Z0-9_]*=' "$CREDS_FILE")
 Nothing resolvable -> **skip with a neutral note** naming what was missing, never a silent fall back
 to `e2e`. Print a readiness line (never echo a password):
 ```
-ui-walkthrough:  gh ✓ (ptrandev)  driver: browse ✓ (headed, for video)  RAM 32GB ✓  persona: premium (e2e-agent@e2e.test)  video: opencap ✓ window-scoped desktop journey
+ui-walkthrough:  gh ✓ (ptrandev)  driver: browse ✓ (headed, for video)  RAM 32GB ✓  lane 0 (fe :3000, browse :6499)  persona: premium (e2e-agent@e2e.test)  video: opencap ✓ window-scoped desktop journey
 ```
 
 When video is off, say *why* on the same line (`video: ✗ (headless browse daemon running)`,
@@ -252,7 +281,7 @@ PR_JSON=$(gh api "repos/$OWNER/$NAME/pulls/$PR" --jq '{author:.user.login, draft
   posted to `POST /repos/{o}/{r}/pulls/{n}/reviews`), never in an inline comment. One line, at the
   top: `Not a requested reviewer. Posting a UI walkthrough for context.`
 - `draft == true` -> **reviewer mode skips** ("PR #N is a draft, re-run when it's ready");
-  **author mode proceeds** (invariant 9). Re-checked in Phase 8.
+  **author mode proceeds** (invariant 10). Re-checked in Phase 8.
 - `--author`/`--reviewer` override the inference, except that **author mode can never be forced
   into posting a review**: GitHub 422s it, and the run falls back to a comment with a note.
 
@@ -375,17 +404,19 @@ exercise this UI."*
 spec, the `env -u VSCODE_CWD` emulator bug, backgrounding, pre-warm, login, the checkout-strategy
 table, and the deference to `/review-pr`'s stack lifecycle. The two rules that decide everything else:
 
-- **`--target=dev`** (author, local, attended): `yarn agents-portal` against real atllas-dev. Fast,
-  richer data, dev overlays to suppress, no external stubbing, and real data in published shots.
-- **`--target=e2e`** (everything else, and reviewer mode always): `yarn e2e:stack` held open by an
-  injected hold spec. Local emulators, stubbed externals, seeded personas, deterministic.
+- **`--target=e2e`** (the default, and the only target unless a human typed otherwise): `yarn
+  e2e:stack` held open by an injected hold spec, on the lane won in Phase 0. Local emulators,
+  stubbed externals, seeded personas, deterministic.
+- **`--target=dev`** (typed opt-in only, author + local + attended): `yarn agents-portal` against
+  real atllas-dev. Richer data, dev overlays to suppress, no external stubbing, and real data in
+  published shots. **Lane 0 only**, because `yarn agents-portal` has no port parameterization.
 
 Three additions specific to this skill:
 
-- **Author mode may reuse a running dev server**, only after asserting it serves *this branch*
+- **A `dev` run may reuse a running dev server**, only after asserting it serves *this branch*
   (`git rev-parse HEAD` == PR head **and** clean tree). Note in the comment that evidence came from a
   dev server, not the sealed stack: `yarn agents-portal` is **not** emulator-scoped and may point at
-  real dev. Reviewer mode never reuses (invariant 6).
+  real dev. An `e2e` run never reuses anything on its lane (invariant 6).
 - **The capture matrix runs at scale 1.** `viewport --scale N` rebuilds the browser context per the
   `browse` docs, which can drop the session, so take any retina hero shot **last** and re-auth if it
   dropped. A **recorded** run has no retina hero shot at all (`--scale` is unsupported headed).
@@ -518,7 +549,7 @@ mode payloads, the two body templates, the local report format, and the teardown
 
 Three rules from it that the earlier phases depend on, so they stay here too:
 
-- **Re-check `draft` and `author` immediately before posting** (invariant 9), not just at discovery.
+- **Re-check `draft` and `author` immediately before posting** (invariant 10), not just at discovery.
 - **Post through `GH_TRANSPORT`** ([../review-pr/github-transport.md](../review-pr/github-transport.md)).
 - **Teardown is the Phase 4 EXIT trap, and it runs whether or not the walkthrough succeeded.**
 
@@ -570,8 +601,9 @@ never rendered. The caller reads that as a defect, never as a shortened video.
 Each of these is decided in the phase that owns it: not a UI PR and dynamic routes with no seeded
 row (Phase 3), no fixture for a surface (Phase 3), draft and own-PR-forced-to-reviewer (Phases 1
 and 8), ports occupied and stack death mid-matrix ([stack.md](stack.md) and invariant 2), missing
-credentials (Phase 0), unattended `--target=dev` (Phase 0), `--scale` dropping the session
-(Phase 4), fork PR with no push access (Phase 7 ladder rung 3).
+credentials (Phase 0), unattended `--target=dev` (Phase 0), every lane busy
+([concurrency.md](concurrency.md)), `--scale` dropping the session (Phase 4), fork PR with no push
+access (Phase 7 ladder rung 3).
 
 One more case: **the assets ref grows server-side**. Prune it per
 [evidence-hosting.md](evidence-hosting.md) *Pruning*, which owns that procedure.
@@ -588,11 +620,11 @@ Runtime-agnostic by design (Phase 0 capability detection). Two homes, same skill
   deliberate: the routine provisions skills by cloning the **public** repo, so a gitignored
   credential file is absent by construction and a file-based credential path would silently disable
   every walkthrough. Driver is headless Chromium with `args: ['--ssl-version-max=tls1.2']` (Phase 0).
-- **Local Mac**: `/ui-walkthrough <PR#>` directly, or `/loop 2h /ui-walkthrough`. Author-mode runs
-  default to `--target=dev` (fast, real data, attended); reviewer-mode runs stay on `e2e`. Adds the
-  OpenCap video. A `/loop` or `/schedule` run must export `UIW_UNATTENDED=1`, which sets
-  `ATTENDED=0` and refuses `--target=dev` (Phase 0). Recording does **not** make a run attended, and
-  does not occupy the machine: see [opencap.md](opencap.md).
+- **Local Mac**: `/ui-walkthrough <PR#>` directly, or `/loop 2h /ui-walkthrough`. The target is
+  `e2e` in both roles, on the first free lane, so a run never takes the `:3000` the operator's own
+  dev server needs. Adds the OpenCap video. A `/loop` or `/schedule` run must export
+  `UIW_UNATTENDED=1`, which sets `ATTENDED=0` and refuses `--target=dev` (Phase 0). Recording does
+  **not** make a run attended, and does not occupy the machine: see [opencap.md](opencap.md).
 
 The Phase 2 marker makes repeated runs safe: each picks up only PRs not yet walked at their current
 head, and Phase 8's re-check closes the window where two overlapping runs both pass the gate.

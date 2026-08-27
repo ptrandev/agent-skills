@@ -11,9 +11,13 @@ not `$TMPDIR`-derived and not `$SCRATCH`-derived. Two processes with different `
 each take "the" lock and boot two stacks onto the same pinned ports. `/ui-walkthrough` pins the same
 literal path.
 
+`/review-pr` always runs on lane 0, and this is lane 0's lock. `/ui-walkthrough` can also take lanes
+1 through 3, each with its own lock and its own ports (`ui-walkthrough/concurrency.md`), so a
+lane-1 walkthrough runs beside this one without contending here.
+
 ```bash
 mkdir -p /private/tmp/ui-walkthrough
-LOCK=/private/tmp/ui-walkthrough/review-pr-stack.lock   # literal, shared with /ui-walkthrough
+LOCK=/private/tmp/ui-walkthrough/review-pr-stack.lock   # lane 0, literal, shared with /ui-walkthrough
 if ! mkdir "$LOCK" 2>/dev/null; then
   OLDPID=$(cat "$LOCK/pid" 2>/dev/null)
   if [ -n "$OLDPID" ] && kill -0 "$OLDPID" 2>/dev/null; then
@@ -45,7 +49,7 @@ If you need a pre-lock check before invoking the harness, match its list exactly
 
 ```bash
 BUSY=$(lsof -nP -iTCP:3000 -iTCP:4000 -iTCP:8080 -iTCP:8085 -iTCP:9000 -iTCP:9099 -iTCP:9199 \
-       -sTCP:LISTEN 2>/dev/null | tail -n +2)
+       -sTCP:LISTEN 2>/dev/null | tail -n +2 || true)   # lsof exits 1 on no match: pipefail would abort
 if [ -n "$BUSY" ]; then rm -rf "$LOCK"; echo "SKIP_WALKTHROUGH: ports occupied"; echo "$BUSY"; fi
 ```
 

@@ -27,33 +27,69 @@ so they render in a comment, which `gh` cannot do.
 /ui-walkthrough <PR_NUMBER> --author --embedded --target=e2e
 ```
 
-**`--target=e2e` is mandatory, in every mode.** Pass it on every invocation, attended or not. **Do
-not** pass `--target=dev`. **Do not** drop the flag and let `/ui-walkthrough` auto-select: its
-author + local + attended default is `dev`, so an attended run silently walks real `atllas-dev`
-data. This phase always wants the sealed stack:
+**`--target=e2e` is mandatory, in every mode.** Pass it on every invocation, attended or not. Pass
+it explicitly even though it is now `/ui-walkthrough`'s own default, so this phase's intent survives
+a change there. This phase always wants the sealed stack:
 
 - **The evidence is published.** Phase 8d posts the screenshots to the PR. Real dev data means
   other users' records on a page everyone with repo access can read.
 - **The evidence must be reproducible.** Dev data drifts. Seeded personas do not.
-- **The run must behave the same headless and attended.** full-send's default path is a headless
-  `claude -p` run, where `/ui-walkthrough` **refuses** `--target=dev` outright and produces a
-  neutral note instead of evidence.
+- **The run must not occupy the machine.** `e2e` takes a port lane
+  (`ui-walkthrough/concurrency.md`), so it leaves the operator's own `:3000` dev server alone and
+  runs beside other sessions. `dev` binds `:3000` and `:4000` and blocks both.
 
 `e2e` is safe unattended: emulators, `E2E_STUB_EXTERNAL`, and personas seeded per run. No real
 Stripe/Vapi/Twilio call fires.
 
-**Stack boot.** **Never** boot a stack in a full-send phase. `/ui-walkthrough` boots or reuses one,
-following the stack lifecycle rules in `review-pr/stack-lifecycle.md`. Port safety is that skill's
-too: it never kills a process holding a port, so a squatter from another worktree yields a neutral
-note rather than a dead process. Read the note and report it.
+### The `dev` escape hatch: seed first, and it is almost never the answer
 
-**Credentials.** Nothing to provision. On `e2e` the personas come from
+`/full-send` is the **only** caller allowed to choose `dev` on its own (`ui-walkthrough` invariant
+7). The reason to want it is always the same: the changed surface renders empty on `e2e` because
+nothing seeds its data. **That is a seed gap, not a target problem, and the seed is part of the
+feature.**
+
+Work the ladder in order. Stop at the first rung that produces evidence:
+
+1. **Seed the surface in the PR.** Add the fixture to the feature's own spec in
+   `apps/agents-portal/e2e/tests/**`, using an `e2e/seed/*` helper in `beforeEach`, exactly as the
+   surrounding specs do. Commit it. `/ui-walkthrough` Phase 3 derives its fixtures from the PR's
+   specs, so the surface populates on the next run and stays populated for every future reviewer.
+2. **Extend `e2e/seed/seed.mjs`** when the data belongs to every persona, not to one spec. Commit
+   that too.
+3. **Capture the empty state, labelled.** A surface with no data is honest evidence when the PR does
+   not own the data. Say so in the comment.
+4. **`dev`, only if rungs 1 through 3 are all impossible**, and only when a human is watching.
+
+Rung 4 requires **all** of these. Any one missing means stop at rung 3:
+
+```
+--target=dev + UIW_ALLOW_DEV=1     # UIW_ALLOW_DEV is what lifts the unattended refusal
+```
+
+- The run is on a local Mac, in author mode, and **lane 0 is free** (`dev` cannot take another lane).
+- Rungs 1 and 2 were attempted and are genuinely blocked. Name the blocker in the PR comment.
+- **No other user's data reaches a screenshot.** Capture narrower element shots on any surface that
+  lists records you do not own.
+- The comment says `Stack: local dev (real atllas-dev data, not reproducible)` and says why `e2e`
+  could not show the change.
+
+**Never** take rung 4 to save time, to skip writing a seed, or because the `e2e` boot was slow. Those
+are reasons to fix rung 1. A missing seed shipped now is a surface no reviewer can ever verify.
+
+**Stack boot.** **Never** boot a stack in a full-send phase. `/ui-walkthrough` boots or reuses one,
+following the stack lifecycle rules in `review-pr/stack-lifecycle.md`. Ports are that skill's too:
+it claims a lane (`ui-walkthrough/concurrency.md`) and never kills a process holding a port, so a
+squatter from another worktree yields a neutral note rather than a dead process. Read the note and
+report it. **Never** pass `--lane=N`: let the walkthrough take the first free lane, so two
+`/full-send` runs can proceed at once.
+
+**Credentials.** Nothing to provision on `e2e`. The personas come from
 `apps/agents-portal/e2e/seed/seed.mjs` with credentials committed in the checkout, so no phase here
-reads a credential file. **Never** point this phase at `full-send/dev-credentials.md`. Leave that
-file in place: it is `/ui-walkthrough`'s last fallback for a hand-run `--target=dev`.
+reads a credential file. `full-send/dev-credentials.md` is read by `/ui-walkthrough` alone, and only
+on the rung-4 escape hatch above. Leave the file in place. **Never** read it here.
 
 **Draft PRs.** full-send always opens drafts. The walkthrough's draft gate is scoped to *reviewer*
-mode (`ui-walkthrough` invariant 9, which names this phase as the caller it protects). `--author`
+mode (`ui-walkthrough` invariant 10, which names this phase as the caller it protects). `--author`
 proceeds on a draft. A run reporting "skipped, PR is a draft" means the walkthrough is on a stale
 copy of that invariant and this phase produced nothing. Treat that as a failure, not a skip.
 
@@ -94,9 +130,10 @@ EOF
 ```
 
 State coverage honestly: surfaces walked vs dropped, personas, and the stack that produced the
-evidence, which is always `e2e (emulators, stubbed, seeded)`. The walkthrough names its own target
-in the returned `markdown`. When that line says `dev`, the flag did not take: **stop**, **do not**
-post real dev data, and re-run with `--target=e2e`. Record the comment URL. Phase 9 references it.
+evidence. The walkthrough names its own target in the returned `markdown`. When that line says
+`dev` and this phase did **not** take the rung-4 escape hatch, the flag did not take: **stop**,
+**do not** post real dev data, and re-run with `--target=e2e`. On a deliberate rung-4 run, keep the
+`dev` line and add the blocker that forced it. Record the comment URL. Phase 9 references it.
 
 ### Step 8e: Tear down
 
