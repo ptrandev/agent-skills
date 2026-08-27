@@ -187,7 +187,7 @@ Review every OPEN, READY-FOR-REVIEW PR on Atllas-Inc/codebase and Atllas-Inc/aic
 the requested reviewer (and NOT the author). NEVER review a GitHub draft PR (isDraft) — exclude
 drafts entirely at discovery and never post to one.
 
-This routine fires four times each weekday, so most runs will find nothing new. Be idempotent: skip
+This routine fires five times each weekday, so most runs will find nothing new. Be idempotent: skip
 any PR that already carries a review by me at its current head SHA, and exit quickly with a one-line
 report when nothing is outstanding.
 
@@ -213,66 +213,70 @@ Keep it pointed at the skill so cloud and local stay identical. **The live promp
 
 ## 5. Triggers
 
-**Schedule only.** `9 2,12,16,20 * * 1-5` (UTC), four runs each weekday. The slots are fitted to
+**Schedule only.** `9 2,12,16,20,23 * * 1-5` (UTC), five runs each weekday. The slots are fitted to
 measured demand, not to anyone's working hours. Re-fit them with §5a when the team or its rhythm
 changes.
 
-| UTC | Thailand | Pacific | Eastern | requests this slot sweeps |
+| UTC | Thailand | Pacific | Eastern | events this slot sweeps |
 |---|---|---|---|---|
-| 02:09 | 9:21am | 7:21pm | 10:21pm | 15 |
-| 12:09 | 7:21pm | 5:21am | 8:21am | 26 |
-| 16:09 | 11:21pm | 9:21am | 12:21pm | 20 |
-| 20:09 | 3:21am | 1:21pm | 4:21pm | 13 |
+| 02:09 | 9:21am | 7:21pm | 10:21pm | 5 |
+| 12:09 | 7:21pm | 5:21am | 8:21am | 15 |
+| 16:09 | 11:21pm | 9:21am | 12:21pm | 13 |
+| 20:09 | 3:21am | 1:21pm | 4:21pm | 11 |
+| 23:09 | 6:21am | 4:21pm | 7:21pm | 8 |
 
 Each run sweeps the whole queue. Idempotency via the reviews-API `commit_id` is what keeps most runs
-cheap: at 3.4 requests per weekday they find nothing new and exit.
+cheap: at 2.4 events per weekday they find nothing new and exit.
 
-Four runs per weekday against the **15-run daily account cap** (Max) leaves headroom for `Run now`.
+Five runs per weekday against the **15-run daily account cap** (Max) leaves headroom for `Run now`.
 
 **Push notifications are off** (`notifications.channel.push = false`), because most runs report
 nothing to do.
 
 ### 5a. Why these five slots (measured 2026-08-27)
 
-Fit against 31 days of real timeline events on both repos: 177 PRs, of which **74 were
-`ReviewRequestedEvent` naming `ME`**, or 3.4 per weekday. `ME` authored 93 of the 177, and the skill
-skips self-authored PRs, so PR volume badly overstates the real workload.
+Fit against 31 days of real timeline events on both repos: 177 PRs total.
 
-**Requests cluster at end-of-day and peak at 11:00 UTC. Nothing at all arrives 02:00-08:00 UTC.**
+**Exclude `ME`'s own PRs before fitting.** The skill skips self-authored PRs, and `ME` wrote 93 of
+the 177. A first fit on all `ReviewRequestedEvent`s naming `ME` used 74 events, 13 of which sat on
+`ME`'s own PRs and can never produce a run.
+
+The signal to fit is the **effective start**: `max(ready-for-review, review-requested-of-ME)` on PRs
+by other people. That is the first moment the routine could act, since it never touches a draft.
+**52 events, 2.4 per weekday.** Dependabot's 11 PRs are excluded; refit including them if the routine
+should review dependency bumps.
+
+**Events cluster at end-of-day and peak at 11:00 UTC. Nothing arrives 02:00-08:00 UTC.**
 
 ```
-UTC 00 ##### 01 ## 02-08 (none) 09 #### 10 ####### 11 #############
-    12 ## 13 ### 14 ####### 15 ###### 16 #### 17 #### 18 ## 19 #####
-    20 ## 21 # 22 ##### 23 ##
+UTC 00 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23
+     3  2  0  0  0  0  0  0  0  1  2  9  3  1  2  8  2  3  0  6  2  1  5  2
 ```
 
-Scoring is mean hours from request to review posted, including the observed \~25 min of stagger plus
-run time:
+Scoring is mean hours from effective start to review posted, including the observed \~25 min of
+stagger plus run time:
 
 | Schedule | Runs | Mean | p90 | Max |
 |---|---|---|---|---|
-| `10,16,21` (the old one) | 3 | 5.0h | 10.8h | 12.8h |
-| Fitted to working hours, not data | 6 | 3.0h | 5.4h | 7.3h |
-| `01,12,18` | 3 | 2.8h | 5.7h | 11.0h |
-| **`02,12,16,20`** | **4** | **2.2h** | **4.0h** | **5.8h** |
-| `02,12,16,18,23` | 5 | 1.9h | 3.4h | 4.5h |
-| `02,12,16,18,20,23` | 6 | 1.6h | 2.8h | 3.7h |
+| `10,16,21` (the original) | 3 | 5.1h | 11.7h | 12.8h |
+| `02,13,20` | 3 | 3.0h | 5.2h | 6.8h |
+| `02,12,16,20` | 4 | 2.1h | 4.1h | 5.8h |
+| **`02,12,16,20,23`** | **5** | **1.7h** | **3.5h** | **4.3h** |
 
-**Re-timing beats adding runs.** A six-run schedule placed by reasoning about who is at their desk
-scored 3.0h and lost to a four-run schedule fitted to the data at 2.2h. **Never place these slots
-from working hours alone.** People request review when they finish a task, not while they work, and
-the two distributions differ by hours.
-
-A fifth run at `18` buys 0.3h of mean wait and 1.3h of worst case. Add it if the queue grows.
+**Re-timing beats adding runs.** An earlier six-run schedule placed by reasoning about who is at
+their desk scored 3.0h and lost to a four-run schedule fitted to the data at 2.1h. **Never place
+these slots from working hours alone.** People send a PR for review when they finish a task, not
+while they work, and the two distributions differ by hours.
 
 The optimum is a broad basin, not a spike: moving any single slot by one hour costs at most 0.4h of
 mean wait, and a bootstrap over 200 resamples put the chosen slots within 0.25h of that sample's own
-optimum in 85% of draws. Sample caveats: 74 events is modest, and Friday is quiet (5 requests against 24 on
-Wednesday).
+optimum in 85% of draws. Sample caveats: \~50 events is modest, and Friday is quiet (5 events against
+24 on Wednesday).
 
 **Re-fit procedure.** Pull `READY_FOR_REVIEW_EVENT` and `REVIEW_REQUESTED_EVENT` through
-`gh api graphql` over the last month, keep the requests naming `ME`, then pick the N hours that
-minimise mean wait to the next slot. Do this again after any change to team shape or working hours.
+`gh api graphql` over the last month. Drop PRs authored by `ME`. Take `max(ready, requested-of-ME)`
+per PR. Then pick the N hours minimising mean wait to the next slot. Repeat after any change to team
+shape or working hours.
 
 ### 5b. Timezone and DST
 
@@ -297,9 +301,9 @@ reading of that second one would put it at `14:00Z`.
 
 **Measured 2026-08-27.** A `pull_request` trigger exposes no "which reviewer" filter. The filter
 fields are author, title, body, base branch, head branch, labels, is-draft, is-merged. So
-`pull_request.review_requested` fires when **anyone** is requested on the repo. Against 3.4 requests
-per weekday that actually name `ME`, most fires would be no-ops, and each one starts a session that
-costs a run against the daily cap.
+`pull_request.review_requested` fires when **anyone** is requested on the repo. Against 2.4 events per
+weekday that the routine can actually act on (§5a), most fires would be no-ops, and each one starts a
+session that costs a run against the daily cap.
 
 Three `RemoteTrigger` API gaps, if you ever revisit event triggers:
 
@@ -350,7 +354,7 @@ The live runs are watched instead. To return to validation, add `--draft` to the
 - **Daily run cap, per account, shared across every routine**: Pro 5, Max 15, Team and Enterprise 25
   (<https://claude.com/blog/introducing-routines-in-claude-code>). One-off runs do not count. Past the
   cap, further runs need usage credits enabled at <https://claude.ai/settings/usage>. Read the live
-  remaining count at <https://claude.ai/code/routines>. This routine spends **4 of 15** on Max.
+  remaining count at <https://claude.ai/code/routines>. This routine spends **5 of 15** on Max.
 - GitHub webhook events carry separate per-routine and per-account **hourly** caps. Those numbers are
   not published.
 - Requires a **Pro/Max/Team/Enterprise** plan with **Claude Code on the web** enabled.
