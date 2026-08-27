@@ -239,13 +239,21 @@ RE-RAISED findings, AND regressions introduced by a fix applied this loop. If a 
 re-raises something you believed fixed, treat the prior fix as incomplete (the round is
 NOT dry) and re-fix.
 
+A round that surfaces verified HIGH/MEDIUM is a **finding round**. The delta re-check that
+follows the last fix is a **confirmation round**.
+
 - Loop until one dry round AFTER the last fix.
-- The confirmation/dry round IS scoped to the lines changed by fixes applied since the last
+- The confirmation round IS scoped to the lines changed by fixes applied since the last
   round (a delta re-check), and it still fans out to ALL THREE reviewers. Keep the full-diff
   scope for any round that is still finding issues.
-- Hard cap at 3 rounds. If round 3 still surfaces verified HIGH/MEDIUM issues, stop,
-  implement them, and flag in the report that the change is churny and the final fixes
-  are UNCONFIRMED (no dry round followed them).
+- **Never** count a confirmation round against the cap. Shipping a fix that no reviewer has
+  read is the failure this loop exists to prevent.
+- Cap finding rounds at 4. A confirmation round that surfaces verified HIGH/MEDIUM is a
+  finding round, and counts.
+- Run the confirmation round even at the cap. The loop therefore runs at most 5 rounds.
+- If the confirmation round after the 4th finding round is still not dry, stop, implement
+  the outstanding fixes, and flag in the report that the change is churny and the final
+  fixes are UNCONFIRMED (no dry round followed them).
 - **Do not** start another round after a dry round.
 
 ## 3. Final review report
@@ -257,8 +265,8 @@ a nested path that does not exist.
 
 ```
 ### Phillip self-review -> <branch>, <date>
-Reviewers: Claude (blind|blind, subprocess|inline, not blind) + Codex + Gemini   Rounds run: <n>
-Stopped because: dry round / 3-round cap
+Reviewers: Claude (blind|blind, subprocess|inline, not blind) + Codex + Gemini   Rounds run: <n> (<f> finding, <c> confirmation)
+Stopped because: dry round / finding-round cap
 
 | # | Severity | File:line | Finding | Source | Status |
 |---|----------|-----------|---------|--------|--------|
@@ -277,7 +285,7 @@ Then:
 - Verdict:
   - "Ready for PR" ONLY if the loop stopped on a dry round with zero unresolved
     HIGH/MEDIUM. The dry round is what confirms the last fixes.
-  - If it stopped on the 3-round cap (not a dry round), the verdict is "Needs human
+  - If it stopped on the finding-round cap (not a dry round), the verdict is "Needs human
     review -> cap hit, final-round fixes unconfirmed," never "Ready for PR," regardless
     of the unresolved count.
   - Otherwise, say what remains and why.

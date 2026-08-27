@@ -19,7 +19,7 @@ Autonomous by default, with zero stops. The `interactive` mode grills you first.
 ---
 
 ### `/phillip`
-Self-reviews the current diff to a senior engineering bar before it becomes a PR. Runs adversarial rounds with three independent reviewers: Claude, Codex via `/codex`, and Gemini via `/gemini`. Verifies every finding against the real code path. Implements the genuine HIGH and MEDIUM fixes. Rejects false positives with a written reason. Loops until a clean round. Writes a report to `~/.claude/plans/phillip-<branch>-<date>.md`.
+Self-reviews the current diff to a senior engineering bar before it becomes a PR. Runs adversarial rounds with three independent reviewers: Claude, Codex via `/codex`, and Gemini via `/gemini`. Verifies every finding against the real code path. Implements the genuine HIGH and MEDIUM fixes. Rejects false positives with a written reason. Loops until a clean round, up to 4 rounds that find something plus a free confirmation round. Writes a report to `~/.claude/plans/phillip-<branch>-<date>.md`.
 
 - `/phillip`: full multi-round, all three reviewers.
 - `/phillip quick`: one round, Claude-only (auto-scales down on trivial diffs anyway).

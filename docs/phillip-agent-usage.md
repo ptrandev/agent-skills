@@ -28,7 +28,7 @@ No arguments. It reviews your current branch vs the default branch (main/master,
 
 ## What it does
 
-Runs your diff through three independent reviewers (Claude + Codex + Gemini) over multiple rounds. It verifies every finding against the real code, fixes the genuine HIGH/MEDIUM ones, rejects bad suggestions out loud (with a reason), and loops until a clean ("dry") round turns up nothing new. It caps at 3 rounds -> if it's still finding HIGH/MEDIUM issues at round 3, it stops, applies them, and flags the result as unconfirmed (that's the "Needs human review" verdict below).
+Runs your diff through three independent reviewers (Claude + Codex + Gemini) over multiple rounds. It verifies every finding against the real code, fixes the genuine HIGH/MEDIUM ones, rejects bad suggestions out loud (with a reason), and loops until a clean ("dry") round turns up nothing new. It caps at 4 rounds that find something, and the clean confirmation round after the last fix is always free on top of that (5 rounds maximum). If it is still finding HIGH/MEDIUM issues at the cap, it stops, applies them, and flags the result as unconfirmed (that's the "Needs human review" verdict below).
 
 All three reviewers are genuinely independent. Codex and Gemini are separate CLI processes that see only your diff. The Claude reviewer is a **blind sub-agent** -> a fresh Claude with no access to the conversation, the ticket, or who wrote the code, so it reviews with no author bias, exactly like the two CLIs. The orchestrating session that runs `/phillip` does NOT count as a reviewer; it integrates and verifies their findings. The two CLIs and the blind sub-agent run in parallel, so a round costs about the slowest single reviewer rather than the sum of all of them.
 
@@ -44,7 +44,7 @@ You get a report table -> saved to `~/.claude/plans/phillip-<branch>-<date>.md` 
 
 Then the verdict line:
 - "Ready for PR" -> the loop ended on a clean dry round with nothing unresolved. Push and open the PR.
-- "Needs human review -> cap hit, final-round fixes unconfirmed" -> the loop hit its 3-round limit before a clean round, so the fixes it applied last were never re-verified by a dry round. Do NOT treat it as Ready for PR -> eyeball the final-round changes yourself before shipping.
+- "Needs human review -> cap hit, final-round fixes unconfirmed" -> the loop hit its finding-round limit before a clean round, so the fixes it applied last were never re-verified by a dry round. Do NOT treat it as Ready for PR -> eyeball the final-round changes yourself before shipping.
 - Anything else (it lists what remains and why) -> read it; there are unresolved items. Take a beat before shipping.
 
 ## Cost
