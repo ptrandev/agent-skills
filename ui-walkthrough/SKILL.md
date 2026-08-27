@@ -190,7 +190,6 @@ case "$(uname)" in Darwin) ENVIRONMENT=local;; *) ENVIRONMENT=routine;; esac
 ATTENDED=1
 if [ "${UIW_UNATTENDED:-0}" = 1 ] || [ -n "${CI:-}" ] || [ "$ENVIRONMENT" = routine ]; then ATTENDED=0; fi
 
-# `if`, not `cond && { ... }`: a false `&&` list returns 1, which aborts the run under `set -e`.
 TARGET=e2e                                  # the only default, in every role and environment
 if [ "${UIW_TARGET:-}" = dev ]; then TARGET=dev; fi   # session-wide operator opt-in
 if [ "${ARG_TARGET:-}" = dev ]; then TARGET=dev; fi   # --target=dev typed on this invocation

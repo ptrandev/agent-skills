@@ -38,7 +38,7 @@ rather than waiting.
 The stack's ports come from repo config and are NOT relocatable without editing the checkout (FE
 `baseURL` is hardcoded, emulator ports live in `firebase.json`). **Use the harness's own
 preflight.** `scripts/e2e-stack.sh` runs `node scripts/e2e-preflight.mjs --ports
-"${E2E_PREFLIGHT_PORTS:-4000,3000,9099,8080,9000,9199,8085}" --checkout "$ROOT"`, which fails loudly
+"$_PREFLIGHT_PORTS" --checkout "$ROOT"` over a lane-derived list, which fails loudly
 naming the squatter's pid/command/cwd. A hand-maintained list here drifts from `firebase.json`, and
 did: the set below previously omitted **9000** (the `database` emulator, which `--only` *does* start)
 and included **4001** (the emulator UI, which `--only` does *not* start, so requiring it free is a
@@ -49,9 +49,13 @@ If you need a pre-lock check before invoking the harness, match its list exactly
 
 ```bash
 BUSY=$(lsof -nP -iTCP:3000 -iTCP:4000 -iTCP:8080 -iTCP:8085 -iTCP:9000 -iTCP:9099 -iTCP:9199 \
+       -iTCP:4400 -iTCP:4500 \
        -sTCP:LISTEN 2>/dev/null | tail -n +2 || true)   # lsof exits 1 on no match: pipefail would abort
 if [ -n "$BUSY" ]; then rm -rf "$LOCK"; echo "SKIP_WALKTHROUGH: ports occupied"; echo "$BUSY"; fi
 ```
+
+4400 (Emulator Hub) and 4500 (Logging) are in the list because `emulators:exec` always starts both,
+under `--only`, and `firebase.json` declares neither.
 
 This probe misses squatters outside this checkout; the harness preflight is authoritative. Observed
 2026-07-30: the `lsof` sweep reported every port free, then `e2e-preflight.mjs` refused the boot

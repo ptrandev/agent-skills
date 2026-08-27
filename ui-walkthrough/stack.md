@@ -75,8 +75,9 @@ sandbox: this spec passed, the same spec with `{ page }` failed at launch.
 
 ```bash
 # Invoke the SCRIPT, not `yarn e2e:stack`. See "backgrounding" below.
-# The lane vars (E2E_LANE, E2E_FE_PORT, BACK_PORT, NEXT_PUBLIC_BACK_URL, E2E_PREFLIGHT_PORTS) are
-# already exported by concurrency.md, so the backgrounded script inherits them.
+# E2E_LANE and the vars from `e2e-lane.mjs env` are already exported by concurrency.md, so the
+# backgrounded script inherits them and derives its own preflight list. Never pass
+# E2E_PREFLIGHT_PORTS: it overrides that list and drops the Hub and Logging ports.
 env -u VSCODE_CWD UIW_HOLD_SECONDS=900 bash scripts/e2e-stack.sh uiw-hold.spec.ts --project="$PROJ" &
 ```
 
@@ -102,16 +103,23 @@ the two expensive steps in their own foreground calls first, then boot:
 
 ```bash
 npx turbo run build --filter=@atllasinc/sdk           # usually a full cache hit (~1 s)
-_LANE_BACK_URL="$NEXT_PUBLIC_BACK_URL"                 # capture: `set -a; .` clobbers it
 set -a; . apps/agents-portal/e2e/.env.e2e; set +a      # build with the same env the stack uses
-export NEXT_PUBLIC_BACK_URL="$_LANE_BACK_URL"          # re-export, exactly as e2e-ci.sh does
+eval "$(node scripts/e2e-lane.mjs env "$LANE")"        # lane wins over the lane-0 literals above
+export NEXT_PUBLIC_BACK_URL="http://localhost:${BACK_PORT}/"
+export NEXT_PUBLIC_FRONT_URL="http://localhost:${E2E_FE_PORT}/"
 yarn workspace agents-portal e2e:build                 # ~2 min cold, and it is the long pole
 ```
 
-**The re-export is required on every lane, including lane 0.** `NEXT_PUBLIC_BACK_URL` is baked into
-the bundle at `next build`. Sourcing `.env.e2e` without capturing it first builds a frontend that
-calls `:4000`, so lane 1 would screenshot lane 0's API. `e2e-ci.sh` does the same capture for the
-same reason.
+**Order matters: source `.env.e2e` first, then eval the lane.** `.env.e2e` carries the lane-0
+literals for `PUBSUB_EMULATOR_HOST` and every `NEXT_PUBLIC_FB_EMU_*_PORT`, and `next build` bakes
+the `NEXT_PUBLIC_*` values into the bundle. Sourcing after the eval would ship a frontend calling
+lane 0's emulators from lane 1. `e2e-ci.sh` solves the same problem the same way, by re-exporting
+after the source.
+
+**The two URLs are set by hand here because `e2e-lane.mjs env` does not emit them.**
+`e2e-stack.sh` derives both from the effective ports after its own eval. This pre-warm runs outside
+`e2e-stack.sh`, so it repeats that derivation. Skip either one and the bundle points at another
+lane. **Do this on lane 0 too**, so one code path covers every lane.
 
 Then poll `$BASE_URL` (the lane's FE port) for a 200 and wait for the hold spec's own log line before driving.
 **Poll with `curl`, never `pgrep -f`.** A `pgrep -f` wait loop matches the waiting shell's own
@@ -163,11 +171,11 @@ Worktree path -> `git worktree remove --force` instead, and expect the install c
 2026-07-30: a hand-rolled `lsof` sweep reported every port free, then `e2e-preflight.mjs` refused the
 boot because :4000 was held by an API from a **different conductor worktree** on the same machine,
 naming its pid, command, and cwd. Multi-worktree setups make this the normal case. `e2e-stack.sh`
-runs `node scripts/e2e-preflight.mjs --ports "${E2E_PREFLIGHT_PORTS:-4000,3000,9099,8080,9000,9199,8085}"
---checkout "$ROOT"`, which fails loudly naming the squatter's pid/command/cwd.
-[concurrency.md](concurrency.md) exports `E2E_PREFLIGHT_PORTS` for the lane, so the preflight checks
-the ports this run will actually bind. Reimplementing an `lsof` list here would drift from
-`firebase.json`; it already has. **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you don't
+builds the port list from the effective `BACK_PORT` and `E2E_FE_PORT` plus
+`node scripts/e2e-lane.mjs backend-ports "$E2E_LANE"`, then runs `e2e-preflight.mjs`, which fails
+loudly naming the squatter's pid/command/cwd. The lane list covers the Hub (4400) and Logging
+(4500) ports that `firebase.json` never declares and `emulators:exec` always starts. Reimplementing
+an `lsof` list here would drift from `firebase.json`; it already has. **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you don't
 own is exactly the "provably ours" rule violation `/review-pr` forbids. Its failure is a **neutral
 note**, never a finding.
 

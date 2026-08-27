@@ -23,7 +23,13 @@ e2e stack runs JVM emulators plus a Node API plus `next start`.
 | database emulator | 9000 | `9000 + OFFSET` |
 | storage emulator | 9199 | `9199 + OFFSET` |
 | pubsub emulator | 8085 | `8085 + OFFSET` |
+| Emulator Hub | 4400 | `4400 + OFFSET` |
+| Logging emulator | 4500 | `4500 + OFFSET` |
 | `browse` daemon | 6499 | `6499 + LANE` |
+
+**The Hub and the Logging emulator are not in `firebase.json`.** `firebase emulators:exec` starts
+both anyway, under `--only`, so two lanes collide there even when every declared port is clear.
+`scripts/e2e-lane.mjs` adds them to the generated per-lane config.
 
 **A step of 10 is deliberate, not arbitrary.** A step of 100 makes lane 1's auth port 9199, which is
 lane 0's storage port. At a step of 10 no two services in the table collide inside the 4-lane cap.
@@ -73,11 +79,11 @@ for N in $(seq 0 "$LANE_MAX"); do
   O=$(( N * 10 ))
   BUSY=$(lsof -nP -sTCP:LISTEN \
     -iTCP:$((3000+O)) -iTCP:$((4000+O)) -iTCP:$((8080+O)) -iTCP:$((8085+O)) \
-    -iTCP:$((9000+O)) -iTCP:$((9099+O)) -iTCP:$((9199+O)) 2>/dev/null | tail -n +2 || true)
+    -iTCP:$((9000+O)) -iTCP:$((9099+O)) -iTCP:$((9199+O)) \
+    -iTCP:$((4400+O)) -iTCP:$((4500+O)) 2>/dev/null | tail -n +2 || true)
   if [ -n "$BUSY" ]; then rm -rf "$CAND"; continue; fi   # foreign squatter, try the next lane
   LANE="$N"; LOCK="$CAND"; break
 done
-# `if`, not `cond && { ... }`: a false `&&` list returns 1, which aborts the run under `set -e`.
 if [ -z "$LANE" ]; then
   if [ -n "${ARG_LANE:-}" ]; then echo "SKIP: lane $ARG_LANE is busy."
   else echo "SKIP: every lane 0..$LANE_MAX is busy."; fi
@@ -103,21 +109,31 @@ violates the "provably ours" rule.
 
 ## Exporting the lane
 
+**`scripts/e2e-lane.mjs` owns the port math. Do not re-derive it here.** It emits the whole
+lane-derived env as shell `export` lines, covering vars this file does not track: the API-side
+`FB_EMU_*_PORT` family that `apps/api` rebuilds its emulator hosts from, and `PUBSUB_EMULATOR_HOST`.
+
 ```bash
 O=$(( LANE * 10 ))
-export E2E_LANE="$LANE"                                   # honored once AP-1898 lands
-export E2E_FE_PORT=$((3000+O)) BACK_PORT=$((4000+O))
-export NEXT_PUBLIC_BACK_URL="http://localhost:$((4000+O))/"
-export E2E_PREFLIGHT_PORTS="$((4000+O)),$((3000+O)),$((9099+O)),$((8080+O)),$((9000+O)),$((9199+O)),$((8085+O))"
+export E2E_LANE="$LANE"
+eval "$(node "$CLONE/scripts/e2e-lane.mjs" env "$LANE")"   # sets E2E_FE_PORT, BACK_PORT, FB_EMU_*
 SCRATCH="/private/tmp/ui-walkthrough/lane-$LANE"; mkdir -p "$SCRATCH"
 BASE_URL="http://localhost:$((3000+O))"
 ```
 
-`e2e-ci.sh` captures an outer `BACK_PORT` and `NEXT_PUBLIC_BACK_URL` before it sources `.env.e2e`,
-then re-exports them, so these win over the committed defaults. `E2E_FE_PORT` is read directly by
-`playwright.config.ts` for `baseURL` and `webServer`. **Set both `BACK_PORT` and
-`NEXT_PUBLIC_BACK_URL`.** The FE bakes `NEXT_PUBLIC_BACK_URL` at `next build`, so a lane that moves
-the API without moving that URL builds a frontend pointed at another lane's API.
+`LANE_CAPABLE=0` -> export nothing, and lane 0's committed defaults apply unchanged.
+
+**Never export `E2E_PREFLIGHT_PORTS`.** `e2e-stack.sh` treats it as a full override
+(`_PREFLIGHT_PORTS="${E2E_PREFLIGHT_PORTS:-...}"`), so a hand-written list silently replaces the
+lane-derived one and drops the Hub and Logging ports from the check. Two lanes would then pass
+preflight and collide at emulator boot. Export `E2E_LANE` and let the script build the list.
+
+`e2e-ci.sh` captures every lane-derived var before it sources `.env.e2e`, then re-exports it, so
+the lane wins over the committed lane-0 literals. `E2E_FE_PORT` is read directly by
+`playwright.config.ts` for `baseURL` and `webServer`. `e2e-stack.sh` derives
+`NEXT_PUBLIC_BACK_URL` and `NEXT_PUBLIC_FRONT_URL` from the effective ports, so **do not set
+either here**. Phase 4's pre-warm build is the one place that must set them, because it runs
+outside `e2e-stack.sh` ([stack.md](stack.md)).
 
 ## RAM: a lane you cannot feed is not a free lane
 
