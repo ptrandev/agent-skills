@@ -187,8 +187,9 @@ Review every OPEN, READY-FOR-REVIEW PR on Atllas-Inc/codebase and Atllas-Inc/aic
 the requested reviewer (and NOT the author). NEVER review a GitHub draft PR (isDraft) — exclude
 drafts entirely at discovery and never post to one.
 
-This routine fires three times each weekday, so be idempotent: skip any PR that already carries a
-review by me at its current head SHA.
+This routine fires five times each weekday, so most runs will find nothing new. Be idempotent: skip
+any PR that already carries a review by me at its current head SHA, and exit quickly with a one-line
+report when nothing is outstanding.
 
 Follow the skill's TWO-PHASE BATCH MODEL: Pass A — static review ALL PRs in parallel (Phases 3–5,7);
 non-UI PRs are complete after static. Pass B — process UI PRs (apps/agents-portal) ONE AT A TIME,
@@ -212,38 +213,88 @@ Keep it pointed at the skill so cloud and local stay identical. **The live promp
 
 ## 5. Triggers
 
-**Schedule only.** `9 10,16,21 * * 1-5` (UTC) fires the routine three times each weekday: 6:09am,
-12:09pm, and 5:09pm America/Toronto under EDT. Each run sweeps the whole queue. Idempotency via the
-reviews-API `commit_id` is what makes the midday and end-of-day runs skip what the morning run
-already posted.
+**Schedule only.** `9 2,12,16,18,23 * * 1-5` (UTC), five runs each weekday. The slots are fitted to
+measured demand, not to anyone's working hours. Re-fit them with §5a when the team or its rhythm
+changes.
 
-Three runs per weekday against the **15-run daily account cap** (Max) leaves headroom for `Run now`.
+| UTC | Thailand | Pacific | Eastern | requests this slot sweeps |
+|---|---|---|---|---|
+| 02:09 | 9:21am | 7:21pm | 10:21pm | 7 |
+| 12:09 | 7:21pm | 5:21am | 8:21am | 26 |
+| 16:09 | 11:21pm | 9:21am | 12:21pm | 20 |
+| 18:09 | 1:21am | 11:21am | 2:21pm | 6 |
+| 23:09 | 6:21am | 4:21pm | 7:21pm | 15 |
+
+Each run sweeps the whole queue. Idempotency via the reviews-API `commit_id` is what keeps four of
+the five runs cheap: they find nothing new and exit.
+
+Five runs per weekday against the **15-run daily account cap** (Max) leaves headroom for `Run now`.
+
+### 5a. Why these five slots (measured 2026-08-27)
+
+Fit against 31 days of real timeline events on both repos: 177 PRs, of which **74 were
+`ReviewRequestedEvent` naming `ME`**, or 3.4 per weekday. `ME` authored 93 of the 177, and the skill
+skips self-authored PRs, so PR volume badly overstates the real workload.
+
+**Requests cluster at end-of-day and peak at 11:00 UTC. Nothing at all arrives 02:00-08:00 UTC.**
+
+```
+UTC 00 ##### 01 ## 02-08 (none) 09 #### 10 ####### 11 #############
+    12 ## 13 ### 14 ####### 15 ###### 16 #### 17 #### 18 ## 19 #####
+    20 ## 21 # 22 ##### 23 ##
+```
+
+Scoring is mean hours from request to review posted, including the observed \~25 min of stagger plus
+run time:
+
+| Schedule | Runs | Mean | p90 | Max |
+|---|---|---|---|---|
+| `10,16,21` (the old one) | 3 | 5.0h | 10.8h | 12.8h |
+| Fitted to working hours, not data | 6 | 3.0h | 5.4h | 7.3h |
+| `01,12,18` | 3 | 2.8h | 5.7h | 11.0h |
+| `02,12,16,20` | 4 | 2.2h | 4.0h | 5.8h |
+| **`02,12,16,18,23`** | **5** | **1.9h** | **3.4h** | **4.5h** |
+| `02,12,16,18,20,23` | 6 | 1.6h | 2.8h | 3.7h |
+
+**Re-timing beats adding runs.** A six-run schedule placed by reasoning about who is at their desk
+scored 3.0h and lost to a four-run schedule fitted to the data at 2.2h. **Never place these slots
+from working hours alone.** People request review when they finish a task, not while they work, and
+the two distributions differ by hours.
+
+The optimum is a broad basin, not a spike: moving any single slot by one hour costs at most 0.4h of
+mean wait. Sample caveats: 74 events is modest, and Friday is quiet (5 requests against 24 on
+Wednesday).
+
+**Re-fit procedure.** Pull `READY_FOR_REVIEW_EVENT` and `REVIEW_REQUESTED_EVENT` through
+`gh api graphql` over the last month, keep the requests naming `ME`, then pick the N hours that
+minimise mean wait to the next slot. Do this again after any change to team shape or working hours.
+
+### 5b. Timezone and DST
+
+**Cron is stored in UTC and does not track DST.** Thailand has no DST and the US zones shift on the
+first Sunday of November (`2026-11-01T06:00Z`). The slots are fitted to UTC demand, so **leave the
+cron alone through the transition** and re-fit from fresh data instead. Only re-cut by hand if you
+have moved the schedule back to fixed local times.
 
 **The dashboard's Custom-cron summary line is NOT timezone-converted.** For `9 10,16,21 * * 1-5` it
-reads *"At 10:09 AM, 04:09 PM and 09:09 PM, Monday through Friday"*, which is the cron fields
-rendered verbatim as UTC, four hours off local. Note the missing zone suffix: a preset schedule
-renders converted **and labelled** (*"Runs weekdays at 6:00 AM EDT"*), a Custom cron renders raw and
-unlabelled. **Trust the "Next run" line instead**, which is real local time. Confirmed 2026-08-27:
-the summary said 09:09 PM while "Next run today at 5:09 PM" matched `next_run_at:
-2026-08-27T21:09:00Z`.
+read *"At 10:09 AM, 04:09 PM and 09:09 PM, Monday through Friday"*, which is the cron fields rendered
+verbatim as UTC, four hours off local. Note the missing zone suffix: a preset schedule renders
+converted **and labelled** (*"Runs weekdays at 6:00 AM EDT"*), a Custom cron renders raw and
+unlabelled. **Trust the "Next run" line instead**, which is real local time.
 
 **Verify the timezone from the API, never from the UI.** Compare `cron_expression` against
 `next_run_at` in one `RemoteTrigger` `get` response. `next_run_at` is an unambiguous UTC timestamp,
 so it settles the reading on its own. Confirmed 2026-08-27: cron `9 10,16,21 * * 1-5` returned
 `next_run_at: 2026-08-27T21:09:00Z`, and the earlier `0 10 * * 1-5` fired at `10:10:51Z`. A local
-reading of that second one would put it at `14:00Z`. The UI's "6:00 AM EDT" label is computed at
-display time from the browser's zone.
+reading of that second one would put it at `14:00Z`.
 
-**Cron is stored in UTC and does not track DST.** These local times shift one hour earlier when
-Toronto returns to EST. Re-cut the cron to `9 11,17,22 * * 1-5` in November to hold the same local
-times.
+### 5c. Why not a GitHub event trigger
 
-**A GitHub event trigger is a poor fit here, and this was measured (2026-08-27).** A `pull_request`
-trigger exposes no "which reviewer" filter. The filter fields are author, title, body, base branch,
-head branch, labels, is-draft, is-merged. So `pull_request.review_requested` fires when **anyone** is
-requested on the repo. `Atllas-Inc/codebase` alone opened 85 PRs in the preceding 14 days, roughly 8
-per weekday, which puts event fires at 10 to 20 per weekday. Each fire starts a session and costs one
-run against the daily cap, so the cap goes to no-op runs before a real request arrives.
+**Measured 2026-08-27.** A `pull_request` trigger exposes no "which reviewer" filter. The filter
+fields are author, title, body, base branch, head branch, labels, is-draft, is-merged. So
+`pull_request.review_requested` fires when **anyone** is requested on the repo. Against 3.4 requests
+per weekday that actually name `ME`, most fires would be no-ops, and each one starts a session that
+costs a run against the daily cap.
 
 Three `RemoteTrigger` API gaps, if you ever revisit event triggers:
 
@@ -252,6 +303,10 @@ Three `RemoteTrigger` API gaps, if you ever revisit event triggers:
 - `RemoteTrigger` `get` on the routine does **not** list its webhook triggers.
 - There is **no** delete action for a webhook trigger. **Delete them at
   <https://claude.ai/code/routines>.**
+
+**An update that omits `notifications` can clear it.** Verified 2026-08-27: a `job_config` update
+reset `push` from `true` to `false`. **Re-send `notifications` after any update, and check it in the
+response.**
 
 ## 6. First-run validation (before trusting it to post)
 
@@ -290,7 +345,7 @@ The live runs are watched instead. To return to validation, add `--draft` to the
 - **Daily run cap, per account, shared across every routine**: Pro 5, Max 15, Team and Enterprise 25
   (<https://claude.com/blog/introducing-routines-in-claude-code>). One-off runs do not count. Past the
   cap, further runs need usage credits enabled at <https://claude.ai/settings/usage>. Read the live
-  remaining count at <https://claude.ai/code/routines>. This routine spends **3 of 15** on Max.
+  remaining count at <https://claude.ai/code/routines>. This routine spends **5 of 15** on Max.
 - GitHub webhook events carry separate per-routine and per-account **hourly** caps. Those numbers are
   not published.
 - Requires a **Pro/Max/Team/Enterprise** plan with **Claude Code on the web** enabled.
