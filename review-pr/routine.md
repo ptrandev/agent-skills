@@ -63,12 +63,13 @@ for s in review-pr phillip phillip-sync gemini full-send ui-walkthrough; do
   fi
 done
 
-# (b) Node 20, BEFORE any install. The image ships Node 22 with no nvm, which breaks the `re2`
-#     native addon and fails the Tier-3 pre-build (stack-lifecycle.md). Installing it after
-#     `yarn install` is too late: the addon is already built against the wrong ABI.
-if ! node -v 2>/dev/null | grep -q '^v20\.'; then
-  { curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs ; } \
-    || echo "WARN: Node 20 install failed. Tier-3 pre-build will fail on re2 under $(node -v)"
+# (b) Node 24 (the repo's `.nvmrc`), BEFORE any install. The image ships a different major with
+#     no nvm, which breaks the `re2` native addon and fails the Tier-3 pre-build
+#     (stack-lifecycle.md). Installing it after `yarn install` is too late: the addon is already
+#     built against the wrong ABI.
+if ! node -v 2>/dev/null | grep -q '^v24\.'; then
+  { curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y nodejs ; } \
+    || echo "WARN: Node 24 install failed. Tier-3 pre-build will fail on re2 under $(node -v)"
 fi
 node -v || echo "WARN: no node at all. Tier-2 verification and Tier-3 both unavailable."
 
@@ -194,7 +195,7 @@ report when nothing is outstanding.
 Follow the skill's TWO-PHASE BATCH MODEL: Pass A — static review ALL PRs in parallel (Phases 3–5,7);
 non-UI PRs are complete after static. Pass B — process UI PRs (apps/agents-portal) ONE AT A TIME,
 largest UI diff first: pre-build workspace packages (`yarn turbo run build --filter='./packages/*'`)
-under Node 20, boot `yarn e2e:stack`, run the headless Playwright walkthrough, merge live findings,
+under Node 24, boot `yarn e2e:stack`, run the headless Playwright walkthrough, merge live findings,
 and assemble that PR's full review. Any UI PR not reached in the runtime budget gets its static
 review + a NEEDS-DYNAMIC-RUN note — never drop a PR.
 

@@ -70,7 +70,7 @@ it's provably ours: its PID is in a previous run's `$LOCK/pid` **and** its comma
 stack (`ps -p <pid> -o command=` shows `next start` / `firebase emulators`). **Anything else ->
 skip, never kill.**
 
-## Pre-build: workspace packages, on Node 20
+## Pre-build: workspace packages, on Node 24
 
 Build the shared workspace packages **before** booting, at the PR head:
 
@@ -80,8 +80,8 @@ yarn turbo run build --filter='./packages/*'
 
 `scripts/e2e-stack.sh` does **not** build them, and a fresh `yarn install` leaves their `dist/`
 empty, so the stack's `next build` hard-fails resolving `loop-stats` (consumed by `loop-renderer`,
-among others). Confirm **Node 20** is active first, per the repo's `.nvmrc`. Node 22 breaks the
-`re2` native addon and risks build/runtime drift.
+among others). Confirm **Node 24** is active first, per the repo's `.nvmrc`. Any other major
+breaks the `re2` native addon and risks build/runtime drift.
 
 *(Verified via cloud boot spike 2026-07-26: emulators and API boot fine headlessly. This pre-build
 is the one gap between a fresh clone and a healthy `:3000`.)*
