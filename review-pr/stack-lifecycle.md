@@ -88,6 +88,19 @@ is the one gap between a fresh clone and a healthy `:3000`.)*
 
 `ui-walkthrough/stack.md` points here for this step. Keep it here, not in a second copy.
 
+## IPv4-only runtimes: the emulator host must be pinned
+
+A container with no IPv6 loopback fails the boot unless `firebase.json` pins `"host": "127.0.0.1"`
+on auth, firestore, database, storage, and pubsub. Without the pin the firebase CLI defaults to
+`localhost`, expands it to `127.0.0.1` **and** `::1` from a hardcoded cache that never reads
+`/etc/hosts`, and dies loading the Realtime Database rules against `::1:9000`. The message is
+`Failed to load initial Realtime Database rules`.
+
+Pinned in `Atllas-Inc/codebase` on 2026-08-31. A PR whose base predates that commit still hits it.
+**That failure is a neutral NEEDS-DYNAMIC-RUN note, never a finding**, per *Boot budget and
+teardown* below. Name the cause in the note ("checkout predates the emulator host pin") so the
+rerun target is obvious.
+
 ## Post-boot identity assertion
 
 After the stack reports healthy, confirm :3000 is owned by a process this run spawned (`lsof -nP
