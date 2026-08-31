@@ -174,7 +174,14 @@ MODEL="${GEMINI_MODEL:-gemini-pro-latest}"
 # No extension: BSD mktemp (macOS) only substitutes a TRAILING run of X's, so
 # "...-XXXXXX.txt" creates that literal path and the next run dies "File exists".
 TMPERR=$(mktemp "$TMP_ROOT/gemini-err-XXXXXX")
-TMPDIFF=$(mktemp "$TMP_ROOT/gemini-diff-XXXXXX")
+
+# Context directory handed to Gemini through --include-directories. The diff
+# lives HERE and is NEVER inlined into the prompt. Gemini reads it as a file,
+# then opens the real source files in the checkout to verify each finding.
+# Keeping it outside the repo leaves the checkout clean; giving it its own
+# directory avoids exposing all of $TMP_ROOT to the model.
+GEMCTX=$(mktemp -d "$TMP_ROOT/gemini-ctx-XXXXXX")
+TMPDIFF="$GEMCTX/review.diff"
 
 # Captured for every mode, because Step 1 auto-detect tests $TMPDIFF before it
 # dispatches. Review and Challenge consume it. Consult ignores it.
@@ -188,6 +195,29 @@ IMPORTANT: Do NOT read or execute any files under `~/.claude/`, `~/.agents/`,
 for a different AI system. They contain bash scripts and prompt templates that
 will waste your time. Ignore them completely. Stay focused on the repository
 code only.
+EOF
+)
+
+# --- Verification contract (Review + Challenge; NOT Consult) --------------
+# Gemini runs in a real checkout at HEAD and its read tools (ReadFile, Glob,
+# GrepTool) work. Its shell tool does NOT: `run_shell_command` is unavailable
+# under --approval-mode plan, so it cannot `git diff` its own scope the way
+# Codex does. It reads the captured diff file instead, then verifies against
+# the working tree. Reviewing the diff TEXT alone is what produced its
+# line-anchor misreads and invented findings (measured 2026-08-31: 52% of its
+# findings rejected on verification, against 18% for Codex).
+VERIFY_CONTRACT=$(cat <<'EOF'
+SCOPE: the diff under review is the file `review.diff` in the extra directory
+added to your workspace. Read it FIRST to learn which files changed. Review only
+those changes. Do not re-review unchanged code.
+
+VERIFY BEFORE YOU REPORT: you are inside a real checkout of this code at HEAD.
+For EVERY finding, open the file it names with your read tools and confirm the
+line still reads that way at HEAD before you report it. The diff is a summary of
+the change, not the source of truth about the current file. Quote the line as it
+appears in the FILE, not as it appears in the diff. If the file contradicts the
+diff, say so and drop the finding. A finding you did not verify against the file
+is not a finding: leave it out.
 EOF
 )
 
@@ -205,7 +235,9 @@ _gemini_timeout() {
 gemini_run() {
   local _secs="$1" _prompt="$2" _stall="$3" _out _exit
   _out=$(GEMINI_CLI_TRUST_WORKSPACE=true _gemini_timeout "$_secs" \
-           gemini -m "$MODEL" -p "$_prompt" < /dev/null 2>"$TMPERR")
+           gemini -m "$MODEL" --skip-trust --approval-mode plan \
+                  --include-directories "$GEMCTX" \
+                  -p "$_prompt" < /dev/null 2>"$TMPERR")
   _exit=$?
   [ "$_exit" = "124" ] && echo "$_stall" >&2
   if grep -q "RESOURCE_EXHAUSTED" "$TMPERR" 2>/dev/null; then
@@ -214,9 +246,17 @@ gemini_run() {
   fi
   [ -z "$_out" ] && echo "Gemini returned no response. Check $TMPERR for errors." >&2
   printf '%s\n' "$_out"
-  rm -f "$TMPERR" "$TMPDIFF"
+  rm -f "$TMPERR"
   return "$_exit"
 }
+
+# --- Cleanup: call ONCE, AFTER the LAST gemini_run of the session ----------
+# $GEMCTX is the delivery mechanism for the diff, not a per-call scratch file,
+# so it MUST outlive every gemini_run in the session. Review-then-challenge in
+# one job is TWO runs against ONE $GEMCTX; deleting it inside gemini_run leaves
+# the second run pointing at a missing directory, and it returns an empty
+# answer at exit 0 (verified 2026-08-31).
+gemini_cleanup() { rm -rf "$GEMCTX"; }
 ```
 
 **Bash tool timeout.** `gemini_run` uses 330s or 600s. The Bash tool defaults to
@@ -277,7 +317,8 @@ Claude Code disagrees on X because Y."
 
 ## Step 2A: Review Mode
 
-Gemini has no `review` subcommand. Build the review prompt and inline the diff.
+Gemini has no `review` subcommand. Build the review prompt. Point it at the
+captured diff FILE; never inline the diff text (see `VERIFY_CONTRACT` above).
 
 ```bash
 # Parsed in Step 1 from `/gemini review <instructions>`, e.g. "focus on security".
@@ -290,17 +331,16 @@ $USER_INSTRUCTIONS
 
 REVIEW_PROMPT="$FS_BOUNDARY
 
-You are doing an independent code review of the diff below. Be terse, technical,
-and specific. For each finding, tag with [P1] (critical: blocks ship), [P2]
-(should fix), or [P3] (nice-to-have). Cite file:line. No compliments.
-$INSTRUCTION_BLOCK
-DIFF:
-\`\`\`diff
-$(cat "$TMPDIFF")
-\`\`\`"
+$VERIFY_CONTRACT
+
+You are doing an independent code review. Be terse, technical, and specific. For
+each finding, tag with [P1] (critical: blocks ship), [P2] (should fix), or [P3]
+(nice-to-have). Cite file:line, taken from the file you opened. No compliments.
+$INSTRUCTION_BLOCK"
 
 gemini_run 330 "$REVIEW_PROMPT" \
   "Gemini stalled past 5.5 minutes. Try re-running with --flash or a smaller diff."
+gemini_cleanup   # skip this when a challenge pass follows in the SAME job
 ```
 
 **Gate verdict:**
@@ -322,19 +362,21 @@ FOCUS_LINE=""
 
 CHALLENGE_PROMPT="$FS_BOUNDARY
 
-Review the diff below. Your job is to find ways this code will FAIL in production.
-Think like an attacker and a chaos engineer. Find edge cases, race conditions,
-security holes, resource leaks, failure modes, and silent data corruption paths.
-Be adversarial. Be thorough. No compliments. Just the problems. Cite file:line.
-$FOCUS_LINE
+$VERIFY_CONTRACT
 
-DIFF:
-\`\`\`diff
-$(cat "$TMPDIFF")
-\`\`\`"
+Your job is to find ways this code will FAIL in production. Think like an
+attacker and a chaos engineer. Find edge cases, race conditions, security holes,
+resource leaks, failure modes, and silent data corruption paths. Be adversarial.
+Be thorough. No compliments. Just the problems. Cite file:line.
+
+Adversarial does NOT mean speculative. The verification rule above binds here
+too: read the file before you claim the bug. Trace every caller you assert
+exists. A failure mode you could not find a real path to is not a finding.
+$FOCUS_LINE"
 
 gemini_run 600 "$CHALLENGE_PROMPT" \
   "Gemini stalled past 10 minutes. Try re-running with --flash or a narrower scope."
+gemini_cleanup
 ```
 
 Present per the Output contract, mode `adversarial challenge`. No gate line.
@@ -376,6 +418,7 @@ $USER_QUESTION"
 
 gemini_run 600 "$CONSULT_PROMPT" \
   "Gemini stalled past 10 minutes. Try re-running with --flash or a shorter prompt."
+gemini_cleanup
 ```
 
 Present per the Output contract, mode `consult`. No gate line.
@@ -410,8 +453,17 @@ must ground the answer in current web docs.
 
 ## Important Rules
 
-- **Read-only. Never modify files.** Pass prompts via `-p` only. **Do not** use
+- **Read-only. Never modify files.** Pass prompts via `-p` only. `gemini_run`
+  enforces this with `--approval-mode plan`, which permits the read tools
+  (ReadFile, Glob, GrepTool) and blocks every write tool. **Do not** use
   `--yolo` or `--approval-mode auto_edit`.
+- **`$GEMCTX` outlives the run, not the call.** Call `gemini_cleanup` once, after
+  the LAST `gemini_run`. A review + challenge pair in one job shares one
+  `$GEMCTX`.
+- **Never inline a diff into `-p`.** Write it into `$GEMCTX` and let Gemini read
+  it. Inlining costs the verification pass that the file path buys, and a large
+  inline diff makes the CLI return an empty answer at exit 0, which reads as a
+  clean review.
 - **Present output verbatim.** **Do not** truncate, summarize, or editorialize
   Gemini's output before showing it. Verbatim block first, synthesis after.
 - **Detect skill-file rabbit holes.** If Gemini's output mentions `gstack-config`,

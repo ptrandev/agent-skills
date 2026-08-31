@@ -125,15 +125,29 @@ in-session pass.
    Call the CLIs DIRECTLY (backgrounded) so both run at once -> nested `/codex` and `/gemini`
    Skill invocations CANNOT parallelize, because skill calls are sequential.
 
+   **Neither reviewer gets the diff pasted into its prompt.** Codex is told to run the `git
+   diff` command itself. Gemini cannot (its shell tool is blocked under `--approval-mode
+   plan`), so the `/gemini` skill writes the diff to `$GEMCTX/review.diff` and passes
+   `--include-directories "$GEMCTX"`; Gemini reads that file for scope, then opens the real
+   files at HEAD to verify. Mirror that contract exactly. Inlining the diff is what produced
+   Gemini's line-anchor misreads and its empty-output-at-exit-0 failures on large diffs.
+
    ALL THREE reviewers review against the rubric, not a generic bar. Add this line to the
    Codex prompt: "Read `~/.claude/skills/phillip/RUBRIC.md` and apply it, skipping any row
    whose Repo column names a repo other than this one."
 
-   **Never give Gemini that line. Paste the rubric TEXT into its `-p` prompt instead**, the
-   same way the diff is pasted. Gemini cannot reach `~/.claude` (outside its workspace), and
-   the `/gemini` skill's `FS_BOUNDARY` prompt orders it to ignore that tree anyway. A path
-   instruction there silently no-ops, and Gemini reviews against a generic bar (verified
-   2026-08-24). Codex is unaffected, it reads the real filesystem.
+   **Never give Gemini that line. Copy the rubric into its context directory instead**, then
+   point at it by filename: `cp ~/.claude/skills/phillip/RUBRIC.md "$GEMCTX/RUBRIC.md"`, and
+   add to the Gemini prompt: "Read `RUBRIC.md` in the extra directory added to your workspace
+   and apply it, skipping any row whose Repo column names a repo other than this one."
+   Gemini cannot reach `~/.claude` (outside its workspace), and the `/gemini` skill's
+   `FS_BOUNDARY` prompt orders it to ignore that tree anyway. A path instruction pointing INTO
+   `~/.claude` silently no-ops, and Gemini reviews against a generic bar (verified
+   2026-08-24). `$GEMCTX` is the `--include-directories` dir the `/gemini` skill already
+   creates for the diff, so the rubric rides along in the same dir and Gemini can read it.
+   **Do NOT paste the rubric text into `-p`.** A 28KB rubric paste is what made Gemini echo
+   the entire rubric back inside its own findings output (observed 2026-08-31). Codex is
+   unaffected, it reads the real filesystem.
 3. Reviewer #3 is a BLIND Claude reviewer, launched right after the two background jobs are
    running: an Agent-tool sub-agent, or a `claude -p` subprocess when this session has no Agent
    tool (see "Reviewer #3 without the Agent tool" below). It must derive everything from the
