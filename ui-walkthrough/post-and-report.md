@@ -58,6 +58,7 @@ only**, the ones Phase 7's priority list kept; every other surface gets a linked
 ### Coverage
 Personas: premium. Viewports: desktop, tablet, mobile.
 Surfaces walked: 8 of 11, dropped `/x`, `/y`, `/z` (cap).
+Components covered: 7 of 7 changed UI files proven on screen.
 Images: 11 embedded, 13 linked (budget).
 Stack: locally booted at <sha>, externally stubbed.
 Video: <link> (desktop journey, all <n> surfaces, <b> beats). Screenshots cover all three viewports.
@@ -66,6 +67,17 @@ Video: <link> (desktop journey, all <n> surfaces, <b> beats). Screenshots cover 
 **The Coverage block always names the viewports, and always next to the video line.** The video is
 desktop-only by design ([opencap.md](opencap.md)), so a reader who sees only the link would otherwise
 read desktop-only coverage into a run that walked three widths.
+
+**The Coverage block counts changed components, not only routes** (invariant 11). Name every
+changed file whose mount probe never passed, with the reason and the last ladder rung tried:
+
+```
+Components covered: 6 of 7. NOT covered: `SmsConfigPanel.tsx` (the settings step needs a configured
+campaign, the seeded draft renders the chat-flow builder; ladder rung 2 tried).
+```
+
+A reader must never have to infer component coverage from a route list. An uncovered changed
+component is a MEDIUM in the findings, not a line the Coverage block carries alone.
 
 State coverage honestly, including what was dropped and which personas ran.
 
@@ -93,6 +105,7 @@ NEUTRAL NOTES (infra, never findings):
 - <e.g. tablet pass skipped: stack died mid-matrix>
 
 COVERAGE: 8/11 surfaces (dropped: …). Assets: refs/ui-walkthrough/pr-1773-<head-sha> @ <commit>
+COMPONENTS: 7/7 changed UI files proven on screen (uncovered: <file>, <reason>, rung <n> tried)
 Posted: <review id|comment url>, event=<…>, <k> inline, <m> images embedded.
 ```
 

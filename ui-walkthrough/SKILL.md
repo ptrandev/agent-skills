@@ -70,6 +70,12 @@ description: >
    before posting, not just at discovery. **Author mode is exempt from the draft half**: the rule
    exists to stop unrequested reviewer noise on unready work, and an author commenting evidence on
    their own draft is neither unrequested nor noise. Reviewer mode still skips drafts outright.
+11. **Coverage is measured in changed components.** A route can render perfectly, return 200, and
+   show none of the diff, because the changed component sits behind a tab, a state, or a document
+   shape the fixture never created. Every changed file under `pages/`/`components/` must be proven
+   on screen by a mount probe in at least one captured shot (the Phase 3 ledger, probed in 5a). A
+   component that never mounted is reported as uncovered, by file name, in the posted Coverage
+   block. It is never counted as walked because its route was captured.
 
 ### Severity -> what happens
 
@@ -337,7 +343,8 @@ grep -E '^apps/agents-portal/src/(pages|components)/' "$SCRATCH/files-$NAME-$PR.
   click the first row. A hand-built `/agents/123` 404s against per-run seeded emulator data, and a
   404 screenshot looks exactly like a real bug (invariant 2 violation waiting to happen).
 - **Cap: 8 surfaces.** More than that -> walk the 8 with the largest diff and list the dropped
-  routes in the report *and* the posted comment.
+  routes in the report *and* the posted comment. Name any changed component the drop leaves with no
+  route, because the cap then costs coverage and not only breadth.
 
 **Diff size of a route** is the sum of `added + deleted` lines from
 `gh pr diff "$PR" --repo "$REPO" --numstat` over **every changed file the route reaches**: the page
@@ -345,9 +352,59 @@ file plus each changed component in its transitive import graph (the graph the `
 walks). A component shared by three pages counts its full numstat toward all three. Ties break by
 route path, ascending, so the cap is deterministic across re-runs.
 
+### Coverage is proven per changed component
+
+The route list says where to point the browser. It does not say what the PR changed. A page renders
+perfectly, returns 200, and screenshots cleanly while showing **none** of the diff, because the
+changed component sits behind a tab, a state, or a document shape the fixture never created. That
+shot then counts as a walked surface and the change is never seen (invariant 11).
+
+Build a **component ledger** beside the route list and carry it to Phase 9. One row per changed file
+under `apps/agents-portal/src/{pages,components}/`:
+
+| Column | How to fill it |
+|---|---|
+| `file` | the changed path |
+| `probe` | a selector that is true ONLY when this component is on screen |
+| `routes` | the routes the rules above reach it from |
+| `precondition` | what must be true to mount it: a tab, a state, a document shape, a plan |
+| `mountedIn` | filled in Phase 5a with the shots where the probe passed. Empty until proven |
+
+**Take the `probe` from the diff.** Read the changed hunks and use a `data-testid` the PR adds or
+keeps, or a literal string it renders. A probe that also matches the parent page proves nothing.
+
+```bash
+$B js '!!document.querySelector("[data-testid=rr-sms-card-offerAnswered]")'
+```
+
+A changed file whose `mountedIn` is empty at the end of Phase 5 **was not walked**, whatever its
+routes captured.
+
+### Reaching a component the default walk does not mount
+
+Work the ladder in order. Stop at the first rung that mounts it. Record the rung that worked, so
+the report says how the surface was reached.
+
+1. **A state on a route already walked.** Open the tab, press the control, submit the form. A state
+   that mounts an otherwise-unmounted changed component is exempt from the 3-state cap
+   ([capture.md](capture.md), 5a).
+2. **A richer fixture.** A default seed makes the SHALLOWEST valid document, and a shallow document
+   routes to a different UI. A campaign seeded as a bare draft renders the create/chat-flow builder,
+   so the settings step and every panel under it never mount. Read the PR's own specs for the
+   document shape that reaches the panel, then seed that shape from the hold spec (*Fixtures*,
+   below).
+3. **A precondition route.** Some panels exist only after a prior step completes. Walk the prior
+   step, then arrive.
+4. **`--surfaces` on a re-run**, when the route was never in the discovered set at all.
+
+Exhaust the ladder before calling anything uncovered. A component still unmounted after rung 4 is a
+**MEDIUM**, named by file, reason, and last rung tried, in the Coverage block and the report:
+*"changed component never mounted in this walkthrough, so no screenshot covers it."* It is never a
+prose footnote and never omitted.
+
 ### `--surfaces=/a,/b`
 
-Explicit routes replace discovery. Three consequences, all deliberate:
+Explicit routes replace discovery. Four consequences, all deliberate:
 
 - **The not-a-UI-PR early exit does not apply.** Walk the listed routes even when the diff touches no
   `pages/`/`components/` file. Say `explicit --surfaces, discovery skipped` in the Coverage block.
@@ -357,6 +414,9 @@ Explicit routes replace discovery. Three consequences, all deliberate:
   discovered routes. With no changed spec covering a listed route, an unpopulated surface is a
   **neutral note** ("no fixture, route not in this PR's diff"), not the MEDIUM below. That MEDIUM is
   reserved for a surface this PR actually changes.
+- **The component ledger still applies.** Build it from the diff as usual, and report any changed
+  file the listed routes never mount. Explicit routes narrow where you look. They do not narrow what
+  the PR changed.
 
 ### Fixtures: the surface must have DATA, or you screenshot the wrong thing
 
@@ -431,7 +491,7 @@ Three passes, in this order:
 
 | Pass | What it does | Recorded |
 |---|---|---|
-| **5a** | the screenshot matrix, every surface × every viewport × states | no |
+| **5a** | the screenshot matrix (surface × viewport × states) + the ledger mount probes | no |
 | **5b** | the deterministic detectors | no |
 | **5c** | one desktop user journey | **yes**, `CAN_VIDEO` only |
 
@@ -562,7 +622,8 @@ With `--embedded`, post nothing and **return** to the caller:
 { blockers: [...], mediums: [...], nits: [...],
   images: [{surface, viewport, state, url}], neutralNotes: [...],
   video: {url, sessionId, viewport, surfaces, surfacesUnreached, beats, jumps, truncated} | null,
-  coverage: {surfacesWalked, surfacesTotal, dropped, personas, viewports},
+  coverage: {surfacesWalked, surfacesTotal, dropped, personas, viewports,
+             componentsCovered, componentsTotal, componentsUncovered:[{file, why, lastRung}]},
   markdown: "<ready-to-paste evidence section>" }
 ```
 
@@ -576,6 +637,10 @@ journey. `video` is `null` whenever `CAN_VIDEO` was 0, with the reason in `neutr
 **`video.viewport` is always `desktop`, and it does not describe the run's coverage.** Read
 `coverage.viewports` for that. A caller that renders the video link without the coverage block
 implies a desktop-only walkthrough.
+
+**`coverage.componentsUncovered` is normally empty.** A non-empty one means the PR changed a
+component that no screenshot shows. The caller reads that as an evidence gap it must close before
+claiming the change is covered, never as a completed walkthrough with a caveat.
 
 **`video.surfaces` equals `coverage.surfacesWalked` on every healthy run**, because the journey
 covers all of them. `video.surfacesUnreached` is normally empty. A non-empty one means a surface
