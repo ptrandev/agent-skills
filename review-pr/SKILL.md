@@ -465,19 +465,29 @@ Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side
   Under `mcp` the same payload becomes a pending review, one add-comment call per entry, then a
   submit carrying the `event`. On a residual 422 for one comment, retry it folded into the `body`
   rather than failing the whole review. Record the posted review id + `commit_id`.
-- **Labels, `APPROVE` only.** After the review submits with `event=APPROVE`, add `Code Approved` and
-  remove `Pending Code Review` and `Code Review Made Comments`, through `GH_TRANSPORT`
-  ([github-transport.md](github-transport.md), *labels*):
+- **Labels, every posted verdict.** After the review submits, set the PR's state label through
+  `GH_TRANSPORT` ([github-transport.md](github-transport.md), *labels*). Pick the row by the posted
+  `event` and by how many findings the review actually posted:
+
+  | Posted verdict | Add | Remove |
+  |---|---|---|
+  | `APPROVE` | `Code Approved` | `Pending Code Review`, `Code Review Made Comments` |
+  | `REQUEST_CHANGES` | `Code Review Made Comments` | `Pending Code Review`, `Code Approved` |
+  | `COMMENT`, ≥1 finding posted (inline or in the body) | `Code Review Made Comments` | `Pending Code Review`, `Code Approved` |
+  | `COMMENT`, 0 findings posted | none | none |
+
   ```bash
-  gh api "repos/$OWNER/$NAME/issues/$PR/labels" --method POST -f 'labels[]=Code Approved'
-  for L in 'Pending Code Review' 'Code Review Made Comments'; do
+  ADD='Code Review Made Comments'; REMOVE=('Pending Code Review' 'Code Approved')
+  gh api "repos/$OWNER/$NAME/issues/$PR/labels" --method POST -f "labels[]=$ADD" \
+    || echo "label '$ADD' is not defined in this repo"
+  for L in "${REMOVE[@]}"; do
     gh api "repos/$OWNER/$NAME/issues/$PR/labels/$(jq -rn --arg l "$L" '$l|@uri')" --method DELETE \
       || echo "label '$L' was not set"
   done
   ```
-  **Never touch labels on any other verdict**, and never on a skipped or drafted run. A label the
-  repo does not define returns 422 on add and a removal of an unset label returns 404: log either
-  and continue, because the review is already posted. Record the label change in the report.
+  A label the repo does not define returns 422 on add, and a removal of an unset label returns 404:
+  log either and continue, because the review is already posted. **Never change labels on a skipped
+  or drafted run**, and never on the 0-finding `COMMENT` row. Record the label change in the report.
 - **`--draft`:** write the report, **print the exact payload**, and stop. ("Re-run without `--draft`
   to submit.") **Change no labels.**
 
@@ -512,7 +522,7 @@ BOT THREADS ADJUDICATED (Gemini/Copilot):
 - <file:line>: legit (surfaced in review, not resolved) | false -> replied + resolved | reason
 
 Posted: review <id>, event=<event>, <k> inline comments; bot threads: <r> resolved, <l> surfaced; against <sha>.
-Labels: <added/removed, or "unchanged (verdict is not APPROVE)">.
+Labels: <added/removed, or "unchanged (<reason>)">.
 ```
 
 Idempotency record = the posted review's `commit_id` (read back via the reviews API next run). Then

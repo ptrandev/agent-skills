@@ -225,8 +225,10 @@ Use maximum reasoning effort and rigor throughout — treat this as a high-stake
 Run the /review-pr skill and POST the review to GitHub autonomously (inline comments + verdict).
 REQUEST_CHANGES only on a verified HIGH, APPROVE only on a clean fully-verified pass, else COMMENT.
 NEVER post an unverified finding: route those to the report instead.
-On APPROVE only, also set the PR's labels: add "Code Approved", remove "Pending Code Review" and
-"Code Review Made Comments". Change no labels on any other verdict.
+After posting, set the PR's state label. On APPROVE: add "Code Approved", remove "Pending Code
+Review" and "Code Review Made Comments". On REQUEST_CHANGES, or on COMMENT that posted at least one
+finding: add "Code Review Made Comments", remove "Pending Code Review" and "Code Approved". Change
+no labels on a COMMENT with zero findings, or on a skipped PR.
 
 Review every OPEN, READY-FOR-REVIEW PR on Atllas-Inc/codebase and Atllas-Inc/aicc-queues where I am
 the requested reviewer (and NOT the author). NEVER review a GitHub draft PR (isDraft) — exclude
