@@ -80,8 +80,13 @@ yarn turbo run build --filter='./packages/*'
 
 `scripts/e2e-stack.sh` does **not** build them, and a fresh `yarn install` leaves their `dist/`
 empty, so the stack's `next build` hard-fails resolving `loop-stats` (consumed by `loop-renderer`,
-among others). Confirm **Node 24** is active first, per the repo's `.nvmrc`. Any other major
-breaks the `re2` native addon and risks build/runtime drift.
+among others). Confirm **Node 24** is active first, per the repo's `.nvmrc`.
+
+**Check the ABI, not the version string.** `re2` is built with `nan`, so it binds to one ABI: 137
+under Node 24, 127 under Node 22. Run `node -p 'process.versions.modules'` and require `137`. A
+`node -v` check passes on a container that ships several majors and puts the wrong one first on
+PATH (`routine.md` step (b) has the cloud case). On a mismatch, repair PATH, then run
+`yarn rebuild re2`. Rebuilding is enough; a reinstall is not.
 
 *(Verified via cloud boot spike 2026-07-26: emulators and API boot fine headlessly. This pre-build
 is the one gap between a fresh clone and a healthy `:3000`.)*

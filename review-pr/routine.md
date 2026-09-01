@@ -49,6 +49,10 @@ once, cached). **The two repos differ: codebase is Yarn 3 Berry, aicc-queues is 
 > allowed to fail must say so in its own line. **Do not add a bare command to this script.**
 
 ```bash
+# (0) The setup script runs BEFORE Claude Code launches, so its output reaches no transcript and
+#     no UI. Log it to disk: the snapshot keeps files, so any session can `cat` this.
+exec > >(tee -a /var/log/review-pr-setup.log) 2>&1
+
 # (a) install the skills this one reads/calls (public repo, no auth).
 #     `codex` is a gstack skill and is NOT in this repo. Do not add it to this list:
 #     the cp fails and takes the whole setup script with it.
@@ -63,15 +67,38 @@ for s in review-pr phillip phillip-sync gemini full-send ui-walkthrough; do
   fi
 done
 
-# (b) Node 24 (the repo's `.nvmrc`), BEFORE any install. The image ships a different major with
-#     no nvm, which breaks the `re2` native addon and fails the Tier-3 pre-build
-#     (stack-lifecycle.md). Installing it after `yarn install` is too late: the addon is already
-#     built against the wrong ABI.
-if ! node -v 2>/dev/null | grep -q '^v24\.'; then
+# (b) Node 24 (the repo's `.nvmrc` and `engines`), BEFORE any install. `re2` is built with `nan`,
+#     not N-API, so the addon binds to one ABI: 137 under Node 24, 127 under Node 22. A mismatch
+#     fails the Tier-3 pre-build (stack-lifecycle.md).
+#
+#     THE IMAGE SHIPS THREE MAJORS AND PUTS THE WRONG ONE FIRST. Verified 2026-09-01:
+#     /opt/node22/bin (v22) sits at PATH position 4, ahead of /usr/local/bin (symlink to v20, 10)
+#     and /usr/bin (nodesource v24, 12). So `node -v` reports 22 even with Node 24 installed, and
+#     `apt-get install nodejs` is a no-op that writes /usr/bin/node and stays buried.
+#     THE FIX IS PATH, NOT AN INSTALL. Repoint the shadowing binaries on disk: an env var set here
+#     does not reach the run container, but the filesystem snapshot does.
+if [ ! -x /usr/bin/node ]; then
   { curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && apt-get install -y nodejs ; } \
-    || echo "WARN: Node 24 install failed. Tier-3 pre-build will fail on re2 under $(node -v)"
+    || echo "WARN: Node 24 install failed. Tier-3 unavailable."
 fi
-node -v || echo "WARN: no node at all. Tier-2 verification and Tier-3 both unavailable."
+#     `[ -e x ] && ln ...` would leave the loop non-zero on a missing file and abort the script.
+for shadow in /opt/node22/bin /opt/node20/bin /usr/local/bin; do
+  for bin in node npm npx; do
+    if [ -e "$shadow/$bin" ] && [ "$shadow/$bin" != "/usr/bin/$bin" ]; then
+      ln -sfn "/usr/bin/$bin" "$shadow/$bin" || echo "WARN: could not repoint $shadow/$bin"
+    fi
+  done
+done
+echo 'export PATH=/usr/bin:$PATH' > /etc/profile.d/node24.sh || echo "WARN: profile.d not writable"
+
+# (b2) Gate on the RESOLVED ABI, never on `node -v` alone: `node -v` passed on the shadowed build.
+NODE_ABI=$(node -p 'process.versions.modules' 2>/dev/null)
+if [ "$NODE_ABI" = "137" ]; then
+  echo "node OK: $(command -v node) $(node -v) abi $NODE_ABI"
+else
+  echo "FATAL: node resolves to $(command -v node 2>/dev/null) $(node -v 2>/dev/null) abi ${NODE_ABI:-none}."
+  echo "FATAL: expected abi 137 (Node 24). Tier-3 is unavailable this run. Tier-2 still runs."
+fi
 
 # (c) toolchains for Tier-2 verification.
 CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
@@ -81,8 +108,17 @@ if [ -f "$CODEBASE_DIR/package.json" ]; then
     || echo "codebase: yarn install failed. Verify degrades to diff-only (no posting)"
   # `yarn install` leaves packages/*/dist empty, and the Tier-3 `next build` then hard-fails
   # resolving loop-stats. stack-lifecycle.md owns this step; pre-build it once here.
-  ( cd "$CODEBASE_DIR" && yarn turbo run build --filter='./packages/*' ) \
-    || echo "WARN: workspace pre-build failed. Tier-3 boot will fail on packages/*/dist"
+  # `re2` may carry a build from a wrong-ABI node. Rebinding it costs seconds and is idempotent.
+  ( cd "$CODEBASE_DIR" && yarn rebuild re2 ) || echo "WARN: re2 rebuild failed"
+  ( cd "$CODEBASE_DIR" && node -e "require('re2')" ) \
+    || echo "FATAL: re2 will not load under $(node -v). Tier-3 boot will fail."
+  # Skip the pre-build on a wrong ABI: it cannot serve Tier-3 and it costs minutes of the budget.
+  if [ "$NODE_ABI" = "137" ]; then
+    ( cd "$CODEBASE_DIR" && yarn turbo run build --filter='./packages/*' ) \
+      || echo "WARN: workspace pre-build failed. Tier-3 boot will fail on packages/*/dist"
+  else
+    echo "SKIP: workspace pre-build. Node abi is ${NODE_ABI:-none}, not 137."
+  fi
 fi
 if [ -f "$AICC_DIR/build.gradle" ]; then
   ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) \
@@ -132,6 +168,9 @@ fi
 ```
 
 Notes:
+- **Read `/var/log/review-pr-setup.log` first when a run degrades.** Step (0) writes it. Nothing
+  else captures setup output: the script runs before Claude Code starts, so a `WARN` or `FATAL`
+  line here never appears in the run transcript at <https://claude.ai/code/routines>.
 - **The setup script does not re-run every session, so the skills it clones go stale.** Per
   <https://code.claude.com/docs/en/cloud-environments>, the script runs on the **first** session in an
   environment. Anthropic then snapshots the filesystem and reuses that snapshot, skipping the script.
