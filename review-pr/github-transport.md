@@ -64,6 +64,7 @@ operation, not the string.
 | bot review threads | `gh api graphql` (Phase 5b query) | list review comments; resolve via the review-thread write tool |
 | post the review | `gh api …/pulls/$PR/reviews --method POST` | the PR-review write toolset (`pull_request_review_write`): open a pending review, add each inline comment, submit with the event |
 | post a comment (author mode) | `gh pr comment` | add issue comment |
+| labels (add / remove) | `gh api …/issues/$PR/labels` POST, `…/labels/<name>` DELETE | the issue-write toolset: add labels, remove label |
 
 **Two operations never need the API.** Both work under either transport, so prefer them always:
 

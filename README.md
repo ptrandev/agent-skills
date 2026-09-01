@@ -1,8 +1,9 @@
 # claude-skills
 
 Custom skills shared by Claude Code and Codex. Each skill has one canonical directory in this
-repository. The setup script symlinks that directory into Claude Code's `~/.claude/skills/` and
-Codex's `~/.agents/skills/`, so an edit or `git pull` updates both hosts immediately.
+repository. Repository-local symlinks expose those directories to both agents. The setup script
+can also expose them in other repositories through user-level symlinks. An edit or `git pull`
+updates every entry immediately.
 
 Claude Code invokes a skill as `/skill-name`. Codex invokes one as `$skill-name` or selects it from
 its skills UI.
@@ -153,8 +154,15 @@ Extracts the signal out of bloated or evasive text. It selects, it does not rewr
 
 ## Setup
 
-Skills are symlinked from this repository into both hosts. The script refuses to replace an
-existing real directory or a symlink with a different target.
+No setup is required to use either agent inside this repository:
+
+- `AGENTS.md` is the canonical repository instruction file.
+- `CLAUDE.md` points to `AGENTS.md` for Claude Code.
+- `.agents/skills/` points to every top-level skill for Codex.
+- `.claude/skills/` points to every shared top-level skill for Claude Code.
+
+To use these skills while working in other repositories, install user-level symlinks. The script
+refuses to replace an existing real directory or a symlink with a different target.
 
 To set up on a new machine:
 
@@ -163,7 +171,7 @@ git clone https://github.com/ptrandev/claude-skills.git ~/Git/claude-skills
 cd ~/Git/claude-skills
 ./scripts/link-skills
 
-# Global instructions (not a skill). See "Global CLAUDE.md" below.
+# Global Claude Code instructions (not a skill). See "Global CLAUDE.md" below.
 ln -s ~/Git/claude-skills/global/CLAUDE.md ~/.claude/CLAUDE.md
 ```
 
@@ -213,6 +221,8 @@ where this file is not on disk, so their copy of the Writing style rules has to 
 
 1. Create a directory in this repo: `mkdir my-skill`
 2. Add a `SKILL.md` with the skill definition (see existing skills for format)
-3. Run `./scripts/validate-skills`
-4. Run `./scripts/link-skills`
-5. Commit and push
+3. Run `ln -s ../../my-skill .agents/skills/my-skill`.
+4. Run `ln -s ../../my-skill .claude/skills/my-skill`. Skip this for a Codex-only skill.
+5. Run `./scripts/validate-skills`.
+6. Run `./scripts/link-skills`.
+7. Commit and push.

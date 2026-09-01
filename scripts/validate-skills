@@ -11,6 +11,8 @@ repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
 check_links=false
 claude_dir=${HOME}/.claude/skills
 codex_dir=${HOME}/.agents/skills
+repo_claude_dir=$repo_root/.claude/skills
+repo_codex_dir=$repo_root/.agents/skills
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -36,6 +38,11 @@ done
 
 status=0
 count=0
+
+if [ ! -L "$repo_root/CLAUDE.md" ] || [ "$(readlink "$repo_root/CLAUDE.md")" != AGENTS.md ]; then
+  echo "ERROR CLAUDE.md must be a symlink to AGENTS.md" >&2
+  status=1
+fi
 
 check_link() {
   host=$1
@@ -102,7 +109,17 @@ for skill_file in "$repo_root"/*/SKILL.md; do
     fi
     check_link codex "$skill_dir" "$codex_dir"
   fi
+
+  if [ "$skill_name" != claude ]; then
+    check_link claude-repo "$skill_dir" "$repo_claude_dir"
+  fi
+  check_link codex-repo "$skill_dir" "$repo_codex_dir"
 done
+
+if [ -e "$repo_claude_dir/claude" ] || [ -L "$repo_claude_dir/claude" ]; then
+  echo "ERROR Claude Code must not expose the Codex-only claude skill" >&2
+  status=1
+fi
 
 if [ "$count" -eq 0 ]; then
   echo "ERROR no top-level skills found" >&2
