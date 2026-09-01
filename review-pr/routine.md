@@ -92,6 +92,9 @@ done
 echo 'export PATH=/usr/bin:$PATH' > /etc/profile.d/node24.sh || echo "WARN: profile.d not writable"
 
 # (b2) Gate on the RESOLVED ABI, never on `node -v` alone: `node -v` passed on the shadowed build.
+#      After the repair, `command -v node` reports /opt/node22/bin/node. That is CORRECT: the path
+#      is now a symlink to /usr/bin/node and the directory name is a lie. Check the ABI, not the
+#      path. Do not "fix" this.
 NODE_ABI=$(node -p 'process.versions.modules' 2>/dev/null)
 if [ "$NODE_ABI" = "137" ]; then
   echo "node OK: $(command -v node) $(node -v) abi $NODE_ABI"
