@@ -39,8 +39,8 @@ done
 status=0
 count=0
 
-if [ ! -L "$repo_root/CLAUDE.md" ] || [ "$(readlink "$repo_root/CLAUDE.md")" != AGENTS.md ]; then
-  echo "ERROR CLAUDE.md must be a symlink to AGENTS.md" >&2
+if [ -L "$repo_root/CLAUDE.md" ] || [ ! -f "$repo_root/CLAUDE.md" ] || [ "$(cat "$repo_root/CLAUDE.md")" != @AGENTS.md ]; then
+  echo "ERROR CLAUDE.md must contain only @AGENTS.md" >&2
   status=1
 fi
 

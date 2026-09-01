@@ -5,9 +5,9 @@ symlinks shared skills into Claude Code and Codex; the `claude` skill is Codex-o
 two readers: an agent that must act on it, and a human who must maintain it. Write for both.
 Neither one is served by extra words.
 
-`AGENTS.md` is the canonical repository instruction file. `CLAUDE.md` is a symlink to it.
-Repository skill entries under `.agents/skills/` and `.claude/skills/` are symlinks to the
-top-level skill directories. Edit only the canonical files.
+`AGENTS.md` is the canonical repository instruction file. `CLAUDE.md` imports it with
+`@AGENTS.md`. Repository skill entries under `.agents/skills/` and `.claude/skills/` are symlinks
+to the top-level skill directories. Edit only the canonical files.
 
 Three things load at different costs. Budget for each:
 

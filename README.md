@@ -157,7 +157,7 @@ Extracts the signal out of bloated or evasive text. It selects, it does not rewr
 No setup is required to use either agent inside this repository:
 
 - `AGENTS.md` is the canonical repository instruction file.
-- `CLAUDE.md` points to `AGENTS.md` for Claude Code.
+- `CLAUDE.md` imports `AGENTS.md` for Claude Code.
 - `.agents/skills/` points to every top-level skill for Codex.
 - `.claude/skills/` points to every shared top-level skill for Claude Code.
 
