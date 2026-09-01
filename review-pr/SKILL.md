@@ -15,14 +15,14 @@ to GitHub. The action is **post review comments + a verdict**, not *implement fi
 
 ## Input / modes
 
-`$ARGS`:
+Treat text accompanying the skill invocation as the input:
 
 | Invocation | Behavior |
 |---|---|
-| `/review-pr` | All open PRs across both Targets repos where the current user is a requested reviewer (and not the author). |
-| `/review-pr <PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`; PR#s are ambiguous across repos). |
-| `/review-pr <URL>` | Parse owner/name/number from the GitHub URL (unambiguous). |
-| `/review-pr quick` | Claude-only blind reviewer, auto-selected for trivial diffs at `/phillip`'s Mode thresholds (`~/.claude/skills/phillip/SKILL.md` section 0). Default = full three-reviewer. |
+| Empty | All open PRs across both Targets repos where the current user is a requested reviewer (and not the author). |
+| `<PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`; PR#s are ambiguous across repos). |
+| `<URL>` | Parse owner/name/number from the GitHub URL (unambiguous). |
+| `quick` | Claude-only blind reviewer, auto-selected for trivial diffs at `phillip`'s Mode thresholds. Default = full three-reviewer. |
 | `... --draft` | Opt **down**: assemble + report + print the exact payload, **don't submit**. |
 | `... --no-approve` | Opt **down**: cap the verdict at `COMMENT`, never post `APPROVE`. |
 | `... --no-live` | Opt **down**: skip the Tier-3 dynamic walkthrough even on a UI PR. |
@@ -120,6 +120,11 @@ It is binding on the orchestrator and on every sub-agent.
 
 ## Phase 0: Preflight + capability detection
 
+Locate the directories containing the loaded `review-pr`, `phillip`, `claude`, `gemini`, and
+`ui-walkthrough` skills. Call them `REVIEW_PR_DIR`, `PHILLIP_DIR`, `CLAUDE_SKILL_DIR`,
+`GEMINI_SKILL_DIR`, and `UI_WALKTHROUGH_DIR`. Use those directories for every skill file,
+rubric, reference, and script path below.
+
 ```bash
 # Probe a REPO call. `gh api user` passes while repo calls 403; see github-transport.md.
 if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
@@ -172,11 +177,11 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
     `/loop` records the same artifact as an attended run: the capture is scoped to the browser
     window, so nothing else on screen reaches GitHub.
 
-**Refresh the rubric (non-blocking):** invoke `/phillip-sync` once (a 24 h cooldown makes it a no-op
+**Refresh the rubric (non-blocking):** invoke `phillip-sync` once (a 24 h cooldown makes it a no-op
 when it ran in the last 24 h). If it reports it ADDED lines, **re-Read** the rubric. **It is a
 no-op under `GH_TRANSPORT=mcp`**: it mines resolved threads through `gh api graphql`, which a cloud
 sandbox blocks, so the rubric there is whatever shipped. Note it and continue, never block on it. Then **Read
-`~/.claude/skills/phillip/RUBRIC.md` in full**. It owns the rules this skill reviews against: three
+`$PHILLIP_DIR/RUBRIC.md` in full**. It owns the rules this skill reviews against: three
 anchored tables (auto-synced rules, candidates, and a do-not-flag block of negative rules) plus the
 severity taxonomy and the verification discipline. Skip any row whose `Repo` column names a repo
 other than the one under review.
@@ -203,7 +208,7 @@ gh search prs --review-requested="$ME" --state=open --repo "$REPO" \
 GraphQL fallback when the search flag fails in cloud:
 `search(query:"is:pr is:open draft:false review-requested:'"$ME"' repo:'"$REPO"'", type:ISSUE, first:50)`.
 
-If `$ARGS` named a PR#/URL, use it directly, but still confirm `ME` is a requested reviewer, is not
+If the invocation input named a PR#/URL, use it directly, but still confirm `ME` is a requested reviewer, is not
 the author, and that the PR is not a draft (invariant 5).
 
 A single-PR run needs no dispatch and no staging. Route a multi-PR run through *Orchestration* after
@@ -311,16 +316,15 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
     non-empty output file that contains its findings contract. An empty file, a refusal, or a quota
     error means that reviewer is **missing**, which drops the count and caps the verdict at
     `COMMENT` (Tier 2b).
-- A **blind Claude reviewer** launched simultaneously, exactly as `/phillip` section 2
-  step 3 specifies it: same role text, same instruction to Read `~/.claude/skills/phillip/RUBRIC.md`
+- A **blind Claude reviewer** launched simultaneously through
+  `$CLAUDE_SKILL_DIR/scripts/run-claude`, exactly as `phillip` section 2 specifies it: same role
+  text, same instruction to Read `$PHILLIP_DIR/RUBRIC.md`
   and apply it, same `SEVERITY | file:line | finding | why-real` output contract. The delta for
   cross-review: its diff is the PR diff and it gets `$WORKDIR` to read the real code, and it is
   **never** given the PR description or the author's login.
-  - Use the Agent tool when you have it. **You will not have it inside a per-PR sub-agent**
-    (sub-agents get no Agent tool). There, run the blind reviewer as a `claude -p` subprocess per
-    `/phillip` section 2 "Reviewer #3 without the Agent tool", which owns the command and its
-    flags. Add `--add-dir "$WORKDIR"` when `$WORKDIR` is not the subprocess's cwd. An inline pass
-    is the last resort, and it is labelled `Claude (inline, not blind)` in the report.
+  - Run the Claude subprocess from `$WORKDIR`. Pass `--rubric "$PHILLIP_DIR/RUBRIC.md"`.
+    Count timeout, refusal, empty output, or contract-free output as a missing reviewer. Never
+    substitute an inline pass while claiming a blind reviewer.
 
 ---
 
@@ -328,7 +332,7 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
 
 `/phillip`'s verification gate applies unchanged: the two checks (is the finding real, is the
 proposed fix sound) and the HONESTY RULE that only a finding you traced **this session** counts as
-verified. Both live in `~/.claude/skills/phillip/RUBRIC.md`, read in Phase 0. **Do not re-derive
+verified. Both live in `$PHILLIP_DIR/RUBRIC.md`, read in Phase 0. **Do not re-derive
 them.**
 
 `postable = verified-real AND high-confidence AND severity ∈ {HIGH, MEDIUM}`
@@ -468,7 +472,7 @@ Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side
 
 ## Phase 9: Report
 
-Write `${REVIEW_PR_PLANS_DIR:-$HOME/.claude/plans}/review-pr-<owner>-<repo>-<PR>-<date>.md`.
+Write `${REVIEW_PR_PLANS_DIR:-${CODEX_HOME:-$HOME/.claude}/plans}/review-pr-<owner>-<repo>-<PR>-<date>.md`.
 
 > **Headless/sandbox note.** Claude Code guards the entire `~/.claude/` tree as **sensitive**, so
 > writing a report there prompts for permission **even under `bypassPermissions`**, which stalls an

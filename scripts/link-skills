@@ -1,0 +1,96 @@
+#!/bin/sh
+set -eu
+
+usage() {
+  echo "usage: link-skills [--dry-run] [--host all|claude|codex] [--claude-dir DIR] [--codex-dir DIR]" >&2
+  exit 2
+}
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+dry_run=false
+selected_host=all
+claude_dir=${HOME}/.claude/skills
+codex_dir=${HOME}/.agents/skills
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --dry-run)
+      dry_run=true
+      shift
+      ;;
+    --host)
+      [ "$#" -ge 2 ] || usage
+      selected_host=$2
+      shift 2
+      ;;
+    --claude-dir)
+      [ "$#" -ge 2 ] || usage
+      claude_dir=$2
+      shift 2
+      ;;
+    --codex-dir)
+      [ "$#" -ge 2 ] || usage
+      codex_dir=$2
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+case "$selected_host" in
+  all|claude|codex) ;;
+  *) usage ;;
+esac
+
+link_skill() {
+  host=$1
+  source_dir=$2
+  target_root=$3
+  skill_name=$(basename -- "$source_dir")
+  link_path=$target_root/$skill_name
+
+  if [ -L "$link_path" ]; then
+    if [ -d "$link_path" ] && [ "$(CDPATH= cd -- "$link_path" && pwd -P)" = "$(CDPATH= cd -- "$source_dir" && pwd -P)" ]; then
+      echo "ok      $host $skill_name"
+      return 0
+    fi
+    echo "conflict $host $link_path points to $(readlink "$link_path")" >&2
+    return 1
+  fi
+
+  if [ -e "$link_path" ]; then
+    echo "conflict $host $link_path already exists and is not a symlink" >&2
+    return 1
+  fi
+
+  if [ "$dry_run" = true ]; then
+    echo "link    $host $link_path -> $source_dir"
+    return 0
+  fi
+
+  mkdir -p "$target_root"
+  ln -s "$source_dir" "$link_path"
+  echo "linked  $host $skill_name"
+}
+
+status=0
+for skill_file in "$repo_root"/*/SKILL.md; do
+  [ -f "$skill_file" ] || continue
+  skill_dir=$(dirname -- "$skill_file")
+  skill_name=$(basename -- "$skill_dir")
+
+  if [ "$selected_host" = all ] || [ "$selected_host" = claude ]; then
+    if [ "$skill_name" != claude ]; then
+      link_skill claude "$skill_dir" "$claude_dir" || status=1
+    fi
+  fi
+
+  if [ "$selected_host" = all ] || [ "$selected_host" = codex ]; then
+    link_skill codex "$skill_dir" "$codex_dir" || status=1
+  fi
+done
+
+exit "$status"

@@ -1,0 +1,94 @@
+#!/bin/sh
+set -eu
+
+usage() {
+  echo "usage: run-claude --repo DIR --prompt-file FILE [--rubric FILE] [--model MODEL] [--timeout SECONDS]" >&2
+  exit 2
+}
+
+repo_dir=
+prompt_file=
+rubric_file=
+claude_model=
+timeout_seconds=900
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --repo)
+      [ "$#" -ge 2 ] || usage
+      repo_dir=$2
+      shift 2
+      ;;
+    --prompt-file)
+      [ "$#" -ge 2 ] || usage
+      prompt_file=$2
+      shift 2
+      ;;
+    --rubric)
+      [ "$#" -ge 2 ] || usage
+      rubric_file=$2
+      shift 2
+      ;;
+    --model)
+      [ "$#" -ge 2 ] || usage
+      claude_model=$2
+      shift 2
+      ;;
+    --timeout)
+      [ "$#" -ge 2 ] || usage
+      timeout_seconds=$2
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+[ -n "$repo_dir" ] || usage
+[ -n "$prompt_file" ] || usage
+[ -d "$repo_dir" ] || { echo "run-claude: repository not found: $repo_dir" >&2; exit 2; }
+[ -f "$prompt_file" ] || { echo "run-claude: prompt file not found: $prompt_file" >&2; exit 2; }
+
+command -v claude >/dev/null 2>&1 || {
+  echo "run-claude: Claude Code CLI not found" >&2
+  exit 127
+}
+
+if command -v timeout >/dev/null 2>&1; then
+  timeout_bin=timeout
+elif command -v gtimeout >/dev/null 2>&1; then
+  timeout_bin=gtimeout
+else
+  echo "run-claude: timeout or gtimeout is required" >&2
+  exit 127
+fi
+
+set -- claude -p "$(sed -n '1,$p' "$prompt_file")" \
+  --safe-mode \
+  --setting-sources "" \
+  --permission-mode dontAsk \
+  --no-session-persistence \
+  --effort high \
+  --allowed-tools \
+  "Read" \
+  "Grep" \
+  "Glob" \
+  "Bash(git status:*)" \
+  "Bash(git diff:*)" \
+  "Bash(git log:*)" \
+  "Bash(git show:*)" \
+  "Bash(git rev-parse:*)"
+
+if [ -n "$rubric_file" ]; then
+  [ -f "$rubric_file" ] || { echo "run-claude: rubric not found: $rubric_file" >&2; exit 2; }
+  rubric_dir=$(CDPATH= cd -- "$(dirname -- "$rubric_file")" && pwd)
+  set -- "$@" --add-dir "$rubric_dir"
+fi
+
+if [ -n "$claude_model" ]; then
+  set -- "$@" --model "$claude_model"
+fi
+
+cd "$repo_dir"
+exec "$timeout_bin" "$timeout_seconds" "$@" < /dev/null

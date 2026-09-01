@@ -44,8 +44,8 @@ task as the unit, or in the immediately following task.
 accumulated implementation detail. Until every task is checked:
 
 1. Pick the **single** top unchecked task in `fix_plan.md`.
-2. Dispatch it to a **fresh subagent** (Agent tool, inherit the main model, this is substantive
-   coding work) with: the one task, the paths to `fix_plan.md` / `notes.md` / `spec.md`, and the
+2. Dispatch it to a **fresh subagent** using the host's subagent mechanism. Inherit the main model,
+   because this is substantive coding work. Give it the one task, the paths to `fix_plan.md` / `notes.md` / `spec.md`, and the
    standing rules from `SKILL.md`. The subagent starts blank and reads state from disk.
 3. The subagent does **exactly that one task**, following the standing rules (including
    blast-radius cleanup and the `git add` rule), plus these loop-specific steps:
@@ -56,7 +56,7 @@ accumulated implementation detail. Until every task is checked:
    - Append anything learned to `notes.md`; check off the task in `fix_plan.md`.
    - Return a **short structured summary**: task, files touched, verify result, commit SHA, and
      anything discovered (new tasks to append, a surfaced smell, or a blocker). Not the full diff.
-4. **Verify the summary** (main-loop pass, per CLAUDE.md): confirm the task is checked off and
+4. **Verify the summary** in the main loop: confirm the task is checked off and
    committed, fold any newly-discovered tasks into `fix_plan.md`, and continue. When the subagent
    reports a blocker, or its task could not be made green, retry **once** with the failure recorded
    in `notes.md` (Ralph "tuning"). When it still fails, **bail out** (see Bail-out in `SKILL.md`)

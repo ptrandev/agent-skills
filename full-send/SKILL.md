@@ -10,7 +10,7 @@ description: >
 
 ## Input
 
-`$ARGS` holds an optional leading **mode keyword**, then a ticket ID (e.g. `AP-1234`) or free-text
+The invocation input holds an optional leading **mode keyword**, then a ticket ID (e.g. `AP-1234`) or free-text
 describing the work. Parse them in this order:
 
 1. **Mode keyword** (optional, first token):
@@ -19,7 +19,7 @@ describing the work. Parse them in this order:
    - No keyword → **autonomous mode**.
    - `loop` (orthogonal, may combine with any of the above) → force the Phase 3B Ralph loop
      regardless of size. Without it, the implement path is size-gated in Phase 3.0.
-2. **Remaining `$ARGS`:**
+2. **Remaining invocation input:**
    - A ticket ID (e.g. `AP-1234`) → fetch it (Phase 0).
    - Free-text with no ticket ID → treat as a **raw idea/spec** and synthesize a ticket (Phase 0).
    - Empty → ask once for a ticket ID or an idea before starting.
@@ -31,7 +31,7 @@ Autonomous is the default and takes zero stops.
 **Interactive** takes exactly **one** stop: the up-front grill (Phase 0.5).
 
 **When the up-front grill (Phase 0.5) runs.** Resolve the case from this table. "Attended" means a
-human is present to answer. A `claude -p` run or a scheduled routine is unattended.
+human is present to answer. Any non-interactive CLI run or scheduled routine is unattended.
 
 | Input | Attendedness | Grill runs? | Assumptions block? |
 |-------|--------------|-------------|--------------------|
@@ -159,9 +159,9 @@ to Claude-only. A missing reviewer CLI is **never** a bail-out.
 | Dep | When needed | Detect | Install if missing | External CLI + auth |
 |-----|-------------|--------|--------------------|---------------------|
 | **`/grilling`** (mattpocock plugin) | grill will run | `grilling` in available skills | `claude plugin marketplace add mattpocock/skills` → `claude plugin install mattpocock-skills@mattpocock`, then `/setup-matt-pocock-skills` once per repo | none. If install fails, fall back to inline clarification Q&A |
-| **`/phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | symlink from the repo: `ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip` (clone `https://github.com/ptrandev/claude-skills.git` → `~/Git/claude-skills` first if the repo is absent) | none directly; drives `/gemini` + `/codex` below. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
+| **`phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | clone `https://github.com/ptrandev/claude-skills.git`, then run its `scripts/link-skills` | none directly; drives Claude + Gemini + Codex reviewers. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
 | **`/gemini`** (ptrandev) | always (via `/phillip`) | `gemini` in available skills | same symlink pattern as `/phillip` | CLI `gemini`: `npm install -g @google/gemini-cli`. **Auth (API-key only, no OAuth):** set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `~/.zshenv`, and add `security.auth.selectedType: "gemini-api-key"` to `~/.gemini/settings.json` |
-| **`/codex`** (garrytan/gstack) | always (via `/phillip`) | `codex` in available skills | `git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git ~/.claude/skills/gstack && cd ~/.claude/skills/gstack && ./setup` (the `./setup` step may prompt, so it is attended) | CLI `codex`: `npm install -g @openai/codex` then `codex login` (interactive; confirm the exact steps via `codex --help` or the skill's own docs) |
+| **Codex reviewer** | always (via `phillip`) | `codex` CLI available and authenticated | install Codex using current OpenAI instructions | run `codex login` when the CLI requests authentication |
 
 Phase 5 holds the operative gate when `/phillip` itself cannot be installed.
 
@@ -385,8 +385,8 @@ git commit -m "feat(<scope>): <ticket title>"   # 3A; or fix(<scope>): <what the
 
 ## Phase 5: Self-Review (`/phillip`)
 
-Run `/phillip` via the Skill tool. It writes a report to
-`~/.claude/plans/phillip-<branch-slug>-<YYYY-MM-DD>.md` (the branch slug replaces `/` with `-`).
+Invoke the loaded `phillip` skill through the host's skill mechanism. It writes a report to the
+host's configured plans directory (the branch slug replaces `/` with `-`).
 
 Operative gate: when `/phillip` cannot be installed, **skip this phase** and flag prominently on the
 PR and Done summary that **no self-review ran**. When `/phillip` is present but a reviewer CLI

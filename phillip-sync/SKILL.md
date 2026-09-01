@@ -20,7 +20,7 @@ allowed-tools:
 # phillip-sync -> self-updating review rubric
 
 You keep the `/phillip` rubric current by mining THIS repo's recent, resolved PR-review
-comments and folding the recurring lessons back into `~/.claude/skills/phillip/RUBRIC.md`.
+comments and folding the recurring lessons back into the sibling `phillip/RUBRIC.md`.
 You run as a pre-step inside `/phillip`.
 
 Be terse. Use `->`, not em dashes. Never print tokens or keys.
@@ -36,12 +36,12 @@ Be terse. Use `->`, not em dashes. Never print tokens or keys.
 - ONE REPO AT A TIME. A slug-consistency guard in steps 4 and 7 detects a concurrent run in a
   different repo and SKIPS, so the shared `/tmp/phillip_sync_*` files are never corrupted.
 
-Paths used throughout:
-- Rubric file: `~/.claude/skills/phillip/RUBRIC.md`
-- State file: `~/.claude/skills/phillip/.sync-state.json`
-- Scripts: `~/.claude/skills/phillip-sync/scripts/plan.py` and
-  `~/.claude/skills/phillip-sync/scripts/cursor.py` (invoke by that literal installed path,
-  a skill has no reliable `$0`)
+Locate the directories containing the loaded `phillip` and `phillip-sync` skills. Call them
+`PHILLIP_DIR` and `PHILLIP_SYNC_DIR`. Paths used throughout:
+
+- Rubric file: `$PHILLIP_DIR/RUBRIC.md`
+- State file: `$PHILLIP_DIR/.sync-state.json`
+- Scripts: `$PHILLIP_SYNC_DIR/scripts/plan.py` and `$PHILLIP_SYNC_DIR/scripts/cursor.py`
 
 HARD RULE, applies to every code block below: each Bash call is a fresh shell, so NO shell
 variable survives between blocks. All cross-block state goes through two files,
@@ -66,7 +66,7 @@ echo "phillip-sync: guards passed"
 If the rubric file is missing, warn and stop:
 
 ```bash
-test -f "$HOME/.claude/skills/phillip/RUBRIC.md" || { echo "phillip-sync: ~/.claude/skills/phillip/RUBRIC.md not found -> skipping."; exit 0; }
+test -f "$PHILLIP_DIR/RUBRIC.md" || { echo "phillip-sync: RUBRIC.md not found -> skipping."; exit 0; }
 ```
 
 ## 2. Detect the current repo (any project, not just Atllas)
@@ -95,7 +95,7 @@ The state file is shaped:
 cursor) -> now-30d. It writes the slug into the plan file too, so step 7 can read it back.
 
 ```bash
-python3 "$HOME/.claude/skills/phillip-sync/scripts/plan.py" "$(cat /tmp/phillip_sync_slug.txt 2>/dev/null)" \
+python3 "$PHILLIP_SYNC_DIR/scripts/plan.py" "$(cat /tmp/phillip_sync_slug.txt 2>/dev/null)" \
   || { echo "phillip-sync: state read failed -> skipping."; exit 0; }
 ```
 
@@ -175,7 +175,7 @@ From the kept comments, keep only patterns that are ALL of:
 - (a) RECURRING -> the same class of issue appears in >= 2 distinct threads/PRs.
 - (b) GENERALIZABLE -> a class of bug (e.g. "fetch not checking response.ok"), not a
   one-file detail ("rename `foo` in bar.ts:14").
-- (c) NOVEL -> not already covered by ANY row in `~/.claude/skills/phillip/RUBRIC.md`. Read
+- (c) NOVEL -> not already covered by ANY row in `$PHILLIP_DIR/RUBRIC.md`. Read
   that file and compare meaning, not exact words, against ALL THREE anchored blocks: `auto`,
   `candidates`, AND `auto-donotflag`. A pattern already sitting in `candidates` is NOT novel,
   so it can never be re-mined into `auto` a month later. A pattern matching a `donotflag` row
@@ -227,7 +227,7 @@ If any anchor pair is missing (older rubric), do NOT guess a spot and do NOT ins
 yourself. ALWAYS skip the write. Print: "phillip-sync: anchors missing in RUBRIC.md ->
 skipping write. Fix: copy the missing `<!-- phillip-sync:... START/END -->` marker lines from
 the repo clone's `phillip/RUBRIC.md` into the installed
-`~/.claude/skills/phillip/RUBRIC.md`." Then go to step 7.
+`$PHILLIP_DIR/RUBRIC.md`." Then go to step 7.
 
 For each NEW row, APPEND it just before its block's END marker, using the Edit tool anchored
 on that END marker so insertion is deterministic. Get today's date for the Added column with
@@ -273,7 +273,7 @@ window. Do it even when nothing was written.
 
 ```bash
 CUR=$(gh repo view --json owner,name -q '.owner.login + "/" + .name' 2>/dev/null)
-python3 "$HOME/.claude/skills/phillip-sync/scripts/cursor.py" "$CUR" \
+python3 "$PHILLIP_SYNC_DIR/scripts/cursor.py" "$CUR" \
   || { echo "phillip-sync: cursor update skipped (non-fatal)."; exit 0; }
 ```
 

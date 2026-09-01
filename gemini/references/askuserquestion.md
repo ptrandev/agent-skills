@@ -1,25 +1,18 @@
-# AskUserQuestion Format
+# Structured Question Format
 
 Load this file only when `/gemini` needs to ask the user a question (the
 no-arguments auto-detect branch in Step 1).
 
 ## Tool resolution (read first)
 
-"AskUserQuestion" can resolve to two tools at runtime: the **host MCP variant**
-(e.g. `mcp__conductor__AskUserQuestion`, which appears in your tool list when the
-host registers it) or the **native** Claude Code tool.
+Question tools vary by host. Use the available structured user-input tool when one is callable.
 
-**Rule:** Use the `mcp__*__AskUserQuestion` variant when one is in your tool
-list. A host can disable the native AskUserQuestion via
-`--disallowedTools AskUserQuestion` (Conductor does, by default) and route
-through its MCP variant. Calling native there silently fails.
-
-**Fallback when neither variant is callable:** output the brief as prose and
+**Fallback when no structured user-input tool is callable:** output the brief as prose and
 stop. **Never silently auto-decide.**
 
 ## Format
 
-Send every AskUserQuestion as a decision brief in a tool_use call, not as prose.
+Send every question as a decision brief through the structured tool, not as prose.
 
 ```
 D<N>: <one-line question title>

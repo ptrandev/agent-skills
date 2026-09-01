@@ -14,7 +14,8 @@ report.
 
 ## Input
 
-`$ARGS`:
+Treat text accompanying the skill invocation as the input:
+
 - **Empty** → audit the current session.
 - `deep` → also run Phase 3 (blind reviewer) even when `/phillip` already ran this session.
 - Free text → treat as the specific area to focus the audit on (e.g. `/debrief the auth changes`).
@@ -63,10 +64,10 @@ Each item resolves to:
 
 ## Phase 3: Blind fresh eyes
 
-Skip when `/phillip` already ran on this diff this session, unless `$ARGS` contains `deep`.
+Skip when `phillip` already ran on this diff this session, unless the invocation input contains `deep`.
 Skip entirely when the session produced no diff and no artifact.
 
-Otherwise spawn **one sub-agent with no conversation history**: the `Agent` tool with
+Otherwise spawn **one subagent with no conversation history** using the host's subagent mechanism with
 `subagent_type: general-purpose` and `run_in_background: false`, because the Phase 2 merge
 blocks on its output. Give it only:
 - the diff, from `git diff $(git merge-base HEAD origin/HEAD)`, or the artifact produced.

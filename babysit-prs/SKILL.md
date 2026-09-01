@@ -10,7 +10,8 @@ description: >
 
 ## Input
 
-`$ARGS`:
+Treat text accompanying the skill invocation as the input:
+
 - **Empty** → process **all** open PRs authored by the current GitHub user across **all default
   repos** (see Targets).
 - **One or more PR numbers** (e.g. `1768 1765`) → process only those PRs. PR numbers are
@@ -36,8 +37,8 @@ Process these unless `--repo` narrows the run. Each has a known local clone for 
 Three invariants:
 
 1. **Scope, your PRs only. Never act on a PR you did not author.** Confirm `author == gh login`
-   for every PR before touching it. Skip a PR number passed in `$ARGS` that you do not own, and
-   log a note.
+   for every PR before touching it. Skip a PR number passed in the invocation input that you do
+   not own, and log a note.
 2. **Evidence before resolution.** Auto-resolve a thread **only** after you pushed a real fix,
    the affected typecheck/lint/tests are green, and you posted a reply linking the fixing commit.
    **Never** resolve silently. **Never** resolve a thread you only replied to.
@@ -98,7 +99,7 @@ gets the same pass, not a looser one.
 **Stop and say so when a required check fails.**
 
 - `gh auth status`, authenticated (required). Capture the login: `ME=$(gh api user --jq .login)`.
-- Resolve the **target repo set**: if `$ARGS` has `--repo`, that single repo; else all rows in
+- Resolve the **target repo set**: if the invocation input has `--repo`, that single repo; else all rows in
   **Targets**. For each, split `OWNER=${REPO%/*}` / `NAME=${REPO#*/}` and map to its clone (the
   Targets table, or `/Users/phillip/Git/<name>` for a `--repo` override).
 - Commit each repo's fixes in its **local clone**. Per clone, confirm it exists and its `origin`
@@ -150,19 +151,19 @@ Preflight:  gh ✓ (ptrandev)   visual ✗ (sandbox: UI-proof threads → Needs-
 For **each** repo in the target set, list the open PRs you authored:
 
 ```bash
-# All open PRs authored by me in this repo (default), or the specific numbers from $ARGS.
+# All open PRs authored by me in this repo (default), or the specific numbers from the invocation input.
 gh pr list --repo "$REPO" --author "$ME" --state open \
   --json number,title,headRefName,isDraft \
   --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"'
 ```
 
 Tag each PR with its repo (and that repo's clone) so Phases 2 to 5 act in the right place. If
-`$ARGS` named specific PRs, intersect with this list and **drop any you don't own** (Scope
+When the invocation input named specific PRs, intersect with this list and **drop any you don't own** (Scope
 guardrail) with a logged note. **Include draft PRs.**
 
 ### Dispatch, one agent per PR
 
-Run Phases 2 to 6 for each (repo, PR) unit in its **own per-PR agent** (Agent tool), because one
+Run Phases 2 to 6 for each (repo, PR) unit in its **own per-PR subagent**, because one
 agent across several PRs cross-contaminates: a thread from PR A can steer a fix on PR B. The
 orchestrator (this session) stays thin: preflight → enumerate → dispatch → aggregate.
 
@@ -175,7 +176,7 @@ orchestrator (this session) stays thin: preflight → enumerate → dispatch →
 - **Each dispatch prompt is self-contained:** repo, PR#, head branch, clone path, that repo's
   `CAN_FIX[$REPO]` value, `CAN_VISUAL`, and the three safety invariants (scope,
   evidence-before-resolve, unsure→leave-open). Tell the per-PR agent to run Phases 2 to 6 of
-  `~/.claude/skills/babysit-prs/SKILL.md` for **exactly that one PR** and nothing else.
+  this loaded `babysit-prs/SKILL.md` for **exactly that one PR** and nothing else.
   Point it at the **Writing style** section explicitly: a Routine sandbox has no global
   `CLAUDE.md`, so the skill is the only place those rules exist for that agent.
 - **Concurrency:** run per-PR agents for **different repos in parallel** (separate clones, safe).
@@ -436,8 +437,8 @@ Pick the runtime by the **deepest tier you need**:
 
 - **Read [routine.md](routine.md) before you set up the Routine.** It owns the GitHub connection,
   repo selection, environment setup script, triggers, and the permission toggles the Routine needs.
-- **Local** sweeps the "needs local visual run" queue the Routine leaves behind. Run
-  `/loop 2h /babysit-prs` in a session, or a `launchd`/cron entry invoking `claude -p "/babysit-prs"`.
+- **Local** sweeps the "needs local visual run" queue the Routine leaves behind. Use the host's
+  recurring-task mechanism. Claude Code can also run `/loop 2h /babysit-prs`.
 - **Read [github-actions.md](github-actions.md) before you set up the Actions bot.** It owns the
   workflow file, the CI-only safety deltas, and the bot identity options. Choose it when sub-hour
   response to comments matters; otherwise the Routine's hourly sweep is simpler and

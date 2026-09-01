@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude"
+  short_description: "Independent Claude review or consultation"
+  default_prompt: "Use $claude to review the current diff independently."

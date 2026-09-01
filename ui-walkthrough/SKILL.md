@@ -10,13 +10,13 @@ description: >
 
 ## Input / modes
 
-`$ARGS`:
+Treat text accompanying the skill invocation as the input:
 
 | Invocation | Behavior |
 |---|---|
-| `/ui-walkthrough` | The PR for the current branch (`gh pr view --json number`). Errors if there isn't one. |
-| `/ui-walkthrough <PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`). |
-| `/ui-walkthrough <URL>` | Parse owner/name/number from the URL. Unambiguous. |
+| Empty | The PR for the current branch (`gh pr view --json number`). Errors if there isn't one. |
+| `<PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`). |
+| `<URL>` | Parse owner/name/number from the URL. Unambiguous. |
 | `--author` / `--reviewer` | Force the role. Default: inferred from `author == ME` (see Phase 1). |
 | `--viewports=desktop,tablet,mobile` | Default all three. Any subset. |
 | `--personas=premium[,free,admin]` | Default `premium`. Each extra persona is one extra login, not a second stack boot. |
@@ -135,6 +135,11 @@ gets the same pass, not a looser one.
 
 ## Phase 0: preflight + capability detection
 
+Locate the directories containing the loaded `ui-walkthrough`, `full-send`, `review-pr`, and
+`design-review` skills. Call them `UI_WALKTHROUGH_DIR`, `FULL_SEND_DIR`, `REVIEW_PR_DIR`, and
+`DESIGN_REVIEW_DIR`. Use those directories for every skill file, credential file, reference, and
+script path below.
+
 Probe, record booleans, branch later. **Never assume a driver.**
 
 ```bash
@@ -250,8 +255,8 @@ esac
 ```
 
 **`--target=dev`: credential file required.** Resolution order: `UIW_DEV_PREMIUM_EMAIL` /
-`UIW_DEV_PREMIUM_PASSWORD`, then `~/.claude/skills/ui-walkthrough/dev-credentials.md`
-(`DEV_PREMIUM_*`), then `~/.claude/skills/full-send/dev-credentials.md` (legacy `DEV_EMAIL` /
+`UIW_DEV_PREMIUM_PASSWORD`, then `$UI_WALKTHROUGH_DIR/dev-credentials.md`
+(`DEV_PREMIUM_*`), then `$FULL_SEND_DIR/dev-credentials.md` (legacy `DEV_EMAIL` /
 `DEV_PASSWORD`). Parse without `eval`, because passwords contain shell metacharacters:
 
 ```bash
@@ -561,7 +566,7 @@ analytics 404 must never post `REQUEST_CHANGES` on an unrelated PR. Attribute be
 
 ### 6b: judged pass (designer's eye, never blocks)
 
-**Read the rubric, don't reinvent it.** `~/.claude/skills/design-review/SKILL.md` §*Design Audit
+**Read the rubric, don't reinvent it.** `$DESIGN_REVIEW_DIR/SKILL.md` §*Design Audit
 Checklist* (grep `### Design Audit Checklist`) carries \~80 items across 10 categories. The ones
 judgeable from a screenshot are **4. Spacing & Layout**, **5. Interaction States**, **6. Responsive
 Design**, and the contrast items in **3**. Read those at runtime so `/design-review`'s rubric stays

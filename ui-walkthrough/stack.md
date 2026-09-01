@@ -181,12 +181,12 @@ note**, never a finding.
 
 **[concurrency.md](concurrency.md) owns the lock**, one per lane, taken in Phase 0. Lane 0's path is
 the literal `/private/tmp/ui-walkthrough/review-pr-stack.lock` that
-`~/.claude/skills/review-pr/stack-lifecycle.md` names, so a `/review-pr` walkthrough and a lane-0
+the loaded `review-pr/stack-lifecycle.md` names, so a `review-pr` walkthrough and a lane-0
 `/ui-walkthrough` still cannot both boot. `/review-pr` has no lane concept and always uses lane 0.
 **Do not add a second lock here.**
 
 For everything else (post-boot identity assertion, `yarn turbo run build --filter='./packages/*'`
 pre-build, Node 24 per `.nvmrc`, EXIT-trap teardown) read
-`~/.claude/skills/review-pr/stack-lifecycle.md` and follow it. It's verified against a cloud boot; a
+the loaded `review-pr/stack-lifecycle.md` and follow it. It's verified against a cloud boot; a
 second copy would drift. Read its lock block as the lane-0 case of
 [concurrency.md](concurrency.md)'s.

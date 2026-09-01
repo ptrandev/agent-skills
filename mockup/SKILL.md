@@ -100,8 +100,10 @@ level down, deliberately" when that placement is the decision you want judged.
 layout, the chrome, the state machine, the click wiring, seed data, and deep links. Copy the shell,
 then fill only the marked blocks.
 
+Set `MOCKUP_DIR` to the resolved directory containing this `SKILL.md`, then run:
+
 ```bash
-cp ~/.claude/skills/mockup/references/shell.html "$OUT"
+cp "$MOCKUP_DIR/references/shell.html" "$OUT"
 ```
 
 ## Phase 5: check it

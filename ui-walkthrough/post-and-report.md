@@ -85,7 +85,7 @@ State coverage honestly, including what was dropped and which personas ran.
 
 ## Phase 9: report + teardown
 
-Write `${UI_WALKTHROUGH_PLANS_DIR:-$HOME/.claude/plans}/ui-walkthrough-<owner>-<repo>-<PR>-<date>.md`.
+Write `${UI_WALKTHROUGH_PLANS_DIR:-${CODEX_HOME:-$HOME/.claude}/plans}/ui-walkthrough-<owner>-<repo>-<PR>-<date>.md`.
 
 > **Headless note.** Claude Code guards the whole `~/.claude/` tree as sensitive, so writing there
 > prompts for permission **even under `bypassPermissions`**, which stalls an unattended routine
@@ -136,4 +136,3 @@ walkthrough having succeeded. It must leave the machine exactly as it was found:
       not start is left exactly as found
 - [ ] `git status --porcelain` **identical** to the pre-run capture: diff them and say so in the
       report. A walkthrough that leaves residue in someone's clone will not be run twice
-

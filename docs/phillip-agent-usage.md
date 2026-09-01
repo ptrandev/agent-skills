@@ -1,13 +1,14 @@
 # Using `/phillip`: day-to-day guide
 
-First you set this up once (Claude does most of it), then you run one command before every push.
+First you set this up once, then you run one skill before every push. Claude Code uses `/phillip`;
+Codex uses `$phillip`.
 
 ## First-time setup (one-time, let Claude do it)
 
 You don't install anything by hand. Claude provisions your Mac from the companion doc, which clones this repo and symlinks the skills for you:
 
 1. Open Claude Code in any project and pick the best model: type `/model` and choose the most capable option offered.
-2. Paste the ENTIRE contents of **[`docs/phillip-agent-setup.md`](./phillip-agent-setup.md)** (the companion doc in this repo) as your message. That doc is written for Claude, not for you -> Claude reads it and runs the whole setup itself, including cloning this repo and symlinking `/phillip`, `/phillip-sync`, and `/gemini` into `~/.claude/skills/`.
+2. Paste the ENTIRE contents of **[`docs/phillip-agent-setup.md`](./phillip-agent-setup.md)** (the companion doc in this repo) as your message. It clones this repo and links the canonical skill directories into both Claude Code and Codex.
 3. Let it work. It does everything it can on its own and STOPS to ask you (an "ASK USER" block) only for the few things it can't do:
    - GUI/password installers it can't click: `xcode-select --install` and the Homebrew installer.
    - Your API keys (OpenAI for Codex, Google for Gemini): you paste them into `~/.zshenv` YOURSELF in your terminal. Keep them out of the chat; Claude never needs to see them.
@@ -18,7 +19,7 @@ After that, it's just the one move below before every push.
 
 ## The one move
 
-Before you push, type:
+Before you push in Claude Code, type `/phillip`. In Codex, invoke `$phillip`.
 
 ```
 /phillip
@@ -30,7 +31,7 @@ No arguments. It reviews your current branch vs the default branch (main/master,
 
 Runs your diff through three independent reviewers (Claude + Codex + Gemini) over multiple rounds. It verifies every finding against the real code, fixes the genuine HIGH/MEDIUM ones, rejects bad suggestions out loud (with a reason), and loops until a clean ("dry") round turns up nothing new. It caps at 4 rounds that find something, and the clean confirmation round after the last fix is always free on top of that (5 rounds maximum). If it is still finding HIGH/MEDIUM issues at the cap, it stops, applies them, and flags the result as unconfirmed (that's the "Needs human review" verdict below).
 
-All three reviewers are genuinely independent. Codex and Gemini are separate CLI processes that see only your diff. The Claude reviewer is a **blind sub-agent** -> a fresh Claude with no access to the conversation, the ticket, or who wrote the code, so it reviews with no author bias, exactly like the two CLIs. The orchestrating session that runs `/phillip` does NOT count as a reviewer; it integrates and verifies their findings. The two CLIs and the blind sub-agent run in parallel, so a round costs about the slowest single reviewer rather than the sum of all of them.
+All three reviewers are genuinely independent. Codex, Gemini, and Claude run as separate CLI processes that see only the review scope. The orchestrating session does not count as a reviewer; it integrates and verifies their findings. The three processes run in parallel, so a round costs about the slowest reviewer rather than their combined time.
 
 ## Full vs quick
 
@@ -40,7 +41,7 @@ All three reviewers are genuinely independent. Codex and Gemini are separate CLI
 
 ## Reading the result
 
-You get a report table -> saved to `~/.claude/plans/phillip-<branch>-<date>.md` and printed in chat. Columns: severity, `file:line`, finding, source (which reviewer raised it), status (Fixed + SHA / Listed / Rejected-with-reason).
+You get a report table saved to the active host's plans directory and printed in chat. Columns: severity, `file:line`, finding, source (which reviewer raised it), status (Fixed + SHA / Listed / Rejected-with-reason).
 
 Then the verdict line:
 - "Ready for PR" -> the loop ended on a clean dry round with nothing unresolved. Push and open the PR.
@@ -53,7 +54,7 @@ The full loop is real work and real API spend (several external CLI calls, a few
 
 ## Keeping it fresh (it does this itself)
 
-You don't maintain the rubric by hand and there's no canonical copy to chase. The `~/.claude/skills/phillip/RUBRIC.md` file IS the single source of truth (a symlink into your `~/Git/claude-skills` clone), and it self-updates.
+You don't maintain two rubrics. The canonical file is `~/Git/claude-skills/phillip/RUBRIC.md`; both host skill paths resolve to it through symlinks, and it self-updates.
 
 Every time you run `/phillip`, it first runs `/phillip-sync`:
 - It looks at the CURRENT repo's recent PRs (last 30 days, capped), reads which review comments were resolved AND acted on, and distills the recurring, generalizable lessons.
@@ -73,4 +74,5 @@ Because the skills are symlinked from your clone, updating is one step:
 cd ~/Git/claude-skills && git pull
 ```
 
-That brings `/phillip`, `/phillip-sync`, and `/gemini` to the latest version with no re-copying. Update gstack (which provides `/codex`) separately from inside Claude Code with `/gstack-upgrade`.
+That updates every shared skill with no copying. Update gstack separately when you use its Claude
+Code-only skills.

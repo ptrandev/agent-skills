@@ -3,7 +3,7 @@
 How one `/review-pr` run drives several PRs. **Read this only when more than one PR is in scope.**
 `SKILL.md` Phases 0 through 9 describe one PR.
 
-Review each (repo, PR) in its own sub-agent (Agent tool), because a review must stand on one PR's
+Review each (repo, PR) in its own subagent, because a review must stand on one PR's
 evidence alone. One agent across several PRs carries prior diffs and findings forward, so PR A's
 pattern biases PR B's verdict. The orchestrator (this session) stays thin: preflight -> discover ->
 gate -> dispatch -> aggregate.
@@ -14,15 +14,15 @@ gate -> dispatch -> aggregate.
   idempotency gate yourself** before dispatching: two cheap API calls per PR that avoid spawning
   agents for already-reviewed heads. Do **not** read diffs or repo files yourself.
 - **Each dispatch prompt is self-contained:** repo, PR#, head SHA, clone path, the capability
-  booleans (`CAN_VERIFY_<repo>`, externals present, `CAN_LIVE_*`), any opt-down flags from `$ARGS`
+  booleans (`CAN_VERIFY_<repo>`, externals present, `CAN_LIVE_*`), any opt-down flags from the invocation input
   (`--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots`), the incremental range if Phase 2
-  found a prior review, and the rubric path `~/.claude/skills/phillip/RUBRIC.md`. Tell the agent to
-  execute Phases 3 through 9 of `~/.claude/skills/review-pr/SKILL.md` for **exactly that one PR**,
+  found a prior review, and the resolved rubric path. Tell the agent to execute Phases 3 through 9
+  of this loaded `review-pr/SKILL.md` for **exactly that one PR**,
   reading the rubric itself.
 - **Nesting is expected:** the per-PR agent runs its *own* blind Claude reviewer and its own
   Codex/Gemini background jobs (Phase 4). **Never give the blind reviewer the PR description or the
-  author's login**, whatever the per-PR agent knows. A per-PR agent has **no Agent tool**, so its
-  blind reviewer is a `claude -p` subprocess (Phase 4).
+  author's login**, whatever the per-PR agent knows. Its blind reviewer runs through the
+  repository-owned Claude runner (Phase 4).
 - **Concurrency:** agents for **different repos run in parallel** (separate clones). Agents for PRs
   in the **same repo run sequentially** (shared clone, serial checkouts). Do **not** split same-repo
   PRs across `git worktree`s to parallelize them: a fresh worktree's `node_modules` is empty, so

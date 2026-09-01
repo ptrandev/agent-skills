@@ -34,23 +34,25 @@ arrows, not em dashes.
 
 ## 0. Setup for this run
 
-- Model: confirm this session runs the most capable model this build offers. If not, tell the
-  user to run `/model` and pick it. **Do not** hardcode a version, names change and Claude has
-  no rolling "latest" alias.
-- Effort: if `/effort` exists, use its top level. If not, proceed at default.
-- When the `Agent` tool is in your tool list, open your reasoning with the keyword
-  `ultracode`.
+- Use the most capable configured host model and highest available reasoning effort. Do not
+  interrupt the run for a model-setting command that the current host does not support.
+- Treat text accompanying the skill invocation as the input. `quick` selects quick mode.
+- Locate the directories containing the loaded `phillip`, `claude`, and `gemini` skills. Call
+  them `PHILLIP_DIR`, `CLAUDE_SKILL_DIR`, and `GEMINI_SKILL_DIR`. Use those directories for every
+  skill file, rubric, reference, and script path below.
+- Set `PLAN_ROOT` to `PHILLIP_PLANS_DIR` when configured. Otherwise use `$CODEX_HOME/plans` when
+  `CODEX_HOME` is set, or `$HOME/.claude/plans` on Claude Code.
 
 ### Mode
 
-- `/phillip` (default) -> full multi-round loop, all three reviewers.
-- `/phillip quick` -> one round. Claude-only under 200 changed lines. At 200+ changed lines,
+- Default -> full multi-round loop, all three reviewers.
+- `quick` -> one round. Claude-only under 200 changed lines. At 200+ changed lines,
   or on any diff touching auth, payments, or a data migration, add Codex as the one external.
   "Claude-only" still means the blind sub-agent (reviewer #3), not an in-session pass.
 - Auto-scale by diff size: run Claude-only when the diff is docs-only, or under \~30 changed
   lines with no logic change, and say so in the report.
-- Under 10 changed lines, review inline instead of spawning a sub-agent, then label it
-  `Claude (inline, not blind)` in the report so the independence claim stays honest.
+- Under 10 changed lines, still use the isolated Claude runner. Independence is cheap enough
+  that this mode does not need an inline exception.
 
 ### Capture the diff under review
 
@@ -84,18 +86,18 @@ anything the linter or formatter already handles (Prettier/ESLint own style).
 
 ### Refresh the rubric first (non-blocking)
 
-Before the review loop, invoke the `phillip-sync` skill once (e.g. `/phillip-sync`) to fold
+Before the review loop, invoke the `phillip-sync` skill once to fold
 this repo's recent resolved PR-review lessons into the rubric.
 
 - PROCEED REGARDLESS of its outcome. **Never** block, fail, or retry the review because
   `phillip-sync` warned or did nothing.
 - If `phillip-sync` reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read
-  `~/.claude/skills/phillip/RUBRIC.md` NOW, because the rubric you were loaded with predates
+  `$PHILLIP_DIR/RUBRIC.md` NOW, because the rubric you were loaded with predates
   that edit. On a cooldown/empty no-op (the common case) skip the re-Read.
 
 ## 1. The review standard
 
-**Read `~/.claude/skills/phillip/RUBRIC.md` in full before any reviewer runs.** It owns the
+**Read `$PHILLIP_DIR/RUBRIC.md` in full before any reviewer runs.** It owns the
 review standard: what to catch, what NOT to flag, the severity taxonomy (HIGH / MEDIUM / low),
 the verification discipline, and the HONESTY RULE that the rest of this file references.
 
@@ -103,18 +105,18 @@ Skip every rubric row whose `Repo` column names a repo other than the one under 
 
 ## 2. The multi-round adversarial loop
 
-Run rounds until convergence. Each round uses three independent reviewers: Codex, Gemini,
-and a BLIND Claude reviewer in its own context (an Agent-tool sub-agent, or a `claude -p`
-subprocess). You (the orchestrating session) are NOT a reviewer -> you are the
+Run rounds until convergence. Each round uses three independent CLI processes: Codex, Gemini,
+and a BLIND Claude reviewer through the `claude` skill's runner. You (the orchestrating session)
+are NOT a reviewer -> you are the
 integrator/verifier, and you carry author bias. **Do not** collapse reviewer #3 back into an
 in-session pass.
 
 ### Per round (run the three reviewers in PARALLEL)
 
-1. **Read `~/.claude/skills/codex/SKILL.md` and `~/.claude/skills/gemini/SKILL.md` first.**
-   They own the exact CLI flags, the filesystem-boundary prompt, the diff-scope prompt, and
-   auth handling. A wrong flag writes an empty output file, which reads as a dry round when it
-   is not one.
+1. **Read `$GEMINI_SKILL_DIR/SKILL.md` and `$CLAUDE_SKILL_DIR/SKILL.md` first.** They own their
+   CLI flags, filesystem boundaries, auth handling, and output checks. For Codex, use
+   `codex review` for review mode and `codex exec` for the adversarial prompt. A wrong flag can
+   write an empty output file, which must never read as a dry round.
 2. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
    true`, one job per model), mirroring the review/challenge CLI calls you just read. Group
    each model's review + challenge into its OWN job so that model runs its two passes
@@ -133,14 +135,14 @@ in-session pass.
    Gemini's line-anchor misreads and its empty-output-at-exit-0 failures on large diffs.
 
    ALL THREE reviewers review against the rubric, not a generic bar. Add this line to the
-   Codex prompt: "Read `~/.claude/skills/phillip/RUBRIC.md` and apply it, skipping any row
+   Codex prompt: "Read `$PHILLIP_DIR/RUBRIC.md` and apply it, skipping any row
    whose Repo column names a repo other than this one."
 
    **Never give Gemini that line. Copy the rubric into its context directory instead**, then
-   point at it by filename: `cp ~/.claude/skills/phillip/RUBRIC.md "$GEMCTX/RUBRIC.md"`, and
+   point at it by filename: `cp "$PHILLIP_DIR/RUBRIC.md" "$GEMCTX/RUBRIC.md"`, and
    add to the Gemini prompt: "Read `RUBRIC.md` in the extra directory added to your workspace
    and apply it, skipping any row whose Repo column names a repo other than this one."
-   Gemini cannot reach `~/.claude` (outside its workspace), and the `/gemini` skill's
+   Gemini cannot reach personal skill directories outside its workspace, and the `gemini` skill's
    `FS_BOUNDARY` prompt orders it to ignore that tree anyway. A path instruction pointing INTO
    `~/.claude` silently no-ops, and Gemini reviews against a generic bar (verified
    2026-08-24). `$GEMCTX` is the `--include-directories` dir the `/gemini` skill already
@@ -148,15 +150,15 @@ in-session pass.
    **Do NOT paste the rubric text into `-p`.** A 28KB rubric paste is what made Gemini echo
    the entire rubric back inside its own findings output (observed 2026-08-31). Codex is
    unaffected, it reads the real filesystem.
-3. Reviewer #3 is a BLIND Claude reviewer, launched right after the two background jobs are
-   running: an Agent-tool sub-agent, or a `claude -p` subprocess when this session has no Agent
-   tool (see "Reviewer #3 without the Agent tool" below). It must derive everything from the
+3. Reviewer #3 is a BLIND Claude reviewer, launched through
+   `$CLAUDE_SKILL_DIR/scripts/run-claude` right after the two background jobs are running. It must
+   derive everything from the
    repo, never from you. Feed it ONLY:
    - the role: "You are an independent code reviewer. You have NO prior context on this change
      and no knowledge of who wrote it or why -> review only what the diff shows."
    - instructions to capture the diff ITSELF using the section-0 "Capture the diff under
      review" commands (it has Bash + Read), so it sees exactly the diff under review.
-   - instructions to Read `~/.claude/skills/phillip/RUBRIC.md` and apply it -> including the
+   - instructions to Read `$PHILLIP_DIR/RUBRIC.md` and apply it -> including the
      severity taxonomy, the verification discipline, and the HONESTY RULE, and to skip any
      row whose Repo column names a repo other than this one.
    - the output contract: return a findings list, one per line, each as
@@ -164,8 +166,7 @@ in-session pass.
      does not edit, fix, or commit anything.
 
    Do NOT paste the conversation, the ticket, the implementation rationale, or any "what this
-   is supposed to do" narrative into the sub-agent prompt. Run it at full strength (it
-   inherits this session's model; do not downgrade it).
+   is supposed to do" narrative into the prompt. Do not select a smaller Claude model.
 4. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
    `/tmp/phillip-gemini.out`, and take the blind sub-agent's returned findings. Combine every
    finding from all three reviewers into one list with proposed severity. You did NOT review;
@@ -178,38 +179,35 @@ Fallbacks:
 
 | Situation | Do this |
 |---|---|
-| You cannot background jobs in this environment | Issue the Codex and Gemini CLI calls as two Bash calls in a SINGLE message (the harness runs independent calls concurrently). Worst case, invoke the `/codex` and `/gemini` skills sequentially: still correct, just slower. |
-| The Agent tool is unavailable (older harness, or you are yourself a sub-agent, which has no Agent tool) | Run reviewer #3 as a `claude -p` subprocess. See "Reviewer #3 without the Agent tool" below. Fall back to an INLINE pass only when that subprocess also fails. |
-| The gemini skill is not installed (no `~/.claude/skills/gemini/SKILL.md`) or its CLI auth is missing | Run with Codex + Claude and state in the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it is absent. **Do not** silently drop a reviewer. |
+| You cannot background jobs in this environment | Run the Codex, Gemini, and Claude CLI calls sequentially. This is slower but preserves reviewer independence. |
+| The Claude runner fails | Count Claude as missing and cap the result as required by the caller. Never substitute an in-session pass while claiming independence. |
+| The gemini skill or CLI auth is missing | Run with Codex + Claude and state in the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it is absent. **Do not** silently drop a reviewer. |
 
-### Reviewer #3 without the Agent tool
+### Claude runner
 
 A `claude -p` subprocess is a **separate process with an empty context**, so it is genuinely
-blind. Prefer it over an inline pass whenever the Agent tool is missing. Sub-agents get no Agent
-tool, so any nested run (`/review-pr` per-PR agents, `/full-send`) takes this path.
+blind. The `claude` skill owns its safety flags and timeout.
 
 Write the same blind-reviewer prompt from step 3 to a file, then run the CLI from the directory
 holding the code under review:
 
 ```bash
-timeout 900 claude -p "$(cat /tmp/phillip-blind-prompt.txt)" \
-  --add-dir "$HOME/.claude/skills/phillip" \
-  --allowed-tools "Read" "Grep" "Glob" "Bash(git diff:*)" "Bash(git log:*)" "Bash(git show:*)" \
-  --model "$BLIND_MODEL" < /dev/null > /tmp/phillip-blind.out 2>&1
+"$CLAUDE_SKILL_DIR/scripts/run-claude" \
+  --repo "$(git rev-parse --show-toplevel)" \
+  --prompt-file /tmp/phillip-blind-prompt.txt \
+  --rubric "$PHILLIP_DIR/RUBRIC.md" \
+  > /tmp/phillip-blind.out 2>&1
 ```
 
-- `--add-dir` is **mandatory**: without it the subprocess cannot Read `RUBRIC.md`, and it reviews
-  against a generic bar (verified 2026-08-24).
-- `--allowed-tools` must list every tool by name. In `-p` mode an unlisted tool is denied with no
-  prompt, so an omitted `Read` yields a review of nothing.
-- `< /dev/null` stops it blocking on stdin as a background job.
-- Set `$BLIND_MODEL` to this session's model, never a smaller one.
+- `--rubric` is **mandatory**: without it the subprocess cannot Read `RUBRIC.md` and reviews
+  against a generic bar.
+- Omit `--model` when the host does not expose a matching Claude model name. Never choose a
+  smaller model to save time.
 - Gate on the **output**, not the exit code: `/tmp/phillip-blind.out` must carry the
   `SEVERITY | file:line | ...` contract. An empty or contract-free file means reviewer #3 did not
   run, so report it missing.
-- Label the source `Claude (blind, subprocess)`. Label an inline pass
-  `Claude (inline, not blind)`. **Never** claim a blind reviewer you did not run in a separate
-  process or agent, it violates the HONESTY RULE.
+- Label the source `Claude (blind, subprocess)`. **Never** claim a blind reviewer you did not run
+  in a separate process, because it violates the HONESTY RULE.
 
 ### Verification gate (run BEFORE changing any code)
 
@@ -273,7 +271,7 @@ follows the last fix is a **confirmation round**.
 ## 3. Final review report
 
 Write the report to a stable file AND print it. Save to
-`~/.claude/plans/phillip-<branch-slug>-<YYYY-MM-DD>.md` (create the dir if needed).
+`$PLAN_ROOT/phillip-<branch-slug>-<YYYY-MM-DD>.md` (create the dir if needed).
 `<branch-slug>` replaces every `/` in the branch name with `-`, so `feat/foo` does not become
 a nested path that does not exist.
 

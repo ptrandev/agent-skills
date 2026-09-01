@@ -1,0 +1,115 @@
+#!/bin/sh
+set -eu
+
+usage() {
+  echo "usage: validate-skills [--links] [--claude-dir DIR] [--codex-dir DIR]" >&2
+  exit 2
+}
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+check_links=false
+claude_dir=${HOME}/.claude/skills
+codex_dir=${HOME}/.agents/skills
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --links)
+      check_links=true
+      shift
+      ;;
+    --claude-dir)
+      [ "$#" -ge 2 ] || usage
+      claude_dir=$2
+      shift 2
+      ;;
+    --codex-dir)
+      [ "$#" -ge 2 ] || usage
+      codex_dir=$2
+      shift 2
+      ;;
+    *)
+      usage
+      ;;
+  esac
+done
+
+status=0
+count=0
+
+check_link() {
+  host=$1
+  source_dir=$2
+  target_root=$3
+  skill_name=$(basename -- "$source_dir")
+  link_path=$target_root/$skill_name
+
+  if [ ! -L "$link_path" ]; then
+    echo "ERROR $host link missing: $link_path" >&2
+    status=1
+    return
+  fi
+  if [ ! -d "$link_path" ] || [ "$(CDPATH= cd -- "$link_path" && pwd -P)" != "$(CDPATH= cd -- "$source_dir" && pwd -P)" ]; then
+    echo "ERROR $host link has wrong target: $link_path" >&2
+    status=1
+  fi
+}
+
+for skill_file in "$repo_root"/*/SKILL.md; do
+  [ -f "$skill_file" ] || continue
+  count=$((count + 1))
+  skill_dir=$(dirname -- "$skill_file")
+  skill_name=$(basename -- "$skill_dir")
+  first_line=$(sed -n '1p' "$skill_file")
+  declared_name=$(awk '
+    NR == 1 && $0 == "---" { in_frontmatter=1; next }
+    in_frontmatter && $0 == "---" { exit }
+    in_frontmatter && $1 == "name:" { print $2; exit }
+  ' "$skill_file")
+  has_description=$(awk '
+    NR == 1 && $0 == "---" { in_frontmatter=1; next }
+    in_frontmatter && $0 == "---" { exit }
+    in_frontmatter && $1 == "description:" { found=1 }
+    END { print found ? "yes" : "no" }
+  ' "$skill_file")
+
+  if [ "$first_line" != "---" ]; then
+    echo "ERROR $skill_name: SKILL.md must start with ---" >&2
+    status=1
+  fi
+  if [ "$declared_name" != "$skill_name" ]; then
+    echo "ERROR $skill_name: frontmatter name is '$declared_name'" >&2
+    status=1
+  fi
+  if [ "$has_description" != yes ]; then
+    echo "ERROR $skill_name: frontmatter description is missing" >&2
+    status=1
+  fi
+  case "$skill_name" in
+    *[!a-z0-9-]*|'')
+      echo "ERROR $skill_name: directory name must use lowercase letters, digits, and hyphens" >&2
+      status=1
+      ;;
+  esac
+  if rg -q 'TODO: Replace|\[TODO\]|YOUR_SKILL_NAME' "$skill_dir"; then
+    echo "ERROR $skill_name: unfinished scaffold placeholder" >&2
+    status=1
+  fi
+
+  if [ "$check_links" = true ]; then
+    if [ "$skill_name" != claude ]; then
+      check_link claude "$skill_dir" "$claude_dir"
+    fi
+    check_link codex "$skill_dir" "$codex_dir"
+  fi
+done
+
+if [ "$count" -eq 0 ]; then
+  echo "ERROR no top-level skills found" >&2
+  exit 1
+fi
+
+if [ "$status" -eq 0 ]; then
+  echo "validated $count skills"
+fi
+exit "$status"

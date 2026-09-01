@@ -2,7 +2,7 @@
 
 You are Claude Code running on the user's Mac. Your job is to set up a self-reviewing "Phillip agent" for them by working through the numbered steps below. When done, the user will be able to type `/phillip` before pushing and get a multi-reviewer self-review of their diff.
 
-The `/phillip`, `/phillip-sync`, and `/gemini` skills live in the public **claude-skills** repo (`https://github.com/ptrandev/claude-skills`). You install them by cloning that repo once and symlinking the skill folders into `~/.claude/skills/` (Step 3) -> setup always installs the latest version and there is nothing to hand-maintain.
+The shared skills live in the public **claude-skills** repo (`https://github.com/ptrandev/claude-skills`). You install them by cloning that repo once and running its linker (Step 3). The same canonical directories feed Claude Code and Codex, so there is nothing to hand-maintain.
 
 ## Ground rules (read first, follow throughout)
 
@@ -194,9 +194,12 @@ Neither command prints the key. If `source ~/.zshenv` errors, the line the user 
 
 ---
 
-## Step 3: Clone the claude-skills repo and symlink the skills
+## Step 3: Clone the claude-skills repo and link the skills into both hosts
 
-This is the core change that keeps you on the latest skills with zero hand-maintenance: clone the repo once, then symlink `gemini`, `phillip`, and `phillip-sync` into `~/.claude/skills/`. Edits in the repo (or a later `git pull`) take effect immediately, with no copying and no embedded snapshots to re-sync.
+This is the core change that keeps you on the latest skills with zero hand-maintenance: clone the
+repo once, then run its linker. It symlinks the same canonical skill directories into Claude Code's
+`~/.claude/skills/` and Codex's `~/.agents/skills/`. Edits in the repo (or a later `git pull`) take
+effect immediately in both hosts.
 
 **a. Clone the repo** (run yourself). Pick a stable home for it; `~/Git/claude-skills` matches the repo's own README:
 
@@ -210,31 +213,25 @@ If `~/Git/claude-skills` already exists, skip the clone and refresh it instead:
 cd ~/Git/claude-skills && git pull --ff-only
 ```
 
-**b. Symlink the three skills** into `~/.claude/skills/` (run yourself). Create each link only if it isn't already there, and never clobber an existing real directory:
+**b. Link the skills** (run yourself). The script never clobbers an existing real directory or a
+symlink with a different target. The `claude` skill is linked into Codex only:
 
 ```bash
-for s in gemini phillip phillip-sync; do
-  if [ -e ~/.claude/skills/"$s" ] || [ -L ~/.claude/skills/"$s" ]; then
-    echo "skip $s (already present)"
-  else
-    ln -s ~/Git/claude-skills/"$s" ~/.claude/skills/"$s" && echo "linked $s"
-  fi
-done
+cd ~/Git/claude-skills
+./scripts/link-skills
 ```
 
-(The repo also ships `/full-send` and `/launch-summary`; symlink those too if the user wants them, but they are not required for `/phillip`.)
-
-**c. Verify the skill files resolve through the symlinks** (run yourself):
+**c. Verify every skill and symlink** (run yourself):
 
 ```bash
-for s in gemini phillip phillip-sync; do test -f ~/.claude/skills/"$s"/SKILL.md && echo "$s skill OK" || echo "$s skill MISSING"; done
+cd ~/Git/claude-skills
+./scripts/validate-skills --links
 test -f ~/.claude/skills/phillip/RUBRIC.md && echo "phillip RUBRIC.md OK" || echo "phillip RUBRIC.md MISSING"
-head -2 ~/.claude/skills/phillip/SKILL.md       # must be: --- then name: phillip
-head -2 ~/.claude/skills/phillip-sync/SKILL.md  # must be: --- then name: phillip-sync
-head -2 ~/.claude/skills/gemini/SKILL.md        # must be: --- then name: gemini
+test -f ~/.agents/skills/claude/SKILL.md && echo "Codex claude skill OK" || echo "Codex claude skill MISSING"
 ```
 
-All three must print `... skill OK`, `RUBRIC.md OK` must print, and each `head -2` must show `---` then the matching `name:`. A skill is just a folder at `~/.claude/skills/<name>/SKILL.md`; Claude auto-discovers it and triggers it on `/<name>` or a matching request.
+Validation must print `validated <n> skills`; both explicit checks must print `OK`. Claude Code
+discovers shared skills under `~/.claude/skills/`. Codex discovers them under `~/.agents/skills/`.
 
 `/phillip` already wires in `/phillip-sync` (its section-0 "Refresh the rubric first" step), and `phillip/RUBRIC.md` carries the three anchor pairs `/phillip-sync` writes into: `<!-- phillip-sync:auto ... -->`, `<!-- phillip-sync:auto-donotflag ... -->`, and `<!-- phillip-sync:candidates ... -->`. No further wiring is needed -> the first time the user runs `/phillip` in a repo with `gh` authed, sync seeds the rubric from the last 30 days of PR reviews.
 
@@ -362,11 +359,12 @@ Run the full verification yourself:
 
 ```bash
 command -v claude && command -v codex && command -v gemini && echo "All three CLIs on PATH"
-for s in codex gemini phillip phillip-sync; do test -f ~/.claude/skills/"$s"/SKILL.md && echo "$s skill OK" || echo "$s skill MISSING"; done
+cd ~/Git/claude-skills && ./scripts/validate-skills --links
 test -f ~/.claude/skills/phillip/RUBRIC.md && echo "phillip RUBRIC.md OK" || echo "phillip RUBRIC.md MISSING"
+test -f ~/.agents/skills/claude/SKILL.md && echo "Codex claude skill OK" || echo "Codex claude skill MISSING"
 ```
 
-`/codex` comes from gstack (Step 1); `/gemini`, `/phillip`, and `/phillip-sync` come from the claude-skills symlinks (Step 3). The Gemini headless auth smoke-test already ran in Step 4c; do not repeat it.
+`/codex` comes from gstack (Step 1). The repository's shared skills come from the symlinks created in Step 3. The Gemini headless auth smoke-test already ran in Step 4c; do not repeat it.
 
 Then print a short status to the user:
 

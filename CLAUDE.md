@@ -1,8 +1,9 @@
 # Writing skills in this repo
 
-Every directory here is a Claude Code skill, symlinked into `~/.claude/skills/`. Each file you
-write has two readers: an agent that must act on it, and a human who must maintain it. Write for
-both. Neither one is served by extra words.
+Every top-level directory with a `SKILL.md` is a canonical agent skill. `scripts/link-skills`
+symlinks shared skills into Claude Code and Codex; the `claude` skill is Codex-only. Each file has
+two readers: an agent that must act on it, and a human who must maintain it. Write for both.
+Neither one is served by extra words.
 
 Three things load at different costs. Budget for each:
 

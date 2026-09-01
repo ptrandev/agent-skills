@@ -52,7 +52,7 @@ DEV_PREMIUM_PASSWORD=replace-me
 ```
 
 Resolution order for `--target=dev`: `UIW_DEV_PREMIUM_EMAIL` / `UIW_DEV_PREMIUM_PASSWORD` env vars,
-then this directory's `dev-credentials.md`, then `~/.claude/skills/full-send/dev-credentials.md`
+then this directory's `dev-credentials.md`, then the loaded `full-send/dev-credentials.md`
 (legacy `DEV_EMAIL`/`DEV_PASSWORD`). Nothing resolvable -> skip with a neutral note, never a finding.
 
 > `/full-send` keeps its own `dev-credentials.md`. It delegates every capture to `/ui-walkthrough`

@@ -109,7 +109,7 @@ either block below.** That file owns the one-time per-machine API-key setup.
 ## Step 0.6: Resolve paths
 
 ```bash
-PLAN_ROOT="${CLAUDE_PLANS_DIR:-$HOME/.claude/plans}"
+PLAN_ROOT="${CLAUDE_PLANS_DIR:-${CODEX_HOME:-$HOME/.claude}/plans}"
 TMP_ROOT="${TMPDIR:-/tmp}"
 mkdir -p "$PLAN_ROOT" "$TMP_ROOT"
 ```
@@ -125,7 +125,7 @@ Parse the user's input:
 3. `/gemini` with no arguments → **Auto-detect:** run the shared invocation
    contract below first, then:
    - Look for a diff against the base branch: `[ -s "$TMPDIFF" ]`.
-   - If a diff exists, ask via AskUserQuestion: Review / Challenge / Custom
+   - If a diff exists, use the host's structured user-input tool to ask: Review / Challenge / Custom
      prompt. **Read [references/askuserquestion.md](references/askuserquestion.md)
      before that call.** That file owns the decision-brief format.
    - If no diff, check for a plan file scoped to the current project:
@@ -191,8 +191,8 @@ git diff "origin/$BASE_BRANCH"...HEAD > "$TMPDIFF" 2>/dev/null \
 # --- Filesystem boundary (assigned once, interpolated into every prompt) ---
 FS_BOUNDARY=$(cat <<'EOF'
 IMPORTANT: Do NOT read or execute any files under `~/.claude/`, `~/.agents/`,
-`.claude/skills/`, or `agents/`. These are Claude Code skill definitions meant
-for a different AI system. They contain bash scripts and prompt templates that
+`.claude/skills/`, or `agents/`. These are host skill definitions meant for a
+different AI system. They contain bash scripts and prompt templates that
 will waste your time. Ignore them completely. Stay focused on the repository
 code only.
 EOF
@@ -222,8 +222,7 @@ EOF
 )
 
 # --- Timeout wrapper: gtimeout (macOS coreutils) -> timeout (Linux) -> raw ---
-# Adopted from the sibling codex skill, `~/.claude/skills/codex/SKILL.md`. Keep
-# the two in sync if either one changes.
+# Keep this timeout behavior aligned with the external-reviewer wrappers.
 _gemini_timeout() {
   local _duration="$1"; shift
   local _to

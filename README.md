@@ -1,6 +1,11 @@
 # claude-skills
 
-Custom [Claude Code](https://claude.ai/code) skills. Each skill lives in its own directory and is symlinked into `~/.claude/skills/` so Claude Code picks them up automatically.
+Custom skills shared by Claude Code and Codex. Each skill has one canonical directory in this
+repository. The setup script symlinks that directory into Claude Code's `~/.claude/skills/` and
+Codex's `~/.agents/skills/`, so an edit or `git pull` updates both hosts immediately.
+
+Claude Code invokes a skill as `/skill-name`. Codex invokes one as `$skill-name` or selects it from
+its skills UI.
 
 ## Skills
 
@@ -24,7 +29,7 @@ Self-reviews the current diff to a senior engineering bar before it becomes a PR
 - `/phillip`: full multi-round, all three reviewers.
 - `/phillip quick`: one round, Claude-only (auto-scales down on trivial diffs anyway).
 
-The rubric lives in [`phillip/RUBRIC.md`](phillip/RUBRIC.md), not in `phillip/SKILL.md`. All three reviewers apply it at runtime: Claude and Codex read the file, Gemini gets the text pasted into its prompt because it cannot reach `~/.claude`. Before each run `/phillip` invokes `/phillip-sync` (non-blocking) to refresh it from this repo's recent PR reviews.
+The rubric lives in [`phillip/RUBRIC.md`](phillip/RUBRIC.md), not in `phillip/SKILL.md`. Claude and Codex read it directly. Gemini receives a copied rubric file in its temporary workspace. Before each run `phillip` invokes `phillip-sync` (non-blocking) to refresh it from this repo's recent PR reviews.
 
 **Usage:** `/phillip` or `/phillip quick`
 
@@ -37,7 +42,7 @@ The rubric lives in [`phillip/RUBRIC.md`](phillip/RUBRIC.md), not in `phillip/SK
 ### `/phillip-sync`
 Keeps the `/phillip` rubric fresh. Mines the current repo's resolved-and-acted-on PR reviews from merged PRs over a 30-day window. Folds high-confidence patterns into the auto-synced table of [`phillip/RUBRIC.md`](phillip/RUBRIC.md), and weaker one-offs into the candidates table. `RUBRIC.md` holds three anchored markdown tables: auto-synced, candidates, do-not-flag. Sync only writes between those anchors. Honors a 24h per-repo cooldown. Non-blocking: it prints one warning line when `gh` is missing, unauthenticated, or offline.
 
-Two Python helpers do the work. [`phillip-sync/scripts/plan.py`](phillip-sync/scripts/plan.py) builds the mining plan. [`phillip-sync/scripts/cursor.py`](phillip-sync/scripts/cursor.py) reads and writes the per-repo cooldown cursor. The skill invokes them by their installed path under `~/.claude/skills/phillip-sync/scripts/`.
+Two Python helpers do the work. [`phillip-sync/scripts/plan.py`](phillip-sync/scripts/plan.py) builds the mining plan. [`phillip-sync/scripts/cursor.py`](phillip-sync/scripts/cursor.py) reads and writes the per-repo cooldown cursor. The skill resolves them from its loaded skill directory.
 
 **Usage:** `/phillip-sync` (or runs automatically inside `/phillip`)
 
@@ -98,6 +103,19 @@ One-time per-machine setup lives in [`gemini/references/setup.md`](gemini/refere
 
 ---
 
+### `$claude` (Codex only)
+
+Calls the Claude Code CLI in a fresh, read-only process for an independent review, adversarial
+challenge, or consultation. `phillip` and `review-pr` use its deterministic runner so Claude stays
+blind to the orchestrating conversation. The linker installs this skill into Codex only; Claude
+Code does not need a skill for calling itself.
+
+**Usage:** `$claude review`, `$claude challenge`, or `$claude <question>`
+
+**Requires:** an installed and authenticated `claude` CLI.
+
+---
+
 ### `/debrief`
 End-of-session confidence audit. Interrogates the session just completed: least-confident assumptions, early decisions never revisited, what you do not realize, the most likely 3-month failure. Converts every uncertainty into a concrete check: a command, a test, or a file read. Runs the safe ones. Separates real gaps from confident-sounding filler. Spawns a blind, context-free sub-agent on the diff, skipped when `/phillip` already ran, since that does blind review. Read-only: it reports ranked findings and never fixes unprompted.
 
@@ -135,25 +153,15 @@ Extracts the signal out of bloated or evasive text. It selects, it does not rewr
 
 ## Setup
 
-Skills are symlinked from this repo into `~/.claude/skills/` so edits here take effect immediately without any sync step.
+Skills are symlinked from this repository into both hosts. The script refuses to replace an
+existing real directory or a symlink with a different target.
 
 To set up on a new machine:
 
 ```bash
 git clone https://github.com/ptrandev/claude-skills.git ~/Git/claude-skills
-
-ln -s ~/Git/claude-skills/babysit-prs ~/.claude/skills/babysit-prs
-ln -s ~/Git/claude-skills/debrief ~/.claude/skills/debrief
-ln -s ~/Git/claude-skills/full-send ~/.claude/skills/full-send
-ln -s ~/Git/claude-skills/review-pr ~/.claude/skills/review-pr
-ln -s ~/Git/claude-skills/gemini ~/.claude/skills/gemini
-ln -s ~/Git/claude-skills/launch-summary ~/.claude/skills/launch-summary
-ln -s ~/Git/claude-skills/merge-master ~/.claude/skills/merge-master
-ln -s ~/Git/claude-skills/mockup ~/.claude/skills/mockup
-ln -s ~/Git/claude-skills/phillip ~/.claude/skills/phillip
-ln -s ~/Git/claude-skills/phillip-sync ~/.claude/skills/phillip-sync
-ln -s ~/Git/claude-skills/plain-english ~/.claude/skills/plain-english
-ln -s ~/Git/claude-skills/ui-walkthrough ~/.claude/skills/ui-walkthrough
+cd ~/Git/claude-skills
+./scripts/link-skills
 
 # Global instructions (not a skill). See "Global CLAUDE.md" below.
 ln -s ~/Git/claude-skills/global/CLAUDE.md ~/.claude/CLAUDE.md
@@ -205,5 +213,6 @@ where this file is not on disk, so their copy of the Writing style rules has to 
 
 1. Create a directory in this repo: `mkdir my-skill`
 2. Add a `SKILL.md` with the skill definition (see existing skills for format)
-3. Symlink it: `ln -s ~/Git/claude-skills/my-skill ~/.claude/skills/my-skill`
-4. Commit and push
+3. Run `./scripts/validate-skills`
+4. Run `./scripts/link-skills`
+5. Commit and push
