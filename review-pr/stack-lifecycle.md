@@ -93,18 +93,29 @@ is the one gap between a fresh clone and a healthy `:3000`.)*
 
 `ui-walkthrough/stack.md` points here for this step. Keep it here, not in a second copy.
 
-## IPv4-only runtimes: the emulator host must be pinned
+## Host environment: proxy, Java, and VSCode variables kill the boot
 
-A container with no IPv6 loopback fails the boot unless `firebase.json` pins `"host": "127.0.0.1"`
-on auth, firestore, database, storage, and pubsub. Without the pin the firebase CLI defaults to
-`localhost`, expands it to `127.0.0.1` **and** `::1` from a hardcoded cache that never reads
-`/etc/hosts`, and dies loading the Realtime Database rules against `::1:9000`. The message is
-`Failed to load initial Realtime Database rules`.
+`scripts/e2e-stack.sh` unsets three kinds of host variable before `emulators:exec` (fixed in
+`Atllas-Inc/codebase` on 2026-09-02). Each one kills the boot on its own:
 
-Pinned in `Atllas-Inc/codebase` on 2026-08-31. A PR whose base predates that commit still hits it.
-**That failure is a neutral NEEDS-DYNAMIC-RUN note, never a finding**, per *Boot budget and
-teardown* below. Name the cause in the note ("checkout predates the emulator host pin") so the
-rerun target is obvious.
+| Variable | Failure | Why |
+|---|---|---|
+| `HTTPS_PROXY`, `HTTP_PROXY` and their yarn/npm spellings | `Failed to load initial Database Emulator rules` | firebase-tools sends its rules PUT for `127.0.0.1:9000` through the proxy. It has no `NO_PROXY` support. |
+| `JAVA_TOOL_OPTIONS` | `Unexpected rules runtime error: Picked up JAVA_TOOL_OPTIONS` | The Storage emulator reads the JVM banner as a rules-runtime error. |
+| `VSCODE_CWD` | `ENOENT ... lib/templates/hosting/init.js` | firebase-tools gates its template path on it. |
+
+The cloud sandbox exports the first two. A VSCode-hosted `claude` exports the third. **A checkout
+whose base predates the fix still hits them.** On that checkout, boot with:
+
+```bash
+env -u HTTPS_PROXY -u https_proxy -u HTTP_PROXY -u http_proxy -u JAVA_TOOL_OPTIONS -u VSCODE_CWD \
+  bash scripts/e2e-stack.sh ...
+```
+
+**Do not blame the rules file or IPv6.** `_firebase/database.rules.json` is valid on every branch,
+and the 2026-08-31 `firebase.json` host pin was a misdiagnosis of the proxy failure. A boot that
+still fails is a neutral NEEDS-DYNAMIC-RUN note, never a finding, per *Boot budget and teardown*
+below. Name the cause in the note so the rerun target is obvious.
 
 ## Post-boot identity assertion
 

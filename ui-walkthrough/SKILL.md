@@ -465,7 +465,7 @@ exercise this UI."*
 ## Phase 4: boot the PR's code (evidence integrity)
 
 **Read [stack.md](stack.md) before booting the stack.** It owns both boot procedures, the hold
-spec, the `env -u VSCODE_CWD` emulator bug, backgrounding, pre-warm, login, the checkout-strategy
+spec, the host-environment scrub, backgrounding, pre-warm, login, the checkout-strategy
 table, and the deference to `/review-pr`'s stack lifecycle. The two rules that decide everything else:
 
 - **`--target=e2e`** (the default, and the only target unless a human typed otherwise): `yarn

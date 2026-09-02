@@ -78,15 +78,12 @@ sandbox: this spec passed, the same spec with `{ page }` failed at launch.
 # E2E_LANE and the vars from `e2e-lane.mjs env` are already exported by concurrency.md, so the
 # backgrounded script inherits them and derives its own preflight list. Never pass
 # E2E_PREFLIGHT_PORTS: it overrides that list and drops the Hub and Logging ports.
-env -u VSCODE_CWD UIW_HOLD_SECONDS=900 bash scripts/e2e-stack.sh uiw-hold.spec.ts --project="$PROJ" &
+UIW_HOLD_SECONDS=900 bash scripts/e2e-stack.sh uiw-hold.spec.ts --project="$PROJ" &
 ```
 
-**`env -u VSCODE_CWD` is required, not hygiene.** Claude Code runs in the VSCode extension host,
-which exports `VSCODE_CWD=/`. `firebase-tools` gates its template path on that variable
-(`lib/vsCodeUtils.js`), so every emulator boot from a VSCode-hosted session dies with
-`ENOENT … lib/templates/hosting/init.js`. It looks like corrupt `node_modules` and invites a
-pointless reinstall. Verified 2026-07-30. Terminal-launched `claude` is unaffected, which is why it
-reproduces only sometimes. The same fix applies to `/review-pr`'s Tier-3 boot and `/full-send`.
+**The script scrubs the host environment itself** (`VSCODE_CWD`, `*_PROXY`, `JAVA_TOOL_OPTIONS`)
+since 2026-09-02. `review-pr/stack-lifecycle.md` owns the list and the `env -u` line for a checkout
+whose base predates that fix. **Read it before booting a checkout older than that date.**
 
 **Backgrounding: call `bash scripts/e2e-stack.sh`, never `yarn e2e:stack`.** Backgrounding the
 **outer yarn wrapper** kills the run mid-flight. Yarn 3 puts a temp shim dir on `PATH` for its
