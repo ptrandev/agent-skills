@@ -98,7 +98,7 @@ for skill_file in "$repo_root"/*/SKILL.md; do
       status=1
       ;;
   esac
-  if rg -q 'TODO: Replace|\[TODO\]|YOUR_SKILL_NAME' "$skill_dir"; then
+  if grep -rIqE 'TODO: Replace|\[TODO\]|YOUR_SKILL_NAME' "$skill_dir"; then
     echo "ERROR $skill_name: unfinished scaffold placeholder" >&2
     status=1
   fi
