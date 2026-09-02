@@ -159,7 +159,7 @@ to Claude-only. A missing reviewer CLI is **never** a bail-out.
 | Dep | When needed | Detect | Install if missing | External CLI + auth |
 |-----|-------------|--------|--------------------|---------------------|
 | **`/grilling`** (mattpocock plugin) | grill will run | `grilling` in available skills | `claude plugin marketplace add mattpocock/skills` → `claude plugin install mattpocock-skills@mattpocock`, then `/setup-matt-pocock-skills` once per repo | none. If install fails, fall back to inline clarification Q&A |
-| **`phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | clone `https://github.com/ptrandev/claude-skills.git`, then run its `scripts/link-skills` | none directly; drives Claude + Gemini + Codex reviewers. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
+| **`phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | clone `https://github.com/ptrandev/agent-skills.git`, then run its `scripts/link-skills` | none directly; drives Claude + Gemini + Codex reviewers. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
 | **`/gemini`** (ptrandev) | always (via `/phillip`) | `gemini` in available skills | same symlink pattern as `/phillip` | CLI `gemini`: `npm install -g @google/gemini-cli`. **Auth (API-key only, no OAuth):** set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `~/.zshenv`, and add `security.auth.selectedType: "gemini-api-key"` to `~/.gemini/settings.json` |
 | **Codex reviewer** | always (via `phillip`) | `codex` CLI available and authenticated | install Codex using current OpenAI instructions | run `codex login` when the CLI requests authentication |
 

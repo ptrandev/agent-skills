@@ -56,12 +56,12 @@ exec > >(tee -a /var/log/review-pr-setup.log) 2>&1
 # (a) install the skills this one reads/calls (public repo, no auth).
 #     `codex` is a gstack skill and is NOT in this repo. Do not add it to this list:
 #     the cp fails and takes the whole setup script with it.
-rm -rf /tmp/claude-skills      # a leftover dir makes `git clone` fail, which ends setup
-git clone --depth 1 https://github.com/ptrandev/claude-skills.git /tmp/claude-skills
+rm -rf /tmp/agent-skills      # a leftover dir makes `git clone` fail, which ends setup
+git clone --depth 1 https://github.com/ptrandev/agent-skills.git /tmp/agent-skills
 mkdir -p "$HOME/.claude/skills"
 for s in review-pr phillip phillip-sync gemini full-send ui-walkthrough; do
-  if [ -d "/tmp/claude-skills/$s" ]; then
-    cp -R "/tmp/claude-skills/$s" "$HOME/.claude/skills/$s"
+  if [ -d "/tmp/agent-skills/$s" ]; then
+    cp -R "/tmp/agent-skills/$s" "$HOME/.claude/skills/$s"
   else
     echo "WARN: skill '$s' is not in the repo, skipped"
   fi
@@ -178,7 +178,7 @@ Notes:
   <https://code.claude.com/docs/en/cloud-environments>, the script runs on the **first** session in an
   environment. Anthropic then snapshots the filesystem and reuses that snapshot, skipping the script.
   It re-runs only when you change the environment's setup script or its allowed network hosts, or when
-  the cache expires after **roughly seven days**. So step (a)'s `git clone` of `ptrandev/claude-skills`
+  the cache expires after **roughly seven days**. So step (a)'s `git clone` of `ptrandev/agent-skills`
   can be up to a week behind master. **After pushing a skill change the next run must have, edit the
   environment's setup script to invalidate the snapshot.** Bumping a trailing comment is enough.
 - **`gh` cannot reach the API here, and that is not fixable from GitHub's side. Do not chase it.**

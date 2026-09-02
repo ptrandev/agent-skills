@@ -74,9 +74,9 @@ Gradle/JVM, so the script must handle each correctly:**
 
 ```bash
 # (a) Make the babysit-prs skill discoverable (public repo, no auth).
-git clone --depth 1 https://github.com/ptrandev/claude-skills.git /tmp/claude-skills
+git clone --depth 1 https://github.com/ptrandev/agent-skills.git /tmp/agent-skills
 mkdir -p "$HOME/.claude/skills"
-cp -R /tmp/claude-skills/babysit-prs "$HOME/.claude/skills/babysit-prs"
+cp -R /tmp/agent-skills/babysit-prs "$HOME/.claude/skills/babysit-prs"
 
 # Replace these with each repo's actual clone path in the session.
 CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"

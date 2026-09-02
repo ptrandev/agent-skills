@@ -2,7 +2,7 @@
 
 You are Claude Code running on the user's Mac. Your job is to set up a self-reviewing "Phillip agent" for them by working through the numbered steps below. When done, the user will be able to type `/phillip` before pushing and get a multi-reviewer self-review of their diff.
 
-The shared skills live in the public **claude-skills** repo (`https://github.com/ptrandev/claude-skills`). You install them by cloning that repo once and running its linker (Step 3). The same canonical directories feed Claude Code and Codex, so there is nothing to hand-maintain.
+The shared skills live in the public **agent-skills** repo (`https://github.com/ptrandev/agent-skills`). You install them by cloning that repo once and running its linker (Step 3). The same canonical directories feed Claude Code and Codex, so there is nothing to hand-maintain.
 
 ## Ground rules (read first, follow throughout)
 
@@ -194,37 +194,37 @@ Neither command prints the key. If `source ~/.zshenv` errors, the line the user 
 
 ---
 
-## Step 3: Clone the claude-skills repo and link the skills into both hosts
+## Step 3: Clone the agent-skills repo and link the skills into both hosts
 
 This is the core change that keeps you on the latest skills with zero hand-maintenance: clone the
 repo once, then run its linker. It symlinks the same canonical skill directories into Claude Code's
 `~/.claude/skills/` and Codex's `~/.agents/skills/`. Edits in the repo (or a later `git pull`) take
 effect immediately in both hosts.
 
-**a. Clone the repo** (run yourself). Pick a stable home for it; `~/Git/claude-skills` matches the repo's own README:
+**a. Clone the repo** (run yourself). Pick a stable home for it; `~/Git/agent-skills` matches the repo's own README:
 
 ```bash
-git clone https://github.com/ptrandev/claude-skills.git ~/Git/claude-skills
+git clone https://github.com/ptrandev/agent-skills.git ~/Git/agent-skills
 ```
 
-If `~/Git/claude-skills` already exists, skip the clone and refresh it instead:
+If `~/Git/agent-skills` already exists, skip the clone and refresh it instead:
 
 ```bash
-cd ~/Git/claude-skills && git pull --ff-only
+cd ~/Git/agent-skills && git pull --ff-only
 ```
 
 **b. Link the skills** (run yourself). The script never clobbers an existing real directory or a
 symlink with a different target. The `claude` skill is linked into Codex only:
 
 ```bash
-cd ~/Git/claude-skills
+cd ~/Git/agent-skills
 ./scripts/link-skills
 ```
 
 **c. Verify every skill and symlink** (run yourself):
 
 ```bash
-cd ~/Git/claude-skills
+cd ~/Git/agent-skills
 ./scripts/validate-skills --links
 test -f ~/.claude/skills/phillip/RUBRIC.md && echo "phillip RUBRIC.md OK" || echo "phillip RUBRIC.md MISSING"
 test -f ~/.agents/skills/claude/SKILL.md && echo "Codex claude skill OK" || echo "Codex claude skill MISSING"
@@ -359,7 +359,7 @@ Run the full verification yourself:
 
 ```bash
 command -v claude && command -v codex && command -v gemini && echo "All three CLIs on PATH"
-cd ~/Git/claude-skills && ./scripts/validate-skills --links
+cd ~/Git/agent-skills && ./scripts/validate-skills --links
 test -f ~/.claude/skills/phillip/RUBRIC.md && echo "phillip RUBRIC.md OK" || echo "phillip RUBRIC.md MISSING"
 test -f ~/.agents/skills/claude/SKILL.md && echo "Codex claude skill OK" || echo "Codex claude skill MISSING"
 ```

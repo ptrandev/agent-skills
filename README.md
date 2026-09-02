@@ -1,4 +1,4 @@
-# claude-skills
+# agent-skills
 
 Custom skills shared by Claude Code and Codex. Each skill has one canonical directory in this
 repository. Repository-local symlinks expose those directories to both agents. The setup script
@@ -167,12 +167,12 @@ refuses to replace an existing real directory or a symlink with a different targ
 To set up on a new machine:
 
 ```bash
-git clone https://github.com/ptrandev/claude-skills.git ~/Git/claude-skills
-cd ~/Git/claude-skills
+git clone https://github.com/ptrandev/agent-skills.git ~/Git/agent-skills
+cd ~/Git/agent-skills
 ./scripts/link-skills
 
 # Global Claude Code instructions (not a skill). See "Global CLAUDE.md" below.
-ln -s ~/Git/claude-skills/global/CLAUDE.md ~/.claude/CLAUDE.md
+ln -s ~/Git/agent-skills/global/CLAUDE.md ~/.claude/CLAUDE.md
 ```
 
 > **Note:** `full-send/dev-credentials.md` and `ui-walkthrough/dev-credentials.md` are gitignored, because this repo is public. Create them manually after cloning if needed; `ui-walkthrough/dev-credentials.example.md` is the template.
@@ -185,7 +185,7 @@ CLIs and their auth, `gh`, and these symlinks), paste the entire contents of
 [`docs/phillip-agent-setup.md`](docs/phillip-agent-setup.md) into Claude Code as your message;
 it runs the whole setup itself, stopping only for the few interactive bits (password installers,
 API keys, `gh auth login`). See [`docs/phillip-agent-usage.md`](docs/phillip-agent-usage.md) for
-day-to-day use. Updating later is just `cd ~/Git/claude-skills && git pull`.
+day-to-day use. Updating later is just `cd ~/Git/agent-skills && git pull`.
 
 ## Global `CLAUDE.md`
 

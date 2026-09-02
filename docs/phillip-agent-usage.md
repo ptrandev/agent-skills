@@ -54,7 +54,7 @@ The full loop is real work and real API spend (several external CLI calls, a few
 
 ## Keeping it fresh (it does this itself)
 
-You don't maintain two rubrics. The canonical file is `~/Git/claude-skills/phillip/RUBRIC.md`; both host skill paths resolve to it through symlinks, and it self-updates.
+You don't maintain two rubrics. The canonical file is `~/Git/agent-skills/phillip/RUBRIC.md`; both host skill paths resolve to it through symlinks, and it self-updates.
 
 Every time you run `/phillip`, it first runs `/phillip-sync`:
 - It looks at the CURRENT repo's recent PRs (last 30 days, capped), reads which review comments were resolved AND acted on, and distills the recurring, generalizable lessons.
@@ -71,7 +71,7 @@ So: just keep running `/phillip`. The rubric grows on its own. If you ever want 
 Because the skills are symlinked from your clone, updating is one step:
 
 ```bash
-cd ~/Git/claude-skills && git pull
+cd ~/Git/agent-skills && git pull
 ```
 
 That updates every shared skill with no copying. Update gstack separately when you use its Claude
