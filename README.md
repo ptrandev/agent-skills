@@ -205,8 +205,8 @@ one copy is how they drifted apart the first time. Verify no copy has drifted:
 
 ```bash
 for f in babysit-prs full-send review-pr ui-walkthrough; do
-  diff <(sed -n '/^Apply ASD-STE100/,/backticks instead\.$/p' global/CLAUDE.md) \
-       <(sed -n '/^Apply ASD-STE100/,/backticks instead\.$/p' $f/SKILL.md) >/dev/null \
+  diff <(sed -n '/^When you write technical text/,/backticks instead\.$/p' global/CLAUDE.md) \
+       <(sed -n '/^When you write technical text/,/backticks instead\.$/p' $f/SKILL.md) >/dev/null \
     && echo "$f ok" || echo "$f DRIFTED"
 done
 ```
