@@ -10,7 +10,7 @@ description: >
 # review-pr
 
 `/babysit-prs` addresses threads on PRs *you authored*. `/phillip` self-reviews *your local diff*.
-**`/review-pr` reviews someone else's PR where you're the requested reviewer** and posts the review
+**`/review-pr` reviews someone else's PR where you are the requested reviewer** and posts the review
 to GitHub. The action is **post review comments + a verdict**, not *implement fixes*.
 
 ## Input / modes
@@ -23,10 +23,10 @@ Treat text accompanying the skill invocation as the input:
 | `<PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`; PR#s are ambiguous across repos). |
 | `<URL>` | Parse owner/name/number from the GitHub URL (unambiguous). |
 | `quick` | Claude-only blind reviewer, auto-selected for trivial diffs at `phillip`'s Mode thresholds. Default = full three-reviewer. |
-| `... --draft` | Opt **down**: assemble + report + print the exact payload, **don't submit**. |
+| `... --draft` | Opt **down**: assemble + report + print the exact payload, **submit nothing**. |
 | `... --no-approve` | Opt **down**: cap the verdict at `COMMENT`, never post `APPROVE`. |
 | `... --no-live` | Opt **down**: skip the Tier-3 dynamic walkthrough even on a UI PR. |
-| `... --no-resolve-bots` | Opt **down**: still validate bot comments, but **don't resolve** any (just reply). |
+| `... --no-resolve-bots` | Opt **down**: still validate bot comments, but **resolve none**. Reply only. |
 
 ### Targets (default repos)
 
@@ -43,20 +43,21 @@ Treat text accompanying the skill invocation as the input:
 
 This skill posts to **other people's** PRs. Five invariants:
 
-1. **Autonomous post by default; quality-gated.** It submits the review without a confirm step.
+1. **Autonomous post by default, quality-gated.** It submits the review without a confirm step.
    `--draft` opts down to assemble-and-print-only.
 2. **Only verified findings reach GitHub.** A finding posts inline **only** if it was traced against
    the real code path **this session**. Unverified, "couldn't check", and low-confidence findings are
    **never posted**: they go to the local report's **NEEDS YOUR EYES** section. Nits (LOW) are held
    to the report as well. Only verified HIGH+MEDIUM post inline.
-3. **Conservative verdict** (table below): `REQUEST_CHANGES` only on a verified HIGH; `APPROVE` only
-   on a clean **fully-verified** pass (and never with `--no-approve`); otherwise `COMMENT`.
+3. **Conservative verdict** (table below). `REQUEST_CHANGES` fires only on a verified HIGH.
+   `APPROVE` fires only on a clean **fully-verified** pass, and never with `--no-approve`. Every
+   other case is `COMMENT`.
 4. **Skip self-authored PRs** (`author == ME`) and PRs already reviewed at the current head SHA
    (idempotency, Phase 2).
 5. **Never review a draft PR.** A GitHub draft (`isDraft == true`) is work-in-progress and is
    **excluded end-to-end**: filtered at discovery (`select(.isDraft!=true)` / `draft:false`), skipped
-   with a note when named explicitly ("PR #N is a draft, skipped. Re-request review when it's marked
-   ready."), and **re-checked immediately before any post**. A PR flipped to draft mid-run is
+   with a note when named explicitly ("PR #N is a draft, skipped. Re-request review when it is
+   marked ready."), and **re-checked immediately before any post**. A PR flipped to draft mid-run is
    abandoned, never posted. Review **only open, ready-for-review** PRs.
 
 ### Severity → verdict
@@ -234,8 +235,8 @@ PR or an advanced base you post findings on code the author never wrote.
 
 **Bot threads on a skipped PR.** A Phase-2 skip **still runs Phase 5b** when the PR has unresolved
 bot threads created after the prior review's `submitted_at`. Bot threads accumulate without a new
-push (Gemini Code Assist re-runs, Copilot on request), so gating adjudication on the head SHA would
-leave that noise unadjudicated forever. Such a run does Phase 3 (checkout, needed to verify) plus
+push (Gemini Code Assist re-runs, Copilot on request). Gating adjudication on the head SHA then
+leaves that noise unadjudicated forever. Such a run does Phase 3 (checkout, needed to verify) plus
 Phase 5b only, and posts no review. No newer bot threads -> skip the PR entirely.
 
 The reviews list **is** the idempotency state, no separate state file.
@@ -285,11 +286,11 @@ and Gemini CLIs directly as concurrent background Bash jobs.** Nested `/codex` a
 back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
 
 - **Codex** + **Gemini** as concurrent background Bash jobs. **Run them from `$WORKDIR` against the
-  PR's true diff**: point them at the freshly-fetched base so they don't review the stale-master
+  PR's true diff**: point them at the freshly-fetched base so they never review the stale-master
   garbage (`git diff "origin/$BASE...$HEAD_SHA"`, or feed them `/tmp/review-pr-$NAME-$PR.diff`
   directly). Outputs to `/tmp/review-pr-codex-$NAME-$PR.out` / `-gemini-$NAME-$PR.out`. (All temp
   paths include `$NAME`: PR numbers repeat across repos, and parallel per-repo agents writing
-  `/tmp/review-pr-$PR-*` would clobber each other.)
+  `/tmp/review-pr-$PR-*` clobber each other.)
   - **Headless/sandbox invocation gotchas** (API-key `codex exec` instead of `codex review`, the
     two trust-gate flags, the `< /dev/null` redirect, Gemini's inline-`-p` limitation, its
     `RESOURCE_EXHAUSTED` degradation): [routine.md](routine.md) section 8. **`RUBRIC.md` sits
@@ -341,89 +342,16 @@ them.**
 
 ---
 
-## Phase 5b: Adjudicate existing bot review threads (default on)
+## Phases 5b and 6: bot threads, then the dynamic walkthrough
 
-Fetch the existing **bot** review threads (Gemini Code Assist auto-reviews every PR; Copilot when
-requested) and **verify each against the real code**, exactly like your own findings. Reuse
-`/babysit-prs`' GraphQL (`reviewThreads` -> `resolveReviewThread`) and `/full-send`'s bot-login
-table (logins differ across the reviews / comments / GraphQL APIs; in GraphQL they drop `[bot]`, so
-match `test("copilot|gemini-code-assist")`).
+**Read [bot-adjudication.md](bot-adjudication.md) before touching a bot thread.** It owns the fetch,
+the verification, the four outcomes, and the re-check before replying or resolving. Default on.
+`--no-resolve-bots` replies but resolves nothing.
 
-```bash
-gh api graphql -f query='query($o:String!,$n:String!,$pr:Int!){repository(owner:$o,name:$n){
-  pullRequest(number:$pr){reviewThreads(first:100){pageInfo{hasNextPage endCursor}
-    nodes{ id isResolved
-    comments(first:20){nodes{ databaseId author{login} body path line }}}}}}}' \
-  -F o="$OWNER" -F n="$NAME" -F pr="$PR"
-# hasNextPage -> paginate with endCursor; never silently truncate at 100 threads.
-```
+**Read [walkthrough.md](walkthrough.md) when the PR is UI-touching.** It owns the run condition, the
+prefix test, and the delegation to `/ui-walkthrough --embedded`. This skill keeps the verdict. A
+live-confirmed defect is the highest-confidence finding tier. A clean walkthrough supports `APPROVE`.
 
-For each **unresolved bot** thread, trace it and act:
-
-- **Legit** (verified real) -> **don't resolve** (the author should fix it). Surface it in your
-  review summary ("Gemini's note on `X` is correct, please address") and **don't re-raise it as your
-  own** finding (no duplicate noise).
-- **False / irrelevant / already-handled** (verified wrong) -> **reply** with the one-line reason,
-  then **resolve** it (`resolveReviewThread`, or the MCP review-thread write tool under
-  `GH_TRANSPORT=mcp`, per [github-transport.md](github-transport.md)). This is **default on**;
-  `--no-resolve-bots` replies but leaves it unresolved.
-
-Hard rules:
-
-- **Bot threads only. Never resolve a human's thread.**
-- **Verified only. Never resolve on a guess, and never resolve a *legit* bot comment.**
-- **Reply before resolve.** Always leave the why, an evidence trail. **Never dismiss silently.**
-- **Re-check before acting.** Re-fetch `isResolved` and the last-comment author right before
-  replying or resolving, because a concurrent run or the PR author may have handled it already.
-  Already handled -> skip silently.
-
-Bot adjudication is a **separate** section and **does not move your verdict**: a pile of bot
-false-positives must not push you toward `REQUEST_CHANGES`. Your verdict stays driven by *your*
-verified findings.
-
----
-
-## Phase 6: Dynamic walkthrough (auto for UI PRs, capacity-gated)
-
-Run when `CAN_LIVE_HEADLESS` **AND** the PR is UI-touching **AND** not `--no-live`.
-
-**UI-touching** = at least one `filename` in `/tmp/review-pr-$NAME-$PR-files.json` starts with
-`apps/agents-portal/src/pages/` or `apps/agents-portal/src/components/`. It is a prefix test against
-the PR's file list, not a shell glob. `aicc-queues` has no frontend, so its PRs are never UI PRs and
-never reach this phase.
-
-Otherwise **skip, and if it is a UI PR add a NEEDS-DYNAMIC-RUN note** to the report ("UI PR: run
-/review-pr <n> on a ≥8 GB runtime (cloud Routine or local) for the dynamic walkthrough"). `--no-live`
-lands in the same place: the static review still posts, only the walkthrough is deferred.
-
-**Delegate the walkthrough itself to `/ui-walkthrough --embedded`** rather than hand-rolling it here.
-It walks every affected surface at **desktop + tablet + mobile**, runs deterministic detectors
-(horizontal scroll, sub-44px touch targets, clipped text, console errors), publishes the
-screenshots to GitHub via a verified mechanism (its Phase 7), and returns
-`{blockers, mediums, nits, images, neutralNotes, coverage, markdown}`, posting nothing itself.
-**This skill keeps the verdict**: merge its `blockers` into your findings, paste its `markdown` into
-the review body, and treat its `neutralNotes` as infra notes, never findings.
-
-**Read [stack-lifecycle.md](stack-lifecycle.md) before booting.** It owns the stack lock, the pinned
-ports, the pre-build, the post-boot identity assertion, the boot budget, and teardown.
-`/ui-walkthrough` Phase 4 reads it from there. **Do not duplicate it here.**
-
-**Boot mechanics are not this skill's to carry.** The driver, the stack boot, the seeded personas,
-and the capture matrix all belong to `/ui-walkthrough` and are documented in its `stack.md` and
-Phase 0. **Do not re-add them here.** Fix them where they live.
-
-**One rule stays this skill's own: never fire real Stripe/Vapi/Twilio.** The walkthrough runs
-against the deterministic, externally-stubbed stack. A surface the stubbed stack cannot exercise is
-a NEEDS-DYNAMIC-RUN note, never a reason to relax stubbing ([stack-lifecycle.md](stack-lifecycle.md),
-*State isolation*).
-
-- Also flag UI features shipping **without** the Playwright E2E specs the agents-portal behavioral
-  contract requires. This criterion is **this** skill's: `/ui-walkthrough` puts it out of scope.
-
-A **live-confirmed** defect ("modal throws on submit", screenshot) is the **highest-confidence**
-finding tier, so it is a strong basis for `REQUEST_CHANGES`. A clean walkthrough supports `APPROVE`.
-
----
 
 ## Phase 7: Assemble the review
 
@@ -434,11 +362,11 @@ verdict rationale, and a link to the local report.
 ### Inline line-anchoring (get exactly right)
 
 Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side`:
-- `side: "RIGHT"` + `line` = the new-file line (added/modified code, the common case); `LEFT` only
-  for a deleted line; multi-line adds `start_line` + `start_side`.
+- `side: "RIGHT"` + `line` = the new-file line, for added or modified code, which is the common
+  case. `LEFT` applies only to a deleted line. A multi-line anchor adds `start_line` + `start_side`.
 - The line **must be inside a diff hunk** or GitHub returns **422**. Pre-validate each finding's line
-  against the patch ranges in `/tmp/review-pr-$NAME-$PR-files.json`; a verified finding **outside** the
-  diff -> fold it into the summary `body` as a `file:line` reference instead of an inline anchor.
+  against the patch ranges in `/tmp/review-pr-$NAME-$PR-files.json`. Fold a verified finding
+  **outside** the diff into the summary `body` as a `file:line` reference, not an inline anchor.
 - Build the JSON with `jq -n`. **Never hand-quote `body` text.** Walkthrough screenshots are already
   published and embedded by `/ui-walkthrough` Phase 7 (assets pushed to a detached
   `refs/ui-walkthrough/pr-<n>` ref in the PR's own repo, embedded as
@@ -497,8 +425,8 @@ Write `${REVIEW_PR_PLANS_DIR:-${CODEX_HOME:-$HOME/.claude}/plans}/review-pr-<own
 > **Headless/sandbox note.** Claude Code guards the entire `~/.claude/` tree as **sensitive**, so
 > writing a report there prompts for permission **even under `bypassPermissions`**, which stalls an
 > unattended routine (no one to approve). In a headless environment, set `REVIEW_PR_PLANS_DIR` to a
-> path **outside `~/.claude/`** (e.g. `/root/review-pr-reports`); local runs keep the default so plans
-> stay where you browse them.
+> path **outside `~/.claude/`**, for example `/root/review-pr-reports`. Local runs keep the default,
+> so plans stay where you browse them.
 
 ```
 ### /review-pr -> Atllas-Inc/codebase#1773, <date>
@@ -548,11 +476,9 @@ Phases 0 through 9 above describe **one** PR.
 | Large diff | Chunk by file/workspace. Incomplete coverage caps the verdict at `COMMENT`. |
 | Rate limits | Back off, then degrade to `--draft` behavior (assemble + report, post nothing). |
 
-Every other case is handled where it is defined: stale local base and dirty clone -> Phase 3;
-re-review after a push -> Phase 2; self-authored or already-reviewed-at-head -> invariant 4 +
-Phase 2; draft PRs -> invariant 5; files outside the diff or no clone -> Phase 5 (can't verify,
-don't post); bot adjudication -> Phase 5b; 422 anchor failure -> Phase 7; ports occupied, leaked
-stack from a dead run, and boot budget -> [stack-lifecycle.md](stack-lifecycle.md).
+Every other case is handled where it is defined. Stack cases, which belong to no phase, are owned
+by [stack-lifecycle.md](stack-lifecycle.md): ports occupied, a leaked stack from a dead run, and
+the boot budget.
 
 ---
 
