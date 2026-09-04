@@ -13,7 +13,7 @@ its skills UI.
 ### `/full-send`
 End-to-end feature workflow. Takes a Linear ticket or a raw idea and ships a reviewed PR. Small tickets run in one pass. Large ones decompose into a Ralph-style loop, one task per iteration. Every run then does `/phillip` self-review, commit, draft PR, bot review (Copilot and Gemini Code Assist), thread replies, green CI, and UI screenshots plus a walkthrough video (via [OpenCap](https://opencap.dev)) on the PR. It moves the Linear ticket to In Review at the end.
 
-Autonomous by default, with zero stops. The `interactive` mode grills you first. Safe to re-run, since it resumes and skips completed phases. The loop phase runs from [`full-send/ralph-loop.md`](full-send/ralph-loop.md). The screenshot and video phase runs from [`full-send/evidence.md`](full-send/evidence.md).
+Autonomous by default, with zero stops. The `interactive` mode grills you first. Safe to re-run, since it resumes and skips completed phases. The loop phase runs from [`full-send/ralph-loop.md`](full-send/ralph-loop.md). The bot review phase runs from [`full-send/bot-review.md`](full-send/bot-review.md). The screenshot and video phase runs from [`full-send/evidence.md`](full-send/evidence.md).
 
 **Usage:**
 - `/full-send <TICKET-ID>`: run autonomously from an existing ticket

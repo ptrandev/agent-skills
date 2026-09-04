@@ -17,7 +17,7 @@ describing the work. Parse them in this order:
    - `interactive` / `ask` / `careful` → **interactive mode** (front-load a grill, see Phase 0.5).
    - `auto` → explicit **autonomous mode** (the default).
    - No keyword → **autonomous mode**.
-   - `loop` (orthogonal, may combine with any of the above) → force the Phase 3B Ralph loop
+   - `loop` (orthogonal, combines with any of the above) → force the Phase 3B Ralph loop
      regardless of size. Without it, the implement path is size-gated in Phase 3.0.
 2. **Remaining invocation input:**
    - A ticket ID (e.g. `AP-1234`) → fetch it (Phase 0).
@@ -52,7 +52,7 @@ report** instead of proceeding when the run hits an **unrecoverable** state, spe
   caused by this change (not pre-existing).
 - The implementation cannot satisfy the acceptance criteria (the ticket is wrong, blocked, or
   needs a decision only a human can make).
-- A `git` rebase/push conflict can't be resolved cleanly.
+- A `git` rebase/push conflict cannot be resolved cleanly.
 
 On bail-out:
 
@@ -190,12 +190,12 @@ PR_NUMBER=$(gh pr list --head "$TICKET_ID" --json number --jq '.[0].number // em
 Apply these skip rules:
 - **Ticket already In Progress / assigned** → **do not** reassign (Phase 0 is a no-op).
 - **Branch exists with commits** → resume on it. **Do not** recreate it (Phase 1).
-- **PR already open** → reuse its number; skip `gh pr create` (Phase 6), go straight to processing
-  reviews/CI (Phases 7+).
+- **PR already open** → reuse its number. Skip `gh pr create` (Phase 6) and go straight to
+  processing reviews and CI (Phases 7+).
 - **Bot threads already resolved / commits already pushed** → **do not** duplicate replies or
   commits.
 - **A `fix_plan.md` exists under `/tmp/full-send-$TICKET_ID/`** → the implement step took the
-  Phase 3B loop path; resume it by re-reading `fix_plan.md` + `notes.md` and continuing from the
+  Phase 3B loop path. Resume it by re-reading `fix_plan.md` + `notes.md` and continuing from the
   first unchecked task. **Do not** restart the decomposition or redo checked tasks.
 
 Every phase checks "is this already true?" and becomes a no-op when it is. Read current state
@@ -239,7 +239,7 @@ Run this phase only when the Modes table says the grill runs. Run it before writ
 
 1. Invoke `/grilling` via the Skill tool, scoped to this ticket/idea. Interrogate edge cases,
    scope boundaries, data shapes, non-goals, and any unclear acceptance criteria until you are
-   confident you understand exactly what to build. (If `/grilling` couldn't be installed in
+   confident you understand exactly what to build. (When Preflight failed to install `/grilling` in
    Preflight, run the inline clarification Q&A fallback instead: same goal, no skill.)
 2. Fold the answers back into the Linear ticket: update the description and acceptance criteria
    (Linear MCP update tool) so the ticket reflects the clarified spec.
@@ -286,7 +286,7 @@ conflicted rebase.
 Check for an existing plan file in `~/.claude/plans/` referencing this ticket ID.
 
 - **Plan exists:** read it and proceed.
-- **No plan:** scan the codebase, identify all files to create or modify, and state the implementation plan inline as a numbered list (types → SDK → API → frontend state → UI → tests). **Do not** write a file. **Do not** wait for approval. Proceed immediately.
+- **No plan:** scan the codebase and identify every file to create or modify. State the plan inline as a numbered list (types → SDK → API → frontend state → UI → tests). **Do not** write a file. **Do not** wait for approval. Proceed immediately.
 
 ---
 
@@ -318,14 +318,14 @@ file, so when one is absent, follow the conventions the surrounding code already
 - **Never `git add .`.** Stage the specific files the task touched, at every commit site in this
   skill (Phase 3B, Phase 4, Phase 5, Phase 7c).
 - Read every file before editing it.
-- **Search before assuming something isn't implemented.** Ripgrep silence is not absence.
+- **Search before assuming something is not implemented.** Ripgrep silence is not absence.
 - Full implementations, **no placeholders or TODOs.**
 - **Never** add features or abstractions beyond what the ticket/task requires.
-- **Opportunistic cleanup is allowed, within the blast radius.** When you're already editing a
-  function or file, you may DRY it and raise its quality (extract a duplicated helper, tighten a
-  type, delete dead code, clarify a name), but only for code the change already touches, only when
-  it's low-risk and covered by tests, and without materially widening the diff. Anything bigger, or
-  in code this change doesn't touch, stays a **surfaced note** (a Linear follow-up or a PR comment).
+- **Opportunistic cleanup is allowed, within the blast radius.** While you are already editing a
+  function or file, you can DRY it and raise its quality (extract a duplicated helper, tighten a
+  type, delete dead code, clarify a name). Only for code the change already touches, only when it
+  is low-risk and covered by tests, and without materially widening the diff. Anything bigger, or
+  in code this change never touches, stays a **surfaced note** (a Linear follow-up or a PR comment).
 - When modifying a shared package (sdk, privs, common, ui), rebuild it: `cd packages/<name> && yarn build`.
 - Add `data-testid` attributes to every new interactive element.
 - **Cover the new behavior with tests.** Add/extend tests for the code paths this ticket
@@ -343,7 +343,7 @@ sub-steps. Mark each sub-step complete as you finish it. Continue to Phase 4.
 ## Phase 4: Verify
 
 Detect the affected workspace(s) from the changed files (`git diff --name-only "origin/$BASE"...HEAD`)
-and run that workspace's own scripts. Read its `package.json` `scripts` for the real names; skip a
+and run that workspace's own scripts. Read its `package.json` `scripts` for the real names. Skip a
 step with a note when the package defines no such script. The commands below are the Atllas repo's
 defaults, not universal.
 
@@ -358,7 +358,7 @@ cd apps/agents-portal && yarn test 2>&1 | tail -30
 ```
 
 Note a typecheck error that is pre-existing and unrelated to this ticket. **Do not** fix it. Treat
-test failures the same way: **fix** the ones caused by this change; **note and skip** pre-existing
+test failures the same way. **Fix** the ones caused by this change. **Note and skip** pre-existing
 or unrelated ones.
 
 Confirm the Phase 3 tests run and pass. Every test file added in Phase 3 must appear in the
@@ -393,11 +393,11 @@ PR and Done summary that **no self-review ran**. When `/phillip` is present but 
 (`gemini`/`codex`) is unauthenticated, let `/phillip` degrade to the reviewers that are available
 (down to Claude-only). **Do not** block.
 
-- Let it run to completion. It applies the HIGH/MEDIUM fixes directly to the working tree (and may commit them itself).
+- Let it run to completion. It applies the HIGH/MEDIUM fixes directly to the working tree, and it can commit them itself.
 - Commit any fixes it left uncommitted: `git add <the files it changed>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit when it changed nothing.
 - **Do not** stop for the verdict (zero stops). Carry it forward to Phase 9 (Done):
   - **"Ready for PR"** → proceed normally.
-  - **"Needs human review -> cap hit, ..."** or any verdict with unresolved HIGH/MEDIUM → proceed, but record the unresolved items and the report path so the Done summary surfaces them on the PR.
+  - **"Needs human review -> cap hit, ..."**, or any verdict with unresolved HIGH/MEDIUM → proceed. Record the unresolved items and the report path, so the Done summary surfaces them on the PR.
 
 For a small or low-risk diff, `/phillip quick` is acceptable (it auto-scales down on trivial diffs anyway).
 
@@ -454,128 +454,9 @@ API rejects.
 
 ## Phase 7: Automated Review (Copilot + Gemini)
 
-Up to two bots may review. Their logins differ between the `reviews` API and the
-inline-`comments` API, so match them exactly:
-
-| Bot | Trigger | Review author (`reviews`) | Inline author (`comments`) | Thread author (GraphQL) |
-|-----|---------|---------------------------|----------------------------|--------------------------|
-| GitHub Copilot | Requested in Phase 6; reviews only when usage is available | `copilot-pull-request-reviewer[bot]` | `Copilot` | `copilot-pull-request-reviewer` |
-| Gemini Code Assist | Automatic on every PR (\~2 min) | `gemini-code-assist[bot]` | `gemini-code-assist[bot]` | `gemini-code-assist` |
-
-Either, both, or (rarely) neither may land. Copilot reviews only when its usage is available: the
-Phase 6 request can error or be silently dropped when Copilot is over its limit. **Do not** block on
-Copilot specifically. Gemini is the fallback and usually arrives first. Process whichever bot
-reviews are present.
-
-### Step 7a: Wait for an automated review
-
-The polls below run up to 10 minutes, then up to 3 more, so this step alone can take 13 minutes. A
-headless `claude -p` run can hit its wall-clock limit inside that window and die here, which makes
-Phase 7 the most common resume point.
-
-```bash
-# Matches both bots' review-author logins.
-BOT_REVIEWS='.user.login=="copilot-pull-request-reviewer[bot]" or .user.login=="gemini-code-assist[bot]"'
-
-# Poll up to 10 min for the first bot review (usually Gemini).
-N=0
-for i in $(seq 1 10); do
-  N=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-    --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | length")
-  [ "$N" -gt 0 ] && break
-  echo "Waiting for an automated review ($i/10)..."
-  sleep 60
-done
-
-# One bot in but not the other → give the slower bot (usually Copilot) a short
-# grace window before processing, in case both will review.
-if [ "$N" = "1" ]; then
-  for j in 1 2 3; do
-    sleep 60
-    N=$(gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-      --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | length")
-    [ "$N" -ge 2 ] && break
-  done
-fi
-
-gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-  --jq "[.[] | select($BOT_REVIEWS) | .user.login] | unique | \"Reviewed by: \" + join(\", \")"
-```
-
-Note the timeout and continue when neither bot responds within the window. **Do not** stop.
-
-### Step 7b: Read the review summaries
-
-Each bot posts a summary in its review body. Read them for feedback that isn't tied to
-a specific line:
-
-```bash
-gh api repos/$REPO/pulls/$PR_NUMBER/reviews \
-  --jq ".[] | select($BOT_REVIEWS) | \"### \(.user.login)\n\(.body)\n\""
-```
-
-Gemini tags each inline finding with a severity badge (`high` / `medium` / `low`). Treat
-HIGH and MEDIUM as actionable; LOW and praise/nit comments can be acknowledged and resolved.
-
-### Step 7c: Address and resolve every bot thread
-
-1. Fetch the bots' inline comments (note Copilot's inline author is `Copilot`, **not** its
-   review login):
-   ```bash
-   gh api repos/$REPO/pulls/$PR_NUMBER/comments \
-     --jq '.[] | select(.user.login=="Copilot" or .user.login=="gemini-code-assist[bot]") | {id, path, line, body}'
-   ```
-2. For each comment: fix it when actionable, otherwise explain why not.
-3. Reply to every comment:
-   ```bash
-   gh api repos/$REPO/pulls/comments/$COMMENT_ID/replies \
-     --method POST --field body="<response>"
-   ```
-4. List the unresolved **bot** thread IDs (skip human-authored threads), then resolve each.
-   Both bots create standard resolvable threads; in GraphQL their authors drop the `[bot]`
-   suffix, so a regex matches both:
-   ```bash
-   OWNER=${REPO%/*}; NAME=${REPO#*/}
-   gh api graphql -f query='
-   query($owner:String!,$name:String!,$pr:Int!) {
-     repository(owner:$owner,name:$name) {
-       pullRequest(number:$pr) {
-         reviewThreads(first:100) {
-           nodes { id isResolved comments(first:1){ nodes { author { login } } } }
-         }
-       }
-     }
-   }' -F owner="$OWNER" -F name="$NAME" -F pr="$PR_NUMBER" \
-     --jq '.data.repository.pullRequest.reviewThreads.nodes[]
-           | select(.isResolved==false)
-           | select(.comments.nodes[0].author.login | test("copilot|gemini-code-assist"))
-           | .id'
-
-   # Then resolve each thread id:
-   gh api graphql -f query='mutation($id:ID!) {
-     resolveReviewThread(input:{threadId:$id}) { thread { isResolved } }
-   }' -F id="$THREAD_ID"
-   ```
-5. Commit any fixes as `fix(<scope>): address automated review findings` and push.
-
-### Step 7d: Ensure CI is green
-
-Bot reviews are advisory. The PR's **CI checks** (build, tests, lint, type) are the real gate.
-After the last code push, wait for the checks to settle:
-
-```bash
-# Waits for all required checks; exits non-zero if any fail.
-gh pr checks "$PR_NUMBER" --watch --interval 30 || CI_FAILED=1
-```
-
-- **All green** → continue.
-- **A check fails** → read its log, fix the cause, commit (`fix(<scope>): fix CI`), push, and
-  re-watch. Loop until green or until the failure is unrecoverable.
-- **Unrecoverable, or the failure is pre-existing and unrelated** → **Never** loop forever. Note it
-  and carry the red-check status to the Done summary so it is surfaced on the PR. Treat a failure
-  caused by this change as a **bail-out** rather than presenting the PR as ready.
-
-`gh pr checks` reports no checks when the repo has no CI configured. Note that and move on.
+**Read [bot-review.md](bot-review.md) before Phase 8.** It owns the bot login table, the wait for a
+review, reading the summaries, addressing and resolving every thread, and the CI-green gate. Leave
+Phase 7 only when every bot thread is resolved and CI is green.
 
 ---
 
@@ -598,7 +479,7 @@ Report:
 - Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
 - **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
-  attached (Phase 8d): the video link, or the specific reason there isn't one (screen-recording
+  attached (Phase 8d): the video link, or the specific reason there is none (screen-recording
   permission not granted, OpenCap not installed/logged in, reviewer mode, `--no-video`). **Never**
   report "video skipped" with no reason.
 - Alignment context (per the Modes table):
