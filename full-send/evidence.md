@@ -71,7 +71,7 @@ Rung 4 requires **all** of these. Any one missing means stop at rung 3:
 - **No other user's data reaches a screenshot.** Capture narrower element shots on any surface that
   lists records you do not own.
 - The comment says `Stack: local dev (real atllas-dev data, not reproducible)` and says why `e2e`
-  could not show the change.
+  does not show the change.
 
 **Never** take rung 4 to save time, to skip writing a seed, or because the `e2e` boot was slow. Those
 are reasons to fix rung 1. A missing seed shipped now is a surface no reviewer can ever verify.
@@ -97,14 +97,14 @@ It returns `{blockers, mediums, nits, images, neutralNotes, video, coverage, mar
 nothing**: this phase stays the single writer.
 
 **Empty states.** `/ui-walkthrough` derives fixtures from the PR's own e2e specs and reports a
-surface it could not populate. Caller-side decision: an unpopulated surface is a real gap to fix
+surface it did not populate. Caller-side decision: an unpopulated surface is a real gap to fix
 before review, not a cosmetic note.
 
 **Uncovered components block the evidence claim.** `coverage.componentsUncovered` lists every
 changed UI file no screenshot mounted (`ui-walkthrough` invariant 11). A non-empty list means this
 phase has not covered the change. Fix it at the source: seed the document shape that reaches the
 panel in the feature's own spec (rung 2 above), then re-run the walkthrough. Only when the ladder is
-exhausted may the phase post, and then it names each uncovered file and its reason in the comment.
+exhausted can the phase post, and then it names each uncovered file and its reason in the comment.
 Never report the change as walked because its route was captured.
 
 ### Step 8c: The video comes back with the walkthrough

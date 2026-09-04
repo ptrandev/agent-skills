@@ -6,7 +6,7 @@ so it has the real code + toolchain to verify findings, and enough memory to run
 dynamic walkthrough** headlessly.
 
 > Source of truth: <https://code.claude.com/docs/en/routines> (research preview, so labels and limits
-> may change). Configure at **claude.ai/code/routines**, the Desktop app (**Routines -> New routine
+> can change). Configure at **claude.ai/code/routines**, the Desktop app (**Routines -> New routine
 > -> Remote**), or `/schedule` in the CLI.
 
 ## How it differs from babysit-prs' Routine
@@ -17,7 +17,7 @@ dynamic walkthrough** headlessly.
 - **It calls other skills**, so the setup script must install them into the sandbox: `phillip`
   (whose `RUBRIC.md` it reads), `phillip-sync`, `codex`, `gemini`.
 - **It can run Tier-3 headlessly** (16 GB is enough for the stack). Setup must supply `gh` and a
-  Chromium (§3); the image ships neither reliably.
+  Chromium (§3). The image ships neither reliably.
 
 ## 1. Connect GitHub (no PAT)
 
@@ -29,12 +29,12 @@ Use the connected GitHub identity, not a pasted token. Either `/web-setup` (gran
 
 At **claude.ai/code/routines -> New routine**:
 
-1. **Name + prompt.** Name `review-pr`; prompt in §4. Pick your model in the selector.
+1. **Name + prompt.** Name it `review-pr`. Use the prompt in §4. Pick your model in the selector.
 2. **Select repositories.** `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues` (cloned fresh from
    the default branch each run).
 3. **Select an environment** (§3).
 4. **Select a trigger** (§5).
-5. **Connectors / Permissions tabs.** Strip connectors this routine doesn't need. **No branch-push
+5. **Connectors / Permissions tabs.** Strip connectors this routine does not need. **No branch-push
    toggle required** (read-only checkout).
 6. **Create**, then **Run now** for the validation pass (§6).
 
@@ -185,9 +185,9 @@ Notes:
   Verified 2026-08-14: every repo call 403s with *"an org admin must connect the Claude GitHub App
   for this organization"*, and all GraphQL is blocked. **That message is misleading.** The same day,
   against `Atllas-Inc`: the `claude` app (id 1236702) **is** installed org-wide, `repository_selection=all`,
-  with `pull_requests: write`; the org has **no** IP allow list and **no** SAML blocking; and the
+  with `pull_requests: write`. The org has **no** IP allow list and **no** SAML blocking, and the
   maintainer's own token reads both repos and runs GraphQL fine. The org is configured correctly.
-  The sandbox's `gh` credential is simply a different credential, provisioned for **git** rather
+  The sandbox's `gh` credential is a different credential, provisioned for **git** rather
   than for the API. That is why the clone works and the evidence-ref push works while `gh api`
   does not. No install, no `GH_TOKEN`, no org change, and no per-routine toggle alters it.
   **`mcp` is the supported cloud path**, and it served discovery and thread reads fine. Under it,
@@ -209,11 +209,11 @@ Notes:
   ([SKILL.md](SKILL.md) Phase 4). A failed `codex login` trips the `WARN` in §3, and the run then
   reports fewer reviewers and caps the verdict at `COMMENT`.
 - `codex` / `gemini` also need their CLIs + auth in the sandbox to actually run (set keys via
-  **Environment variables**); without them the skill degrades to fewer reviewers, says so, and caps
+  **Environment variables**). Without them the skill degrades to fewer reviewers, says so, and caps
   the verdict at `COMMENT`.
 - The `codex`/`gemini` review CLIs and any non-default registries must be reachable. If a host is
   outside the Trusted allowlist, add it under **Network access -> Custom**.
-- `--frozen-lockfile` is a Yarn 1 flag; codebase is **Berry -> `--immutable`**.
+- `--frozen-lockfile` is a Yarn 1 flag. codebase uses **Berry -> `--immutable`**.
 
 ## 4. The prompt
 
@@ -289,9 +289,9 @@ the 177. A first fit on all `ReviewRequestedEvent`s naming `ME` used 74 events, 
 `ME`'s own PRs and can never produce a run.
 
 The signal to fit is the **effective start**: `max(ready-for-review, review-requested-of-ME)` on PRs
-by other people. That is the first moment the routine could act, since it never touches a draft.
-**52 events, 2.4 per weekday.** Dependabot's 11 PRs are excluded; refit including them if the routine
-should review dependency bumps.
+by other people. That is the first moment the routine can act, since it never touches a draft.
+**52 events, 2.4 per weekday.** Dependabot's 11 PRs are excluded. Refit including them if the routine
+must review dependency bumps.
 
 **Events cluster at end-of-day and peak at 11:00 UTC. Nothing arrives 02:00-08:00 UTC.**
 
@@ -342,14 +342,14 @@ unlabelled. **Trust the "Next run" line instead**, which is real local time.
 `next_run_at` in one `RemoteTrigger` `get` response. `next_run_at` is an unambiguous UTC timestamp,
 so it settles the reading on its own. Confirmed 2026-08-27: cron `9 10,16,21 * * 1-5` returned
 `next_run_at: 2026-08-27T21:09:00Z`, and the earlier `0 10 * * 1-5` fired at `10:10:51Z`. A local
-reading of that second one would put it at `14:00Z`.
+reading of that second one puts it at `14:00Z`, which is wrong.
 
 ### 5c. Why not a GitHub event trigger
 
 **Measured 2026-08-27.** A `pull_request` trigger exposes no "which reviewer" filter. The filter
 fields are author, title, body, base branch, head branch, labels, is-draft, is-merged. So
 `pull_request.review_requested` fires when **anyone** is requested on the repo. Against 2.4 events per
-weekday that the routine can actually act on (§5a), most fires would be no-ops, and each one starts a
+weekday that the routine can actually act on (§5a), most fires are no-ops, and each one starts a
 session that costs a run against the daily cap.
 
 Three `RemoteTrigger` API gaps, if you ever revisit event triggers:
@@ -366,7 +366,7 @@ reset `push` from `true` to `false` with no mention of notifications in the requ
 
 ## 6. First-run validation (before trusting it to post)
 
-`green` only means the session didn't crash. **Open the transcript.** Run the prompt with `--draft`
+`green` only means the session did not crash. **Open the transcript.** Run the prompt with `--draft`
 first and confirm:
 
 0. **`GH_TRANSPORT` is recorded**, and every GitHub call used it. Expect `mcp` here until the
@@ -377,7 +377,7 @@ first and confirm:
 3. **Externals ran** (codex + gemini) or it correctly degraded and said so.
 4. **Findings are verified** against the checked-out head, and the printed payload's inline lines
    validate against `pulls/<n>/files` ranges (no 422s).
-5. **Idempotency:** a second `--draft` run reproduces the same draft; after a real post, a re-run
+5. **Idempotency:** a second `--draft` run reproduces the same draft. After a real post, a re-run
    skips ("already reviewed at current head").
 6. **Tier-3, on a real UI PR, end to end.** RAM and a Chromium directory are **not** evidence that
    Tier-3 works. Confirm all four, in the transcript:
@@ -432,12 +432,12 @@ included.
   the **diff embedded in the prompt**
   (feed `/tmp/review-pr-$NAME-$PR.diff`). Do **not** use `/codex review` or `codex review` there: it
   requires OAuth (401s on an API key) and it reviews the **working tree**, which is empty in a
-  detached read-only worktree. Detect via `gstack-codex-probe` or a present API key; when unsure,
+  detached read-only worktree. Detect via `gstack-codex-probe` or a present API key. When unsure,
   use `codex exec`.
 - **Codex auth.** `codex exec` needs a materialized credential. An API key in the env is **not**
   enough: it 401s until a login writes `~/.codex/auth.json`. Run
   `printenv OPENAI_API_KEY | codex login --with-api-key` once. Bake it into the setup script in §3
-  so it isn't re-discovered per run.
+  so it is not re-discovered per run.
 - **Gemini, headless.** Invoke it as `gemini --skip-trust`, or it refuses on the trust gate and
   exits 0. Pass the diff **inline in the `-p` prompt**. Gemini's `-p` mode does not read
   file-path arguments and cannot reach paths outside its workspace, so a `/tmp/...` diff file is
@@ -447,5 +447,5 @@ included.
   skill's `FS_BOUNDARY` prompt orders it to ignore `~/.claude/` on top of that. A path instruction
   no-ops silently, so Gemini reviews against the prompt's summary of the bar only (verified
   2026-08-24, PR #2010). On `RESOURCE_EXHAUSTED` or quota errors it
-  degrades to a thinner voice. Say so in the report; the fix is enabling billing on the
+  degrades to a thinner voice. Say so in the report. The fix is enabling billing on the
   `GEMINI_API_KEY` project (the free tier is rate-capped).

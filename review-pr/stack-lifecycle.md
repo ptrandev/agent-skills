@@ -6,8 +6,8 @@ Read it before any boot.
 
 ## One stack at a time, machine-wide
 
-Acquire the lock before boot; release it in teardown. The lock path is a **fixed absolute literal**,
-not `$TMPDIR`-derived and not `$SCRATCH`-derived. Two processes with different `$TMPDIR` values would
+Acquire the lock before boot. Release it in teardown. The lock path is a **fixed absolute literal**,
+not `$TMPDIR`-derived and not `$SCRATCH`-derived. With different `$TMPDIR` values, two processes
 each take "the" lock and boot two stacks onto the same pinned ports. `/ui-walkthrough` pins the same
 literal path.
 
@@ -29,8 +29,8 @@ echo $$ > "$LOCK/pid"
 ```
 
 Sequential: the ports below are pinned and `browse` is a singleton Chromium daemon, so two stacks
-cannot coexist. Per-repo agents may run in parallel (`orchestration.md`), but Tier-3
-walkthroughs serialize on this lock; an agent that finds it held defers with a NEEDS-DYNAMIC-RUN note
+cannot coexist. Per-repo agents can run in parallel (`orchestration.md`), but Tier-3
+walkthroughs serialize on this lock. An agent that finds it held defers with a NEEDS-DYNAMIC-RUN note
 rather than waiting.
 
 ## Pinned ports: free-or-abort preflight, and the repo already owns this check
@@ -42,7 +42,7 @@ preflight.** `scripts/e2e-stack.sh` runs `node scripts/e2e-preflight.mjs --ports
 naming the squatter's pid/command/cwd. A hand-maintained list here drifts from `firebase.json`, and
 did: the set below previously omitted **9000** (the `database` emulator, which `--only` *does* start)
 and included **4001** (the emulator UI, which `--only` does *not* start, so requiring it free is a
-false blocker). **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you don't own violates the
+false blocker). **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you do not own violates the
 "provably ours" rule below.
 
 If you need a pre-lock check before invoking the harness, match its list exactly:
@@ -57,16 +57,16 @@ if [ -n "$BUSY" ]; then rm -rf "$LOCK"; echo "SKIP_WALKTHROUGH: ports occupied";
 4400 (Emulator Hub) and 4500 (Logging) are in the list because `emulators:exec` always starts both,
 under `--only`, and `firebase.json` declares neither.
 
-This probe misses squatters outside this checkout; the harness preflight is authoritative. Observed
+This probe misses squatters outside this checkout. The harness preflight is authoritative. Observed
 2026-07-30: the `lsof` sweep reported every port free, then `e2e-preflight.mjs` refused the boot
 because :4000 was held by an API in a different conductor worktree.
 
 Any port occupied -> **do not boot, do not walk through**. Release the lock, add a neutral
 NEEDS-DYNAMIC-RUN note naming the port and likely cause ("is your dev stack running?").
 `playwright.config.ts` sets `reuseExistingServer: true`, so if something already listens on :3000
-(the user's dev server on `master`), the walkthrough would **silently validate that code instead of
-the PR's** and produce screenshots "proving" whatever is already running. Kill a leftover only if
-it's provably ours: its PID is in a previous run's `$LOCK/pid` **and** its command line matches the
+(the user's dev server on `master`), the walkthrough **silently validates that code instead of
+the PR's** and produces screenshots "proving" whatever is already running. Kill a leftover only if
+it is provably ours: its PID is in a previous run's `$LOCK/pid` **and** its command line matches the
 stack (`ps -p <pid> -o command=` shows `next start` / `firebase emulators`). **Anything else ->
 skip, never kill.**
 
@@ -86,7 +86,7 @@ among others). Confirm **Node 24** is active first, per the repo's `.nvmrc`.
 under Node 24, 127 under Node 22. Run `node -p 'process.versions.modules'` and require `137`. A
 `node -v` check passes on a container that ships several majors and puts the wrong one first on
 PATH (`routine.md` step (b) has the cloud case). On a mismatch, repair PATH, then run
-`yarn rebuild re2`. Rebuilding is enough; a reinstall is not.
+`yarn rebuild re2`. Rebuilding is enough. A reinstall is not.
 
 *(Verified via cloud boot spike 2026-07-26: emulators and API boot fine headlessly. This pre-build
 is the one gap between a fresh clone and a healthy `:3000`.)*
@@ -127,7 +127,7 @@ After the stack reports healthy, confirm :3000 is owned by a process this run sp
 The existing harness provides state isolation: `yarn e2e:stack` runs `firebase emulators:exec` with
 per-run in-memory emulators seeded by `e2e/seed/seed.mjs` (no `--import`), and external services are
 stubbed. **Never point the walkthrough at the dev database or real services.** If the stubbed stack
-can't exercise the surface, that's a NEEDS-DYNAMIC-RUN note, not a reason to relax stubbing.
+cannot exercise the surface, that is a NEEDS-DYNAMIC-RUN note, not a reason to relax stubbing.
 
 ## Boot budget and teardown
 

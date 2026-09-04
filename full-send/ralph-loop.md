@@ -13,7 +13,7 @@ step 4 below.
 
 **Run state: on disk, not in context.** Under the run dir `/tmp/full-send-$TICKET_ID/`:
 
-- `fix_plan.md`: the ordered, checkboxed task list; the single source of truth for what's left.
+- `fix_plan.md`: the ordered, checkboxed task list, the single source of truth for what is left.
 - `notes.md`: learnings carried across iterations: build/test commands discovered, gotchas,
   decisions, and any follow-on work surfaced mid-build.
 - `spec.md`: the ticket title, description, and acceptance criteria, which a fresh sub-context
@@ -53,12 +53,12 @@ accumulated implementation detail. Until every task is checked:
      added/touched. Must be green before committing.
    - Commit just this unit: `git commit -m "<type>(<scope>): <task description>"`. Commit any
      opportunistic cleanup separately as `refactor(<scope>): ...`.
-   - Append anything learned to `notes.md`; check off the task in `fix_plan.md`.
+   - Append anything learned to `notes.md`. Check off the task in `fix_plan.md`.
    - Return a **short structured summary**: task, files touched, verify result, commit SHA, and
      anything discovered (new tasks to append, a surfaced smell, or a blocker). Not the full diff.
 4. **Verify the summary** in the main loop: confirm the task is checked off and
    committed, fold any newly-discovered tasks into `fix_plan.md`, and continue. When the subagent
-   reports a blocker, or its task could not be made green, retry **once** with the failure recorded
+   reports a blocker, or its task cannot be made green, retry **once** with the failure recorded
    in `notes.md` (Ralph "tuning"). When it still fails, **bail out** (see Bail-out in `SKILL.md`)
    and leave the branch intact.
 

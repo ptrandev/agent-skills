@@ -2,7 +2,7 @@
 
 Owns every GitHub call both `/review-pr` and `/ui-walkthrough` make. Read it in Phase 0, set
 `GH_TRANSPORT` once, and route every later GitHub operation through the mapping below. The phases
-name operations; this file owns how each one is issued.
+name operations. This file owns how each one is issued.
 
 ## Two transports, one probe
 
@@ -35,10 +35,10 @@ review-thread tools for that phase alone, and say so in the report.
 CLI needs its own org-level app connection. A run can have working MCP and a dead `gh` at the same
 time, which is the normal cloud case.
 
-**Do not try to "fix" `cli` in a cloud sandbox.** Its 403 names an org admin action, but that
+**Do not "fix" `cli` in a cloud sandbox.** Its 403 names an org admin action, but that
 message is misleading: verified 2026-08-14 against `Atllas-Inc`, the app was already installed
 org-wide with `pull_requests: write`, there was no IP allow list and no SAML block, and a local
-token read the same repos fine. The sandbox simply holds a git credential, not an API one.
+token read the same repos fine. The sandbox holds a git credential, not an API one.
 `mcp` is the supported cloud path. Treat a failed `cli` probe there as normal, not as a defect to
 report or escalate.
 
@@ -74,7 +74,7 @@ git diff "origin/$BASE...$HEAD_SHA" > "/tmp/review-pr-$NAME-$PR.diff"           
 ```
 
 Fetch the base fresh first. `$BASE` and `$HEAD_SHA` come from the PR read, so they are transport-
-dependent; the diff itself is not.
+dependent. The diff itself is not.
 
 ## What `mcp` cannot do
 

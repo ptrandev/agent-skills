@@ -36,7 +36,7 @@ gate -> dispatch -> aggregate.
 - **Return contract:** each agent returns only the verdict line (event, head SHA, posted review id,
   inline-comment count), its report path, and its NEEDS-YOUR-EYES / NEEDS-DYNAMIC-RUN items, not its
   transcript.
-- **Failure isolation:** a dead sub-agent marks its PR `skipped (agent failed)`; the others proceed.
+- **Failure isolation:** a dead sub-agent marks its PR `skipped (agent failed)`. The others proceed.
 - **Single-PR exception:** exactly one target PR -> run Phases 3 through 9 inline, no dispatch.
 
 ### Batch execution model (multi-PR runs): static parallel, then dynamic serial
@@ -58,17 +58,17 @@ PR is **UI-touching** (the Phase 6 prefix test).
 enforces one live stack machine-wide anyway), **ordered by UI-diff size, largest first** (most
 surface = most walkthrough value, and a broken stack fails fast). For each PR: Phase 6 (pre-build
 packages -> boot -> drive -> capture) -> merge live findings into the parked static payload (a
-live-confirmed defect can raise the verdict to `REQUEST_CHANGES`; a clean walkthrough supports
+live-confirmed defect can raise the verdict to `REQUEST_CHANGES`, and a clean walkthrough supports
 `APPROVE`) -> **post the full review immediately** (Phase 8). Reviews land progressively, not in one
 end-of-run batch.
 
 **Time budget and degradation: never drop a PR.** Pass B is bounded by the session runtime. Any UI PR
 **not reached** before the budget runs out **posts its Pass-A static review** with a
-`NEEDS-DYNAMIC-RUN` note ("static review posted; dynamic walkthrough deferred. Re-run
+`NEEDS-DYNAMIC-RUN` note ("static review posted. Dynamic walkthrough deferred. Re-run
 `/review-pr <n>` for the dynamic pass"). **Every in-scope PR gets a posted review.** Only the
 *walkthrough* is deferrable. The aggregate lists which PRs got dynamic vs static-only.
 
-### Nested dispatch: a per-PR agent may spawn its own helpers, bounded
+### Nested dispatch: a per-PR agent can spawn its own helpers, bounded
 
 A per-PR agent already runs the blind reviewer. Extend the pattern to other **read-only** work when
 one PR is itself too big for one context: chunked review of a large diff (one reader agent per chunk,
@@ -76,7 +76,7 @@ findings merged before Phase 5), parallel verification of independent findings, 
 pile of bot threads. Two hard rules:
 
 - **Single writer per PR.** Only the per-PR agent posts the review, replies to threads, resolves bot
-  threads, or touches the checkout. Helpers return findings and verdicts; invariant 2
+  threads, or touches the checkout. Helpers return findings and verdicts. Invariant 2
   (only-verified-posts) is enforced in exactly one place.
 - **Depth cap:** orchestrator -> per-PR agent -> helpers. No deeper, and no speculative spawning: a
   normal-sized PR runs Phases 4 and 5 inline (plus the blind reviewer it always runs).
