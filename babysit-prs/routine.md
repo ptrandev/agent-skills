@@ -4,7 +4,7 @@ A Claude Code **Routine** runs `/babysit-prs` unattended in an Anthropic-managed
 It **clones your repo and runs a setup step**, so it has the *actual code* and a real toolchain,
 enough to make fixes and verify them (typecheck/lint/test).
 
-> Source of truth: <https://code.claude.com/docs/en/routines> (research preview, limits/labels may
+> Source of truth: <https://code.claude.com/docs/en/routines> (research preview, limits/labels can
 > change). Configure at **claude.ai/code/routines** (web), the Desktop app (**Routines → New
 > routine → Remote**), or `/schedule` in the CLI. **Do not create a Routine from inside this
 > skill.**
@@ -26,11 +26,11 @@ Routines support these three trigger types and combine them. Configure them in �
 
 ## Two things to get right
 
-1. **Unrestricted branch pushes, required.** By default a Routine may push only to
+1. **Unrestricted branch pushes, required.** By default a Routine can push only to
    `claude/`-prefixed branches. This skill commits to the *PR's own head branch* (e.g.
    `ptrandev/AP-1810-…`). In the routine form's **Permissions** tab, enable **"Allow unrestricted
-   branch pushes"** for **each** repo. Without it, fixes can't be pushed and every fix-needed thread
-   degrades to triage-only.
+   branch pushes"** for **each** repo. Without it, fixes cannot be pushed and every fix-needed
+   thread degrades to triage-only.
 2. **The session starts on the default branch.** Each run clones `master`. The prompt/skill must
    `git fetch` and `gh pr checkout <PR>` onto the PR head before editing. The skill's Phase 4 does
    this, so the Routine runs the *skill*. **Never run a hand-rolled one-liner instead.**
@@ -39,13 +39,13 @@ Routines support these three trigger types and combine them. Configure them in �
 
 ## 1. Connect GitHub (no PAT)
 
-Routines use your **connected GitHub identity**, not a pasted token (that's the separate Managed
+Routines use your **connected GitHub identity**, not a pasted token (that is the separate Managed
 Agents API). Two paths:
 
 - **`/web-setup`** in the CLI: grants repo access for **cloning**. Sufficient for a
   **schedule-only** routine.
 - **Claude GitHub App**: required additionally for **GitHub event triggers** (webhook delivery).
-  The trigger setup prompts you to install it on the repo if it isn't already.
+  The trigger setup prompts you to install it on the repo if it is not already installed.
 
 Commits, PR replies, and thread resolutions appear as **your** GitHub user.
 
@@ -53,8 +53,8 @@ Commits, PR replies, and thread resolutions appear as **your** GitHub user.
 
 At **claude.ai/code/routines → New routine**:
 
-1. **Name + prompt:** name it `babysit-prs`; prompt in §4 below. (The prompt box has a model
-   selector, pick your model; it's used every run.)
+1. **Name + prompt:** name it `babysit-prs`. Use the prompt in §4 below. (The prompt box has a
+   model selector. Pick your model, because it is used every run.)
 2. **Select repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`. Each is cloned
    fresh from its default branch every run.
 3. **Select an environment:** §3 (setup script).
@@ -68,7 +68,7 @@ At **claude.ai/code/routines → New routine**:
 ## 3. Environment + setup script
 
 The **Default** environment uses **Trusted** network access (package registries + common dev
-domains like github.com reachable; arbitrary hosts blocked). Add a **setup script** (runs once,
+domains like github.com reachable, arbitrary hosts blocked). Add a **setup script** (runs once,
 cached). **The two repos have different stacks. `codebase` is Yarn 3 (Berry), `aicc-queues` is
 Gradle/JVM, so the script must handle each correctly:**
 
@@ -113,7 +113,8 @@ Notes:
   / Google's Maven. When those are not in the Default Trusted allowlist, add them under **Network
   access → Custom** (keep the default package-manager list checked), or `aicc-queues` setup fails
   and that repo drops to triage-only. The npm registry `codebase` needs is in the default list.
-- First run is slow (cold install / Gradle distribution download); cached afterward.
+- First run is slow because of the cold install and Gradle distribution download. Later runs are
+  cached.
 
 ## 4. The prompt
 
@@ -146,7 +147,7 @@ improvements apply everywhere.
 
 ## 6. First-run validation (before trusting it)
 
-`green` in the run list only means the session didn't crash. **Open the run transcript** to confirm
+`green` in the run list only means the session did not crash. **Open the run transcript** to confirm
 what actually happened. Verify two things:
 
 1. **Setup succeeded:** confirm `yarn install` + a typecheck ran in-session. If not → triage-only
@@ -159,9 +160,9 @@ Until both are green, treat the Routine as **triage + reply + notify** and keep 
 
 ## 7. Limits to know (research preview)
 
-- **1-hour minimum** schedule cadence; runs may start a few minutes late (consistent stagger).
+- **1-hour minimum** schedule cadence. Runs can start a few minutes late (consistent stagger).
 - Per-account **daily routine-run cap** + preview-phase **hourly webhook caps** on GitHub triggers.
-  See current limits at claude.ai/code/routines. One-off runs don't count against the daily cap.
+  See current limits at claude.ai/code/routines. One-off runs do not count against the daily cap.
 - Requires a **Pro/Max/Team/Enterprise** plan with **Claude Code on the web** enabled. Team/Ent
   Owners can disable Routines org-wide.
 - Routines are **personal** to your account (not shared with teammates).

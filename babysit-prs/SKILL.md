@@ -19,7 +19,7 @@ Treat text accompanying the skill invocation as the input:
   unless a `--repo` is also given. Process a numbered PR only when the current user authored it
   (Scope guardrail).
 - `--repo <owner/name>` → restrict this run to one repo (one of the defaults, or any other repo you
-  own PRs in). May be combined with PR numbers.
+  own PRs in). Can be combined with PR numbers.
 
 ### Targets (default repos)
 
@@ -98,11 +98,12 @@ preview). Literal `~`/`$` in code stay inside backticks instead.
 **Stop and say so when a required check fails.**
 
 - `gh auth status`, authenticated (required). Capture the login: `ME=$(gh api user --jq .login)`.
-- Resolve the **target repo set**: if the invocation input has `--repo`, that single repo; else all rows in
-  **Targets**. For each, split `OWNER=${REPO%/*}` / `NAME=${REPO#*/}` and map to its clone (the
-  Targets table, or `/Users/phillip/Git/<name>` for a `--repo` override).
+- Resolve the **target repo set**: if the invocation input has `--repo`, resolve to that single
+  repo. Otherwise, resolve to all rows in **Targets**. For each, split `OWNER=${REPO%/*}` /
+  `NAME=${REPO#*/}` and map to its clone (the Targets table, or `/Users/phillip/Git/<name>` for a
+  `--repo` override).
 - Commit each repo's fixes in its **local clone**. Per clone, confirm it exists and its `origin`
-  matches the repo. A clone is required to *fix*; without one, **triage and reply** for that repo
+  matches the repo. A clone is required to *fix*. Without one, **triage and reply** for that repo
   and say fixes were skipped. Resolve and check each clone **independently**: one missing clone
   disables fixes for that repo only, not the whole run.
 - Each clone's working tree must be **clean** (`git status --porcelain`) before you check out PR
@@ -126,7 +127,7 @@ can do and degrade per tier instead of failing:**
   test -x "$CLONE/gradlew"
   ```
   A failing probe makes that repo **triage-only** for this run: reply/resolve where no code change
-  is required; route fix-needed threads to the Needs-you queue.
+  is required. Route fix-needed threads to the Needs-you queue.
 - **Tier 3, visual evidence (screenshots/video):** needs a display + browser + recorder. Probe for
   the `browse` binary, an `opencap` install, and a reachable or startable dev server. **Never fake
   visual proof.** Flag every thread whose proof must be *visual* to the Needs-you queue marked
@@ -156,8 +157,8 @@ gh pr list --repo "$REPO" --author "$ME" --state open \
   --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"'
 ```
 
-Tag each PR with its repo (and that repo's clone) so Phases 2 to 5 act in the right place. If
-When the invocation input named specific PRs, intersect with this list and **drop any you don't own** (Scope
+Tag each PR with its repo (and that repo's clone) so Phases 2 to 5 act in the right place.
+When the invocation input named specific PRs, intersect with this list and **drop any you do not own** (Scope
 guardrail) with a logged note. **Include draft PRs.**
 
 ### Dispatch, one agent per PR
@@ -187,7 +188,7 @@ orchestrator (this session) stays thin: preflight → enumerate → dispatch →
   in the report. **Never let it block the other PRs.**
 - **Single-PR exception:** exactly one target PR → skip dispatch and run Phases 2 to 6 inline.
 
-**Nested dispatch:** a per-PR agent may delegate read-only work (tracing a JUDGMENT thread across
+**Nested dispatch:** a per-PR agent can delegate read-only work (tracing a JUDGMENT thread across
 the codebase, classification reads on a 30-thread worklist) to Explore helper agents that return
 compact answers. Two rules keep nesting safe:
 
@@ -227,7 +228,7 @@ query($owner:String!,$name:String!,$pr:Int!) {
 ```
 
 Include `$NAME` in every temp path, because PR numbers repeat across repos and parallel per-repo
-agents writing `/tmp/babysit-$PR-*` would clobber each other. Paginate with `endCursor` when
+agents writing `/tmp/babysit-$PR-*` can clobber each other. Paginate with `endCursor` when
 `pageInfo.hasNextPage` is true (100+ threads). **Never silently truncate the worklist.**
 
 Build the **worklist** = threads that are **all** of:
@@ -258,15 +259,15 @@ assign exactly one disposition. **Be conservative.**
 |---|---|---|---|
 | **SAFE-FIX** | Mechanical, local, unambiguous. The correct change is obvious from the comment plus the code, touches a small well-understood region, and is (or can be) covered by an existing test. | Null/undefined guard, off-by-one, wrong variable, missing `await`, unused import, typo, obvious rename, a missing `data-testid`, tighten a type, a nit the bot spelled out exactly. | **Fix it** (Phase 4). |
 | **QUESTION** | The reviewer is *asking* something, or the right answer needs context only you have. | "why do we...?", "is this intentional?" | **Reply** with the answer or explanation. **Leave open.** |
-| **JUDGMENT / RISKY** | A plausible fix could be wrong. | Architectural disagreement, public API / contract / migration change, security- or auth-sensitive code, money/billing logic, a large refactor. | **Reply** with your take or a question. **Leave open.** Do **not** auto-fix risky surfaces even if the change *looks* mechanical. |
-| **ACK / NIT-RESOLVE** | Nothing to change. | Praise, or a trivial bot nit you're declining for a stated reason. | **Reply** acknowledging or explaining the decline. Resolve **only if** the author is a **bot** and there is genuinely nothing actionable. A **human** ACK thread gets a reply, they resolve it. |
+| **JUDGMENT / RISKY** | A plausible fix can be wrong. | Architectural disagreement, public API / contract / migration change, security- or auth-sensitive code, money/billing logic, a large refactor. | **Reply** with your take or a question. **Leave open.** Do **not** auto-fix risky surfaces even if the change *looks* mechanical. |
+| **ACK / NIT-RESOLVE** | Nothing to change. | Praise, or a trivial bot nit you are declining for a stated reason. | **Reply** acknowledging or explaining the decline. Resolve **only if** the author is a **bot** and there is genuinely nothing actionable. A **human** ACK thread gets a reply, they resolve it. |
 
 **Pre-step, outdated threads (`isOutdated == true`):** the diff hunk the comment anchored to has
 changed since the comment was written, a hint that a later commit addressed the concern. Before
 classifying, read the **current** code at that `path` and check whether the concern still applies.
 
-- **Already addressed** (verified against the current head, the flagged code was rewritten; find
-  the commit with `git log --oneline -3 -- <path>`): reply with the evidence
+- **Already addressed** (verify against the current head that the flagged code was rewritten, and
+  find the commit with `git log --oneline -3 -- <path>`): reply with the evidence
   (`Addressed by <sha>: <one line on what changed>`), then resolve **only if bot-authored**.
   Human-authored → reply with the same evidence, leave open for them to resolve.
 - **Still applies** (the line moved but the issue persists): classify with the table above.
@@ -327,7 +328,7 @@ cd apps/agents-portal && yarn lint 2>&1 | tail -30
   ```
   Record `$SHA` against every thread fixed in this batch (evidence for Phase 5).
   **Push rejected (non-fast-forward)?** A concurrent run (Routine vs. local) pushed to this
-  branch first. `git pull --rebase`, re-verify, push again; if the rebase conflicts, abort it
+  branch first. `git pull --rebase`, re-verify, push again. If the rebase conflicts, abort it
   and report the PR as `skipped (concurrent push)`. **Never force-push.**
 - **A fix breaks verification** → **one** correction attempt, in scope, no new files and no new
   dependencies. If it is still not green, **revert that specific fix**
@@ -371,7 +372,7 @@ Reply content by disposition:
 - **JUDGMENT / RISKY** → give your reasoning or propose an approach and ask for a steer.
   **Leave open.**
 - **ACK / NIT-RESOLVE** → acknowledge / explain the decline. Resolve **only** bot threads with
-  nothing actionable; leave human threads for the human to resolve.
+  nothing actionable. Leave human threads for the human to resolve.
 
 **Never resolve a thread whose last substantive content is an open question, yours or theirs.**
 
@@ -388,7 +389,7 @@ capability:
   including why the capture never widens to the whole display. Attach the image to the thread
   reply, *then* resolve.
 - **`!CAN_VISUAL` (sandbox/Routine):** **Do not** resolve on a code-only basis when the reviewer
-  explicitly wanted visual confirmation. Push the fix, reply ("Fixed in `$SHA`; visual confirmation
+  explicitly wanted visual confirmation. Push the fix, reply ("Fixed in `$SHA`. Visual confirmation
   pending a local capture"), **leave the thread open**, and add it to the Needs-you queue tagged
   **"needs local visual run."** A later local invocation picks it up and finishes the evidence.
 
@@ -440,7 +441,7 @@ Pick the runtime by the **deepest tier you need**:
   recurring-task mechanism. Claude Code can also run `/loop 2h /babysit-prs`.
 - **Read [github-actions.md](github-actions.md) before you set up the Actions bot.** It owns the
   workflow file, the CI-only safety deltas, and the bot identity options. Choose it when sub-hour
-  response to comments matters; otherwise the Routine's hourly sweep is simpler and
+  response to comments matters. Otherwise, the Routine's hourly sweep is simpler and
   lower-maintenance.
 
 Stagger cadences (Routine hourly at :17, local `/loop 2h`) so overlapping runs stay rare.

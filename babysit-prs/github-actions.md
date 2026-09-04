@@ -96,13 +96,13 @@ jobs:
 
 ## Token / identity options
 
-- **PAT of a dedicated bot account** (`atllas-babysit-bot`) with `repo` scope: simplest; commits
+- **PAT of a dedicated bot account** (`atllas-babysit-bot`) with `repo` scope: simplest. Commits
   and resolutions show as that account. Store as `BABYSIT_BOT_TOKEN`.
 - **GitHub App**: cleaner identity, per-repo install, finer permissions, higher rate limits.
   More setup. Preferred if this graduates to org-wide use.
-- **Never use the default `GITHUB_TOKEN`**: its pushes don't re-trigger downstream workflows (so CI
-  wouldn't re-run on the bot's fix commit), and cross-PR thread resolution is awkward. Use a real
-  bot token/App.
+- **Never use the default `GITHUB_TOKEN`**: its pushes do not re-trigger downstream workflows (so
+  CI will not re-run on the bot's fix commit), and cross-PR thread resolution is awkward. Use a
+  real bot token/App.
 
 ## Rollout
 
