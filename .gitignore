@@ -8,4 +8,7 @@ ui-walkthrough/dev-credentials.md
 
 # phillip-sync writes its per-repo cooldown cursor here at runtime (via the symlink) — local state, not source
 phillip/.sync-state.json
+
+# Private local review rubric
+phillip/RUBRIC.md
 .gstack/
