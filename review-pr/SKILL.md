@@ -124,12 +124,12 @@ Locate the directories containing the loaded `review-pr`, `phillip`, `claude`, `
 rubric, reference, and script path below.
 
 ```bash
-# Probe a REPO call. `gh api user` passes while repo calls 403; see github-transport.md.
+# Probe a REPO call. `gh api user` passes while repo calls 403; see ../shared/github-transport.md.
 if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
 SCRATCH=/private/tmp/review-pr; mkdir -p "$SCRATCH"    # NOT $TMPDIR, see below
 ```
 
-**Read [github-transport.md](github-transport.md) before any GitHub call.** It owns the probe, the
+**Read [../shared/github-transport.md](../shared/github-transport.md) before any GitHub call.** It owns the probe, the
 `cli`/`mcp` operation mapping, and what each transport cannot do. Set `GH_TRANSPORT` here, take `ME`
 from that file's identity row, and route every later GitHub operation through it.
 
@@ -145,7 +145,7 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
 **Capability tiers** (probe and record booleans):
 
 - **Tier 1, discover + post (`GH_TRANSPORT`):** `gh` **or** the GitHub MCP tools, per
-  [github-transport.md](github-transport.md). **Not always available**, and a cloud run commonly has
+  [../shared/github-transport.md](../shared/github-transport.md). **Not always available**, and a cloud run commonly has
   working MCP with a dead `gh`. Neither -> stop.
 - **Tier 2, verify against real code (`CAN_VERIFY_<repo>`):** the repo's clone exists, is clean,
   and the toolchain runs. Probe `node`/`yarn` (codebase -> FULL) and `java`/`./gradlew`
@@ -382,7 +382,7 @@ Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side
   concurrent run (Routine vs. local) already posted: skip with a note instead of
   double-reviewing.
 - **default (autonomous):** submit ONE review, through `GH_TRANSPORT`
-  ([github-transport.md](github-transport.md), *post the review*):
+  ([../shared/github-transport.md](../shared/github-transport.md), *post the review*):
   ```bash
   gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" --method POST --input /tmp/review-pr-$NAME-$PR-payload.json
   # payload: { commit_id: HEAD_SHA, event, body, comments:[{path,line,side,body}, ...] }
@@ -391,7 +391,7 @@ Each `comments[]` entry anchors to the unified diff with `path` + `line` + `side
   submit carrying the `event`. On a residual 422 for one comment, retry it folded into the `body`
   rather than failing the whole review. Record the posted review id + `commit_id`.
 - **Labels, every posted verdict.** After the review submits, set the PR's state label through
-  `GH_TRANSPORT` ([github-transport.md](github-transport.md), *labels*). Pick the row by the posted
+  `GH_TRANSPORT` ([../shared/github-transport.md](../shared/github-transport.md), *labels*). Pick the row by the posted
   `event` and by how many findings the review actually posted:
 
   | Posted verdict | Add | Remove |

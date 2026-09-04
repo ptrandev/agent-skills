@@ -139,7 +139,7 @@ script path below.
 Probe, record booleans, branch later. **Never assume a driver.**
 
 ```bash
-# Probe a REPO call. `gh api user` passes while repo calls 403; see github-transport.md.
+# Probe a REPO call. `gh api user` passes while repo calls 403; see ../shared/github-transport.md.
 if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
 SCRATCH=/private/tmp/ui-walkthrough; mkdir -p "$SCRATCH"     # NOT $TMPDIR, see below
 ```
@@ -147,7 +147,7 @@ SCRATCH=/private/tmp/ui-walkthrough; mkdir -p "$SCRATCH"     # NOT $TMPDIR, see 
 `$SCRATCH` narrows to `$SCRATCH/lane-$LANE` once *Lane selection* has run. Do that before the first
 capture, so two concurrent runs cannot overwrite each other's PNGs.
 
-**Read [../review-pr/github-transport.md](../review-pr/github-transport.md) before any GitHub
+**Read [../shared/github-transport.md](../shared/github-transport.md) before any GitHub
 call.** It owns the probe, the `cli`/`mcp` mapping, and `ME`, for this skill and `/review-pr` both.
 **Never gate on `gh auth status`**: it passes in a sandbox where every `gh api` call 403s, so this
 skill then exits only after booting a stack and capturing a full matrix. Two consequences here:
@@ -438,7 +438,7 @@ mode payloads, the two body templates, the local report format, and the teardown
 Three rules from it that the earlier phases depend on, so they stay here too:
 
 - **Re-check `draft` and `author` immediately before posting** (invariant 10), not just at discovery.
-- **Post through `GH_TRANSPORT`** ([../review-pr/github-transport.md](../review-pr/github-transport.md)).
+- **Post through `GH_TRANSPORT`** ([../shared/github-transport.md](../shared/github-transport.md)).
 - **Teardown is the Phase 4 EXIT trap, and it runs whether or not the walkthrough succeeded.**
 
 ---

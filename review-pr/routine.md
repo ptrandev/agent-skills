@@ -32,8 +32,11 @@ Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 ## Setup script
 
-The setup script installs the skills, reviewer CLIs, project toolchains, and a headless browser. It
-logs to `/var/log/review-pr-setup.log`.
+The setup script installs the skills, the shared reference files, reviewer CLIs, project
+toolchains, and a headless browser. It logs to `/var/log/review-pr-setup.log`.
+
+The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
+`../shared/github-transport.md`, which resolves next to the installed skill.
 
 ```bash
 exec > >(tee -a /var/log/review-pr-setup.log) 2>&1
@@ -41,11 +44,12 @@ exec > >(tee -a /var/log/review-pr-setup.log) 2>&1
 rm -rf /tmp/agent-skills
 git clone --depth 1 https://github.com/ptrandev/agent-skills.git /tmp/agent-skills
 mkdir -p "$HOME/.claude/skills"
-for skill in review-pr phillip phillip-sync gemini full-send ui-walkthrough; do
-  if [ -d "/tmp/agent-skills/$skill" ]; then
-    cp -R "/tmp/agent-skills/$skill" "$HOME/.claude/skills/$skill"
+for item in review-pr phillip phillip-sync gemini full-send ui-walkthrough shared; do
+  if [ -d "/tmp/agent-skills/$item" ]; then
+    rm -rf "$HOME/.claude/skills/$item"
+    cp -R "/tmp/agent-skills/$item" "$HOME/.claude/skills/$item"
   else
-    echo "WARN: skill '$skill' is unavailable"
+    echo "WARN: '$item' is unavailable"
   fi
 done
 

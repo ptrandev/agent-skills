@@ -9,7 +9,7 @@ Owns the post payloads, both body templates, the local report, and the teardown 
 marker query. A concurrent routine can have posted since discovery, or the PR can have flipped to
 draft. Either -> skip with a note. Every body posted here, both modes, is held to **Writing style**.
 
-**Post through `GH_TRANSPORT`** ([../review-pr/github-transport.md](../review-pr/github-transport.md)).
+**Post through `GH_TRANSPORT`** ([../shared/github-transport.md](../shared/github-transport.md)).
 Under `mcp` the payload below becomes a pending review, one add-comment call per entry, then a
 submit carrying the `event`.
 

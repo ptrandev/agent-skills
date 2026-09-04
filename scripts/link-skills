@@ -77,6 +77,18 @@ link_skill() {
 }
 
 status=0
+
+# shared/ holds reference files that skills cross-link as ../shared/<file>. It has no SKILL.md,
+# so link it beside the skills to keep that relative path valid from either host directory.
+if [ -d "$repo_root/shared" ]; then
+  if [ "$selected_host" = all ] || [ "$selected_host" = claude ]; then
+    link_skill claude "$repo_root/shared" "$claude_dir" || status=1
+  fi
+  if [ "$selected_host" = all ] || [ "$selected_host" = codex ]; then
+    link_skill codex "$repo_root/shared" "$codex_dir" || status=1
+  fi
+fi
+
 for skill_file in "$repo_root"/*/SKILL.md; do
   [ -f "$skill_file" ] || continue
   skill_dir=$(dirname -- "$skill_file")

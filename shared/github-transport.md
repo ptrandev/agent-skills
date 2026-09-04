@@ -1,8 +1,8 @@
 # GitHub transport: `gh` CLI or MCP
 
-Owns every GitHub call both `/review-pr` and `/ui-walkthrough` make. Read it in Phase 0, set
-`GH_TRANSPORT` once, and route every later GitHub operation through the mapping below. The phases
-name operations. This file owns how each one is issued.
+Owns every GitHub call that `/review-pr`, `/ui-walkthrough`, and `/babysit-prs` make. Read it
+before the first GitHub call, set `GH_TRANSPORT` once, and route every later GitHub operation
+through the mapping below. The skills name operations. This file owns how each one is issued.
 
 ## Two transports, one probe
 
@@ -65,6 +65,10 @@ operation, not the string.
 | post the review | `gh api …/pulls/$PR/reviews --method POST` | the PR-review write toolset (`pull_request_review_write`): open a pending review, add each inline comment, submit with the event |
 | post a comment (author mode) | `gh pr comment` | add issue comment |
 | labels (add / remove) | `gh api …/issues/$PR/labels` POST, `…/labels/<name>` DELETE | the issue-write toolset: add labels, remove label |
+| discover PRs you authored | `gh pr list --repo "$REPO" --author "$ME" --state open` | list PRs per repo, then filter on the author login |
+| unresolved review threads | `gh api graphql` (the thread query) | list review comments, then read `isResolved` through the review-thread read tool |
+| reply inside a review thread | `gh api …/pulls/$PR/comments/$ID/replies --method POST` | the review-comment reply tool |
+| resolve a review thread | `gh api graphql` `resolveReviewThread` | the review-thread write tool |
 
 **Two operations never need the API.** Both work under either transport, so prefer them always:
 
@@ -76,6 +80,13 @@ git diff "origin/$BASE...$HEAD_SHA" > "/tmp/review-pr-$NAME-$PR.diff"           
 Fetch the base fresh first. `$BASE` and `$HEAD_SHA` come from the PR read, so they are transport-
 dependent. The diff itself is not.
 
+**A skill that pushes a fix checks out the real head branch instead.** The detached name above
+cannot push back to the PR:
+
+```bash
+git fetch origin "$HEAD_BRANCH" && git checkout "$HEAD_BRANCH" && git reset --hard "origin/$HEAD_BRANCH"
+```
+
 ## What `mcp` cannot do
 
 - **The `body_html` read-back is unavailable.** It needs the `application/vnd.github.full+json`
@@ -86,8 +97,8 @@ dependent. The diff itself is not.
 
 ## Rules
 
-1. **Probe once, in Phase 0. Record `GH_TRANSPORT` in the report.** A reader must be able to tell
-   which path produced the review, because the two differ in what was verified.
+1. **Probe once, before the first GitHub call. Record `GH_TRANSPORT` in the report.** A reader
+   must be able to tell which path produced the run, because the two differ in what was verified.
 2. **Never mix transports inside one run.** A half-`gh`, half-MCP run reads two different auth
    identities, and idempotency checks against the wrong one double-post.
 3. **Neither transport available -> stop.** There is nothing to discover from or post to. That is a

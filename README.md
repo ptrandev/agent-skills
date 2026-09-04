@@ -38,6 +38,11 @@ No setup is needed inside this repository. Its local symlinks already expose eve
 - `.agents/skills/` for Codex
 - `.claude/skills/` for Claude Code
 
+`shared/` holds reference files that more than one skill reads, such as
+[`shared/github-transport.md`](shared/github-transport.md). It is not a skill. `scripts/link-skills`
+links it beside the skills, so a `../shared/<file>` path resolves from either host directory. A
+Routine setup script must copy `shared` next to the skills it installs.
+
 To use the skills in other repositories, install user-level symlinks:
 
 ```bash

@@ -25,7 +25,7 @@ For each **unresolved bot** thread, trace it and act:
   as your own** finding, which only duplicates the noise.
 - **False / irrelevant / already-handled** (verified wrong) -> **reply** with the one-line reason,
   then **resolve** it (`resolveReviewThread`, or the MCP review-thread write tool under
-  `GH_TRANSPORT=mcp`, per [github-transport.md](github-transport.md)). This is **default on**.
+  `GH_TRANSPORT=mcp`, per [../shared/github-transport.md](../shared/github-transport.md)). This is **default on**.
   `--no-resolve-bots` replies but leaves it unresolved.
 
 Hard rules:

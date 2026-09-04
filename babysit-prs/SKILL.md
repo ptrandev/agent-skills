@@ -23,20 +23,27 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-Process these unless `--repo` narrows the run. Each has a known local clone for making fixes:
+Process these unless `--repo` narrows the run: `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
 
-| Repo | Local clone |
-|------|-------------|
-| `Atllas-Inc/codebase` | `/Users/phillip/Git/codebase` |
-| `Atllas-Inc/aicc-queues` | `/Users/phillip/Git/aicc-queues` |
+Each repo needs a clone to make fixes in. Resolve `CLONE` per repo, in this order, and take the
+first hit:
 
-**Default author:** the `gh` authenticated login.
+```bash
+for candidate in "./$NAME" "$HOME/$NAME" "$HOME/Git/$NAME"; do
+  [ -d "$candidate/.git" ] && CLONE="$candidate" && break
+done
+```
+
+`./$NAME` is the Routine cloud checkout. `$HOME/Git/$NAME` is the local host. Confirm the `origin`
+remote matches `$REPO` before you use a hit, because a name can collide.
+
+**Default author:** the authenticated login.
 
 ## Core safety model (do not weaken these)
 
 Three invariants:
 
-1. **Scope, your PRs only. Never act on a PR you did not author.** Confirm `author == gh login`
+1. **Scope, your PRs only. Never act on a PR you did not author.** Confirm `author == $ME`
    for every PR before touching it. Skip a PR number passed in the invocation input that you do
    not own, and log a note.
 2. **Evidence before resolution.** Auto-resolve a thread **only** after you pushed a real fix,
@@ -97,11 +104,20 @@ preview). Literal `~`/`$` in code stay inside backticks instead.
 
 **Stop and say so when a required check fails.**
 
-- `gh auth status`, authenticated (required). Capture the login: `ME=$(gh api user --jq .login)`.
 - Resolve the **target repo set**: if the invocation input has `--repo`, resolve to that single
-  repo. Otherwise, resolve to all rows in **Targets**. For each, split `OWNER=${REPO%/*}` /
-  `NAME=${REPO#*/}` and map to its clone (the Targets table, or `/Users/phillip/Git/<name>` for a
-  `--repo` override).
+  repo. Otherwise, resolve to both rows in **Targets**. For each, split `OWNER=${REPO%/*}` /
+  `NAME=${REPO#*/}` and resolve `CLONE` with the search order in **Targets**.
+- **Set `GH_TRANSPORT` before any other GitHub call. Read
+  [../shared/github-transport.md](../shared/github-transport.md) first.** It owns the probe, the
+  per-repo rule, the `cli` to `mcp` operation mapping, and the GraphQL fallback. Probe per repo:
+
+  ```bash
+  # `gh auth status` and `gh api user` both pass on a sandbox where every repo call 403s.
+  gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1 && GH_TRANSPORT=cli || GH_TRANSPORT=mcp
+  ```
+
+  A failed `gh` probe in a Routine run is normal, not a defect. **Stop only when neither transport
+  works.** Capture the login through the transport: `ME` is the authenticated user.
 - Commit each repo's fixes in its **local clone**. Per clone, confirm it exists and its `origin`
   matches the repo. A clone is required to *fix*. Without one, **triage and reply** for that repo
   and say fixes were skipped. Resolve and check each clone **independently**: one missing clone
@@ -139,7 +155,7 @@ phases branch on the value for the repo they are acting in.
 
 Print a one-line readiness summary per repo + the capability line, e.g.:
 ```
-Preflight:  gh ✓ (ptrandev)   visual ✗ (sandbox: UI-proof threads → Needs-you)
+Preflight:  github ✓ (ptrandev, GH_TRANSPORT=mcp)   visual ✗ (sandbox: UI-proof → Needs-you)
   Atllas-Inc/codebase     clone ~/Git/codebase ✓     tree clean ✓   fix ✓
   Atllas-Inc/aicc-queues  clone ~/Git/aicc-queues ✓  tree dirty ✗   fix ✗ (triage-only)
 ```
@@ -156,6 +172,9 @@ gh pr list --repo "$REPO" --author "$ME" --state open \
   --json number,title,headRefName,isDraft \
   --jq '.[] | "\(.number)\t\(.headRefName)\t\(.title)"'
 ```
+
+Every `gh` block below assumes `GH_TRANSPORT=cli`. Under `mcp`, issue the same operation through
+the row for it in [../shared/github-transport.md](../shared/github-transport.md).
 
 Tag each PR with its repo (and that repo's clone) so Phases 2 to 5 act in the right place.
 When the invocation input named specific PRs, intersect with this list and **drop any you do not own** (Scope
@@ -202,7 +221,9 @@ compact answers. Two rules keep nesting safe:
 ## Phase 2: Fetch the actionable threads for one PR
 
 Pull every review thread with the data needed to reply (`databaseId`), resolve (`id`), and
-classify (author, body, path, line):
+classify (author, body, path, line). **GraphQL fails on its own in a cloud sandbox, even when REST
+reads pass.** Fall back to the MCP review-thread tools for this phase and for the resolve mutation
+in Phase 5, and name the fallback in the report.
 
 ```bash
 gh api graphql -f query='
@@ -284,11 +305,15 @@ Run this phase only when the PR has ≥1 SAFE-FIX thread. Check out the PR branc
 clone:
 
 ```bash
-cd "$CLONE"                 # THIS PR's repo clone (from the Targets map)
-git fetch origin
-gh pr checkout "$PR" --repo "$REPO"   # checks out the head branch, tracking the PR
-git pull --ff-only 2>/dev/null || true
+cd "$CLONE"                              # THIS PR's repo clone (from the Targets search order)
+git fetch origin "$HEAD_BRANCH"          # headRefName, from Phase 1
+git checkout "$HEAD_BRANCH"
+git reset --hard "origin/$HEAD_BRANCH"
 ```
+
+Git needs no API, so this works under both transports. **Do not use `gh pr checkout`**, which
+fails under `mcp`. A Routine checkout starts on the default branch, so this step is mandatory
+there.
 
 For each SAFE-FIX thread: **Read the file**, then make the minimal change the comment calls for and
 nothing more. Stay in scope. **Never make an opportunistic refactor.** Keep a map of
@@ -420,6 +445,7 @@ Then call out explicitly:
 - **Needs-you items:** every thread left open and why (the human-decision queue).
 - Any PR/thread skipped (not owned by you, dirty tree, no clone, fix reverted) and the reason.
 - Commits pushed (PR → SHA), and that their CI was re-triggered.
+- The `GH_TRANSPORT` each repo used, plus any phase that fell back to MCP.
 
 Make the Needs-you queue scannable so a human can act on it in 30 seconds.
 
