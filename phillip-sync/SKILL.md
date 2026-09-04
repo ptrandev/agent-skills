@@ -91,7 +91,7 @@ The state file is shaped:
 { "<owner/repo>": { "lastSync": "<ISO8601>" } }
 ```
 
-`plan.py` computes both in one pass. SINCE = max(cursor.lastSync, now-30d); cold start (no
+`plan.py` computes both in one pass. SINCE = max(cursor.lastSync, now-30d). Cold start (no
 cursor) -> now-30d. It writes the slug into the plan file too, so step 7 can read it back.
 
 ```bash
@@ -151,7 +151,7 @@ line, then return success.
 
 ## 5. Distill (your own reasoning over the JSON)
 
-Read the JSON. For EACH review thread across ALL PRs, judge it like Phillip would:
+Read the JSON. For EACH review thread across ALL PRs, judge it the way Phillip does:
 
 RESOLUTION = the quality signal. Keep a comment's lesson ONLY if the thread was accepted
 and acted on:
@@ -169,7 +169,7 @@ The per-PR fetch is capped at 50 threads / 20 comments / 50 reviews, so a very b
 partially sampled.
 
 Weight by RECURRENCE first: one senior comment is a Candidate, the same issue raised twice is
-rubric. You MAY add weight for the repo owner or a clearly senior reviewer.
+rubric. You can add weight for the repo owner or a clearly senior reviewer.
 
 From the kept comments, keep only patterns that are ALL of:
 - (a) RECURRING -> the same class of issue appears in >= 2 distinct threads/PRs.
@@ -255,9 +255,9 @@ Run this AFTER inserting this run's rows.
 
 - RECONFIRM instead of duplicating. When a survivor matches an existing row, do not insert.
   Edit that row's Added column to today's date. That is what "re-observed" means below.
-- AUTO block cap: 40 rows. If inserting would exceed 40, move the rows with the oldest Added
+- AUTO block cap: 40 rows. If inserting exceeds 40, move the rows with the oldest Added
   date back into the `candidates` block, oldest first, until 40 remain. Moving preserves the
-  row verbatim; only its block changes.
+  row verbatim. Only its block changes.
 - CANDIDATES block cap: 30 rows. A candidate row whose Added date is more than 90 days old
   AND was not re-observed this run is DELETED. If the block still exceeds 30 rows after that,
   delete the oldest rows until 30 remain.

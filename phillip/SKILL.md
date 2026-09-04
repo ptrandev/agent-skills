@@ -26,8 +26,8 @@ allowed-tools:
 # The Phillip Agent
 
 You are reviewing the current diff to Phillip's bar. Phillip is the senior reviewer
-who would otherwise comment on this PR. Your job is to PRE-EMPT his comments: catch
-what he would catch, fix it, and arrive at a PR that needs almost nothing from him.
+who otherwise comments on this PR. Your job is to PRE-EMPT his comments: catch
+what he catches, fix it, and arrive at a PR that needs almost nothing from him.
 
 Be terse. Cite `file:line`. Name the user-facing impact. No fluff. Use `->` for
 arrows, not em dashes.
@@ -130,7 +130,7 @@ in-session pass.
    **Neither reviewer gets the diff pasted into its prompt.** Codex is told to run the `git
    diff` command itself. Gemini cannot (its shell tool is blocked under `--approval-mode
    plan`), so the `/gemini` skill writes the diff to `$GEMCTX/review.diff` and passes
-   `--include-directories "$GEMCTX"`; Gemini reads that file for scope, then opens the real
+   `--include-directories "$GEMCTX"`. Gemini reads that file for scope, then opens the real
    files at HEAD to verify. Mirror that contract exactly. Inlining the diff is what produced
    Gemini's line-anchor misreads and its empty-output-at-exit-0 failures on large diffs.
 
@@ -169,8 +169,8 @@ in-session pass.
    is supposed to do" narrative into the prompt. Do not select a smaller Claude model.
 4. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
    `/tmp/phillip-gemini.out`, and take the blind sub-agent's returned findings. Combine every
-   finding from all three reviewers into one list with proposed severity. You did NOT review;
-   from here on you de-dupe, verify, adjudicate, and implement. If YOU notice a genuine bug
+   finding from all three reviewers into one list with proposed severity. You did NOT review.
+   From here on you de-dupe, verify, adjudicate, and implement. If YOU notice a genuine bug
    while verifying, do not suppress it -> list it with source `Claude (verifier)`, distinct
    from the blind reviewer's `Claude (blind)`, so the report stays honest about which findings
    came from an independent voice.
@@ -239,7 +239,7 @@ suggestion as rejected-with-reason, never dropped.
 ### Implement
 
 Apply every verified HIGH and MEDIUM fix. Prefer one root-cause fix over several
-band-aids; note when a single change resolves multiple findings. After fixing, note the
+band-aids. Note when a single change resolves multiple findings. After fixing, note the
 commit SHA (or staged hunk) next to each finding. Diff each fix against the finding it
 targets to confirm it FULLY resolves it before counting it done.
 
@@ -271,7 +271,7 @@ follows the last fix is a **confirmation round**.
 ## 3. Final review report
 
 Write the report to a stable file AND print it. Save to
-`$PLAN_ROOT/phillip-<branch-slug>-<YYYY-MM-DD>.md` (create the dir if needed).
+`$PLAN_ROOT/phillip-<branch-slug>-<YYYY-MM-DD>.md` (create the directory if it does not exist).
 `<branch-slug>` replaces every `/` in the branch name with `-`, so `feat/foo` does not become
 a nested path that does not exist.
 
@@ -291,8 +291,8 @@ Stopped because: dry round / finding-round cap
 Then:
 - Accepted tradeoffs: anything intentional, marked `[note - accepted tradeoff]`.
 - Linear tickets to file: real deferred work, one line each. If you have Linear access,
-  search first to confirm it isn't already tracked, then file it and cite the ID
-  ("Checked Linear -> not tracked, created AP-XXXX"). If you can't file it, say so
+  search first to confirm it is not already tracked, then file it and cite the ID
+  ("Checked Linear -> not tracked, created AP-XXXX"). If you cannot file it, say so
   explicitly so the user does it manually.
 - Verdict:
   - "Ready for PR" ONLY if the loop stopped on a dry round with zero unresolved
