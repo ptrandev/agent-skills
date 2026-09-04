@@ -152,6 +152,15 @@ Extracts the signal out of bloated or evasive text. It selects, it does not rewr
 
 ---
 
+### `/copy-edit`
+Copy-edits a spoken transcript, or a rough draft, into a finished post that still sounds like you. You are the writer, it is the editor: it never adds a claim, a number, or an opinion you did not say, and it keeps a vague statement exactly as vague as you left it. It inventories every claim, number, caveat, and recommendation first, derives a voice fingerprint from your own words, then restructures with full latitude (reordered sections, rewritten headings, a buried point promoted) and rewords freely inside that fingerprint. It cuts the spoken filler, the throat-clearing, and the point you made three times. It adds hyperlinks on first mention only, and fetches every URL in the run before it enters the draft. It generates missing frontmatter without overwriting a field you wrote. The report names every cut that removed a point, every dropped link, and every gap it found but refused to fill.
+
+The post body follows your voice, not the ASD-STE100 rules in [`global/CLAUDE.md`](global/CLAUDE.md): contractions, first person, and long sentences all stay. Only the mechanics carry over (no em dash, American spelling, escaped `\~` and `\$`, no AI tells). `SKILL.md` states that override explicitly, because the global rules would otherwise strip the voice the skill exists to protect.
+
+**Usage:** `/copy-edit` then paste the transcript, or `/copy-edit <path.md>`. It asks where to write the draft.
+
+---
+
 ## Setup
 
 No setup is required to use either agent inside this repository:
