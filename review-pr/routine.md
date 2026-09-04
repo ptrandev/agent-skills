@@ -18,6 +18,12 @@ for current product limits and UI labels.
 Reviews use your connected GitHub identity. The Routine does not need unrestricted branch-push
 permission.
 
+**Keep this environment separate from the `babysit-prs` environment.** The two setup scripts share
+only the skills clone, `gh`, and the two project toolchains. Everything else here, meaning the Node
+24 pin, the `re2` rebuild, the workspace pre-build, Chromium, and the two reviewer CLIs, serves
+this skill alone. The API keys below belong to this environment, and every routine that selects an
+environment can read its variables.
+
 ## Create the Routine
 
 Open **claude.ai/code/routines**, choose **New routine**, and configure:

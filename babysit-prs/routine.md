@@ -18,6 +18,14 @@ for current product limits and UI labels.
 Commits and replies use your connected GitHub identity. Git push keeps working in the sandbox even
 when the GitHub API does not, so a blocked `gh` never blocks a fix.
 
+**Give this routine its own environment. Do not share the `review-pr` environment.** The two setup
+scripts overlap only on the skills clone, `gh`, and the two project toolchains. `review-pr` also
+pins Node 24, rebuilds `re2`, pre-builds the workspace, installs Chromium, and installs two
+reviewer CLIs with API keys, none of which this skill uses. A shared environment puts those API
+keys in reach of this run, and lets one broken edit stop both routines. A shared environment
+does share its cache, which is the one argument for merging them. It does not outweigh the blast
+radius, because this routine is the one that pushes commits.
+
 ## Create the Routine
 
 Open **claude.ai/code/routines**, choose **New routine**, and configure:
@@ -108,12 +116,44 @@ Keep the prompt pointed at the skill so improvements to [`SKILL.md`](SKILL.md) a
 
 | Trigger | Use |
 |---|---|
-| Schedule | Recommended. The minimum cadence is one hour. `17 * * * *` runs hourly off the hour. |
+| Schedule | Recommended. See the cron expression below. |
 | GitHub event | Optional PR-level nudge. Review-comment and issue-comment events are unavailable. |
 | API | Optional POST trigger for another system. |
 
 A label-filtered pull-request event can provide a manual nudge, but the schedule remains the
 backstop for review comments.
+
+## Schedule
+
+Every run costs one of the account's daily routine runs, and most runs find nothing, so fit the
+slots to real traffic instead of running hourly. Use this UTC cron expression:
+
+```text
+17 6,19,23 * * *
+```
+
+It runs three times a day, at 02:00, 15:00, and 19:00 Toronto time. The web form offers presets
+only, so set a custom expression with `/schedule update` in the CLI.
+
+The slots were fitted to 82 inbound review comments on `ptrandev` PRs across both repositories over
+the 60 days ending 2026-09-04, which is 1.4 per day. 77 of the 82 came from
+`gemini-code-assist[bot]`, which comments within minutes of a push, so arrival tracks working hours
+rather than a reviewer's schedule. Against that history the three slots give a mean wait of 2.4
+hours, a 90th-percentile wait of 4.9 hours, and a worst case of 11.7 hours.
+
+Two alternatives from the same fit:
+
+| Runs per day | UTC cron | Toronto | Mean wait | p90 | Worst |
+|---|---|---|---|---|---|
+| 2 | `17 6,22 * * *` | 02:00, 18:00 | 4.1 h | 7.4 h | 14.7 h |
+| 3 | `17 6,19,23 * * *` | 02:00, 15:00, 19:00 | 2.4 h | 4.9 h | 11.7 h |
+| 4 | `17 5,9,19,23 * * *` | 01:00, 05:00, 15:00, 19:00 | 1.9 h | 3.3 h | 6.9 h |
+
+**Run every day, not weekdays only.** Three of the 82 comments landed on a weekend. A weekday-only
+schedule leaves those waiting up to 35 hours, and saves only 2 runs per week per slot.
+
+Cron expressions stay in UTC through daylight-saving changes, so each local time moves one hour
+later from November to March. Refit the slots when the volume or the working pattern changes.
 
 ## Validate before enabling fixes
 
