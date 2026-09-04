@@ -161,6 +161,15 @@ The post body follows your voice, not the ASD-STE100 rules in [`global/CLAUDE.md
 
 ---
 
+### `/skill-edit`
+Rewrites one skill file in this repository to the house style in [`AGENTS.md`](AGENTS.md), without losing an instruction. It inventories every instruction, command, flag, branch, and prohibition first, fixes what `scripts/lint-style` reports, then applies the judgment rules a linter cannot see: the deletion test, one owner per fact, structure over prose, and progressive disclosure. It extracts a reference file when `SKILL.md` runs past 500 lines. The report names every instruction it dropped and every finding it left, with the reason for each.
+
+One file per run, because a diff across four files is a diff nobody reviews.
+
+**Usage:** `/skill-edit <skill-name>`, `/skill-edit <path.md>`, or `/skill-edit` to pick from the linter summary.
+
+---
+
 ## House style
 
 Every skill file follows one style, described in [`AGENTS.md`](AGENTS.md): imperative mood, one
@@ -195,8 +204,9 @@ line, or `<!-- lint-style: off -->` and `<!-- lint-style: on -->` around a longe
 own lines and outside a list. The `## Writing style` section is skipped everywhere, because four
 skills carry a verbatim copy of it.
 
-`/skill-edit` applies the judgment rules the linter cannot see: the deletion test, structure over
-prose, progressive disclosure, and one owner per fact.
+[`/skill-edit`](skill-edit/SKILL.md) applies the judgment rules the linter cannot see: the
+deletion test, structure over prose, progressive disclosure, and one owner per fact. Run it on one
+file at a time.
 
 ---
 
