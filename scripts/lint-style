@@ -265,9 +265,25 @@ def check_file(path, root, findings):
                                         % (count, DESCRIPTION_WORD_BUDGET)))
 
 
+def walk_md(directory):
+    found = []
+    for base, _, files in os.walk(directory):
+        for name in sorted(files):
+            if name.endswith(".md"):
+                found.append(os.path.join(base, name))
+    return found
+
+
 def collect(root, targets):
     if targets:
-        return [os.path.abspath(t) for t in targets]
+        found = []
+        for target in targets:
+            path = os.path.abspath(target)
+            if os.path.isdir(path):
+                found.extend(walk_md(path))
+            else:
+                found.append(path)
+        return found
     found = []
     for entry in sorted(os.listdir(root)):
         directory = os.path.join(root, entry)
@@ -275,10 +291,7 @@ def collect(root, targets):
             continue
         if not os.path.isfile(os.path.join(directory, "SKILL.md")):
             continue
-        for base, _, files in os.walk(directory):
-            for name in sorted(files):
-                if name.endswith(".md"):
-                    found.append(os.path.join(base, name))
+        found.extend(walk_md(directory))
     found.append(os.path.join(root, "AGENTS.md"))
     return found
 
@@ -293,9 +306,14 @@ def main():
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     findings = []
-    for path in collect(root, args.paths):
-        if os.path.isfile(path):
-            check_file(path, root, findings)
+    paths = collect(root, args.paths)
+    missing = [p for p in paths if not os.path.isfile(p)]
+    if missing:
+        for path in missing:
+            print("ERROR no such file: %s" % path, file=sys.stderr)
+        return 2
+    for path in paths:
+        check_file(path, root, findings)
     if args.only:
         findings = [f for f in findings if f.code in args.only]
 
