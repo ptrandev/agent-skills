@@ -86,7 +86,7 @@ Cover, at minimum:
    for half a second in front of a user who has one is a lie the surface then has to take back.
 6. The path where the user says no. A dismissed thing has to leave a way back.
 
-Mark each state `main: true` when Next/Back should walk it in order. Alternate endings stay off the
+Mark each state `main: true` when Next/Back must walk it in order. Alternate endings stay off the
 main line and are reached by chip or by clicking through.
 
 **The narration line is not a caption.** It says where the reader is, what changed, and what to
@@ -129,7 +129,7 @@ grep -in 'lorem\|example\.com\|John Doe\|Item [0-9]\|TODO\|FIXME' "$OUT"
 ```
 
 4. **Open the file and walk it.** Click every chip and every button in every state, at every
-   device preset. A blank frame means the script threw before it rendered; a state that throws in
+   device preset. A blank frame means the script threw before it rendered. A state that throws in
    the console is a state the reader will hit. Use `browse` (see the `browse` skill) or
    `open "$OUT"`, and screenshot at least the entry state and one terminal state.
 
@@ -141,7 +141,7 @@ state you dropped.
 Give the file path, then:
 
 - One paragraph on what the reader is looking at and what decision you want from them.
-- The open questions as a numbered list. Each one names the option you would pick and why.
+- The open questions as a numbered list. Each one names the option you recommend and why.
 - Anything in the frame that approximates rather than reproduces the product. Every line here is a
   defect you chose to ship, so this list is normally empty.
 - **Do not ask about anything the mockup already answers.** That is what it is for.

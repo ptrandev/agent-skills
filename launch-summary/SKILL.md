@@ -28,7 +28,7 @@ If the user specified a different range, a specific day, or a specific week, use
 
 Only PRs merged **into `master`** count. `--base master` excludes PRs merged into release branches and feature branches. `--json files` returns each PR's changed files, which Step 3 uses to tell Mobile PRs apart from App PRs.
 
-Keep `--search "merged:>=$SINCE"`. `gh pr list --state merged` orders results by creation date, not merge date, so `--limit 100` alone can silently drop a PR that was opened long ago and merged inside the window.
+Keep `--search "merged:>=$SINCE"`. `gh pr list --state merged` orders results by creation date, not merge date. `--limit 100` alone can silently drop a PR that was opened long ago and merged inside the window.
 
 Run both calls in one Bash invocation so `SINCE` is computed once:
 
@@ -77,7 +77,7 @@ Note: `gh pr list --jq` does not support jq's `--arg` flag. It errors with "unkn
 
 `aicc-queues` has no mobile app, so every PR from it is hardcoded `mobile: false` (App).
 
-**Bounded window.** Both filters above are one-sided, so "what shipped yesterday" would also return everything merged today. To bound the far end, set an `UNTIL` timestamp in the same format and use the two-sided filter in both jq programs:
+**Bounded window.** Both filters above are one-sided, so "what shipped yesterday" also returns everything merged today. To bound the far end, set an `UNTIL` timestamp in the same format and use the two-sided filter in both jq programs:
 
 ```
 select(.mergedAt >= "$SINCE" and .mergedAt < "$UNTIL")
@@ -106,7 +106,7 @@ A PR that touches both `apps/atllas-app/` and backend paths gets `mobile: true`,
 
 **Within each section, use these categories** (only include a category if it has items):
 
-1. **New Features**: brand-new capabilities that didn't exist before
+1. **New Features**: brand-new capabilities that did not exist before
 2. **Improvements**: enhancements to existing features (faster, smarter, more accurate, better UX)
 3. **Bug Fixes**: things that were broken and are now fixed
 4. **Reliability & Performance**: backend changes that affect stability, speed, or uptime, even if invisible to the user

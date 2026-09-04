@@ -24,7 +24,7 @@ PY
 so the CLI cannot select it by mistake.
 
 **3. Put the key where every shell sees it: `~/.zshenv`, NOT `~/.zshrc`.**
-`~/.zshrc` is only sourced for interactive shells; the Bash tool runs
+`~/.zshrc` is only sourced for interactive shells. The Bash tool runs
 non-interactive shells, which source `~/.zshenv`. Add:
 
 ```bash

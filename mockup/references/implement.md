@@ -21,7 +21,7 @@ move. Every row whose middle column is a component needs a row-mate that is its 
 
 **Sweep the mockup for controls before sweeping the ticket.** A button the mockup renders that no
 ticket ever specified is still a row, and it is the row most likely to be dropped. It is also worth
-one question: it may be scope you invented, and this is the cheapest moment to find that out.
+one question: is it scope you invented? This is the cheapest moment to find out.
 
 **Every row needs a mechanical check**: a DOM query, a count, a computed style, a `data-testid`.
 One line, returns a value you can read. "Looks right" is not a check.

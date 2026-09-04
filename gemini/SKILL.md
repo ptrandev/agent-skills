@@ -93,7 +93,7 @@ either block below.** That file owns the one-time per-machine API-key setup.
   shells), or is not set at all. Tell the user:
 
   > No Gemini API key in the environment. Add `export GEMINI_API_KEY="your-key"`
-  > to `~/.zshenv` (not `~/.zshrc`, which non-interactive shells don't source),
+  > to `~/.zshenv` (not `~/.zshrc`, which non-interactive shells do not source),
   > then open a new shell. Get a key at https://aistudio.google.com/apikey
   > (enable billing on the project for high/unlimited-style limits).
 
@@ -131,7 +131,7 @@ Parse the user's input:
    - If no diff, check for a plan file scoped to the current project:
      `ls -t "$PLAN_ROOT"/*.md 2>/dev/null | xargs grep -l "$(basename $(pwd))" 2>/dev/null | head -1`
    - Otherwise ask "What would you like to ask Gemini?"
-4. `/gemini <anything else>` → **Consult mode** (Step 2C); the rest is the prompt.
+4. `/gemini <anything else>` → **Consult mode** (Step 2C). The rest is the prompt.
 
 While parsing, extract `--pro` / `--flash` and strip the flag from the prompt
 text before forwarding. Extract `<instructions>` for Review and `<focus>` for
@@ -259,7 +259,7 @@ gemini_cleanup() { rm -rf "$GEMCTX"; }
 ```
 
 **Bash tool timeout.** `gemini_run` uses 330s or 600s. The Bash tool defaults to
-120000ms and would kill the call first, so every `gemini_run` invocation must
+120000ms and kills the call first, so every `gemini_run` invocation must
 pass `timeout: 600000` on the Bash call.
 
 **Model.** All three modes default to `gemini-pro-latest` for reasoning depth.
@@ -317,7 +317,7 @@ Claude Code disagrees on X because Y."
 ## Step 2A: Review Mode
 
 Gemini has no `review` subcommand. Build the review prompt. Point it at the
-captured diff FILE; never inline the diff text (see `VERIFY_CONTRACT` above).
+captured diff FILE. Never inline the diff text (see `VERIFY_CONTRACT` above).
 
 ```bash
 # Parsed in Step 1 from `/gemini review <instructions>`, e.g. "focus on security".
@@ -432,9 +432,9 @@ follow-up:
 
 ## Long context and grounding
 
-**Long context:** Use Gemini's 1M-token window when Claude or Codex would have to
-truncate (e.g. "review every file in `packages/sdk/`"). Concatenate the files
-into the prompt.
+**Long context:** Use Gemini's 1M-token window when Claude's or Codex's context
+forces truncation (e.g. "review every file in `packages/sdk/`"). Concatenate the
+files into the prompt.
 
 **Web search / grounding:** Add `--allowed-tools google_web_search` when Gemini
 must ground the answer in current web docs.
@@ -480,8 +480,8 @@ Close every run with one of:
 
 - **DONE**: completed with evidence (model used, gate verdict, token count).
 - **DONE_WITH_CONCERNS**: completed, but list specific concerns.
-- **BLOCKED**: cannot proceed; state the exact blocker and what was tried.
-- **NEEDS_CONTEXT**: missing info; state exactly what is needed.
+- **BLOCKED**: cannot proceed. State the exact blocker and what was tried.
+- **NEEDS_CONTEXT**: missing info. State exactly what is needed.
 
 After 3 failed attempts, uncertain security-sensitive changes, or scope you
 cannot verify: escalate with format `STATUS | REASON | ATTEMPTED | RECOMMENDATION`.

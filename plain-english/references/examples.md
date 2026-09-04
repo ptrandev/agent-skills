@@ -9,11 +9,11 @@ output.
 
 **Source**
 
-> We're thrilled to share that we've been hard at work reimagining how our
+> We're thrilled to share that we've been hard at work reimagining how our <!-- lint-style: ignore -->
 > customers experience our platform. Over the past several months, our teams have
 > been laser-focused on building something truly special. This represents a
 > significant milestone in our ongoing journey to deliver best-in-class solutions.
-> We can't wait to show you what's next. Stay tuned for more details in the
+> We can't wait to show you what's next. Stay tuned for more details in the <!-- lint-style: ignore -->
 > coming weeks.
 
 **Output**
@@ -35,7 +35,7 @@ output.
 
 **Commentary.** Two bullets is the correct length for 62 words, because two is all
 there is. The temptation is to promote "reimagining how our customers experience
-our platform" into a claim. It is not one, since nothing about it could be false.
+our platform" into a claim. It is not one, since nothing about it can be false.
 
 ---
 
@@ -44,7 +44,7 @@ our platform" into a claim. It is not one, since nothing about it could be false
 **Source**
 
 > As part of our continued commitment to operational excellence and in light of
-> evolving industry best practices, we have undertaken a comprehensive review of
+> evolving industry best practices, we have undertaken a comprehensive review of <!-- lint-style: ignore -->
 > our infrastructure posture. Following extensive consultation with stakeholders
 > across the organization, and after careful consideration of a range of factors,
 > we have concluded that it is in the best interests of all parties to sunset
@@ -76,7 +76,7 @@ does.
 
 **Source**
 
-> The Company may, at its sole discretion and without prior notice, modify,
+> The Company may, at its sole discretion and without prior notice, modify, <!-- lint-style: ignore -->
 > suspend, or discontinue any part of the Service. The Company will use
 > commercially reasonable efforts to provide notice of material changes, except
 > where such notice is impracticable or prohibited by law. In no event shall the
@@ -86,10 +86,10 @@ does.
 
 **Output**
 
-> **Bottom line:** They can change or kill any part of the service at any time without telling you first, and they owe you nothing for indirect losses.
+> **Bottom line:** They can change or kill any part of the service at any time without telling you first. They owe you nothing for indirect losses.
 >
 > **What it claims**
-> - **fact:** The Company may modify, suspend, or discontinue any part of the Service, at its sole discretion, without prior notice.
+> - **fact:** The Company may modify, suspend, or discontinue any part of the Service, at its sole discretion, without prior notice. <!-- lint-style: ignore -->
 > - **hedged:** It will use "commercially reasonable efforts" to give notice of material changes. That is an effort, not a commitment to give notice.
 > - **fact:** The notice effort does not apply where notice is impracticable or prohibited by law.
 > - **fact:** The Company is not liable for indirect or consequential damages, except for liability that cannot be excluded under applicable law.
@@ -100,7 +100,7 @@ does.
 > - Who decides whether notice is impracticable
 >
 > **What it implies but never claims**
-> - A hedge placed to read as a commitment. "will use commercially reasonable efforts to provide notice" sits exactly where a notice guarantee would go. Read against the sentence before it, which reserves the right to act without prior notice, nothing is owed.
+> - A hedge placed to read as a commitment. "will use commercially reasonable efforts to provide notice" sits exactly where a notice guarantee belongs. Read against the sentence before it, which reserves the right to act without prior notice, nothing is owed.
 
 **Commentary.** `may` in the first bullet grants the Company permission, so the
 claim that it holds that right is a `fact`. Compare the second bullet, where the
@@ -116,8 +116,8 @@ visible.
 **Source**
 
 > Preliminary data from our internal analysis suggests that customers who adopted
-> the new onboarding flow may see up to a 30% improvement in time-to-first-value,
-> though these results have not yet been validated across all segments and should
+> the new onboarding flow may see up to a 30% improvement in time-to-first-value, <!-- lint-style: ignore -->
+> though these results have not yet been validated across all segments and should <!-- lint-style: ignore -->
 > be interpreted with caution given the limited sample. We believe this points to
 > a meaningful opportunity.
 
@@ -126,14 +126,14 @@ visible.
 > **Bottom line:** An unvalidated internal analysis hints at a possible improvement of at most 30%. Nothing is established.
 >
 > **What it claims**
-> - **attributed:** Their own preliminary internal analysis suggests adopters of the new onboarding flow may see up to a 30% improvement in time-to-first-value.
+> - **attributed:** Their own preliminary internal analysis suggests adopters of the new onboarding flow may see up to a 30% improvement in time-to-first-value. <!-- lint-style: ignore -->
 > - **fact:** The results are not validated across all segments, and the sample was limited.
 > - **opinion:** They believe this points to a meaningful opportunity.
 >
 > **Not stated**
 > - Sample size, and which segments the analysis covered
 > - The baseline time-to-first-value that the 30% is measured against
-> - Whether adopters differ from non-adopters, which would explain the gap without the flow
+> - Whether adopters differ from non-adopters in ways that explain the gap without the flow
 > - When validation happens
 >
 > **What it implies but never claims**
@@ -145,4 +145,4 @@ The label is `attributed` even though the author is the source, because the auth
 reports an analysis rather than asserting the outcome. The self-selection bullet
 under **Not stated** sits at the edge of the rules. Naming a question the source
 leaves open is allowed. Writing "adopters were probably already faster users"
-would not be, because that is outside knowledge.
+is not allowed, because that is outside knowledge.

@@ -19,7 +19,7 @@ Treat the text accompanying the skill invocation as the input:
 | Input | Mode |
 |---|---|
 | `review [focus]` | Review the current diff. |
-| `challenge [focus]` | Try to break the current diff and its assumptions. |
+| `challenge [focus]` | Break the current diff and its assumptions. |
 | Any other text | Consult Claude about that question. |
 
 Use `review` when another skill requests an independent Claude reviewer.
@@ -59,7 +59,7 @@ SEVERITY | file:line | one-line finding | one-line proof
 ```
 
 Allow `HIGH`, `MEDIUM`, and `LOW`. Require `CLEAN` as the only output when no
-finding survives verification. Claude reviews only; it does not edit, commit,
+finding survives verification. Claude reviews only. It does not edit, commit,
 push, post, or resolve anything.
 
 When a rubric is supplied, pass its file path with `--rubric` and tell Claude to

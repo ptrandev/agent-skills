@@ -54,7 +54,7 @@ Read one earlier post by the author when one sits in the output directory or the
 one. Use it for the fingerprint only.
 
 **Reword freely inside the fingerprint.** Write the clearest version of each point, in words
-the author could have said out loud. **Never** upgrade the register. No "leverage", "utilize",
+that sound like the author speaking out loud. **Never** upgrade the register. No "leverage", "utilize",
 "furthermore", "moreover". A sentence that sounds smarter than the author is a failed edit.
 
 ## Phase 3: Restructure
@@ -101,7 +101,7 @@ Earns a link, on first mention only:
 
 - A product, company, or project.
 - A specific model, library, or tool.
-- A documented feature or concept the reader may not know: reasoning effort, prompt caching,
+- A documented feature or concept the reader does not necessarily know: reasoning effort, prompt caching,
   minimum cacheable length.
 - A standard, spec, or public source behind a number.
 
@@ -139,8 +139,8 @@ Collect for the report, and keep editing:
 
 - A number the author gestured at but never said.
 - A claim with no evidence in the source.
-- A referent you could not resolve from the source.
-- A link you could not verify.
+- A referent you did not resolve from the source.
+- A link you did not verify.
 
 ## Phase 7: Frontmatter
 
@@ -188,7 +188,7 @@ Run all six against the finished draft before it reaches disk:
 3. No sentence states a fact the source does not contain.
 4. Every link was fetched in this run.
 5. `grep -n '—' <path>` returns nothing.
-6. Read each sentence as the author. Rewrite any sentence the author would not say.
+6. Read each sentence as the author. Rewrite any sentence that does not sound like the author.
 
 Then ask for the output path, offering `./<YYYY-MM-DD>-<title-slug>.md` in the working
 directory as the first option. Write the file. Print the report:

@@ -25,7 +25,7 @@ network then changes the glyphs and nothing else.
 
 **Never call into a CDN global at the top level.** `lucide.createIcons()` on a page whose CDN
 script failed throws a `ReferenceError` that kills the whole script, and the reader gets a blank
-page instead of a mockup. Inline the SVGs you need, which is usually under a dozen. When you do use
+page instead of a mockup. Inline the SVGs you need, most often under a dozen. When you do use
 a CDN library, guard every call: `if (typeof lucide !== 'undefined') lucide.createIcons()`.
 
 ## The frame
@@ -37,7 +37,7 @@ Match the product's own chrome: the sidebar, the header, the nav state. Those ar
 screen recognisable before the reader reads a word.
 
 **Build the narrow widths too when the surface is responsive.** The frame drags to any width and
-the toolbar jumps to the three device presets, so the reader sizes it the way they would size a
+the toolbar jumps to the three device presets, so the reader sizes it the way they size a
 browser window. Narrow is where a design actually fails: a card that is a fifth of a row on a
 laptop is half of one on a tablet, and a label that fits at 240px clips at 176px. A laptop-only
 mockup of a responsive surface hides every decision width forces, and those decisions then get
@@ -76,10 +76,10 @@ Phase 5 finds it.
 ## Seed data
 
 One `DATA` object. Derive every displayed number from it with a function, the way a real component
-would. Two states that disagree about the same number destroy the reader's trust in all of them.
+does. Two states that disagree about the same number destroy the reader's trust in all of them.
 
 **Every value the reader can change lives in `UI`, never in a bare `let`.** Reset snapshots `UI` at
-load and restores it; a mutable binding outside `UI` survives Reset and silently carries one state's
+load and restores it. A mutable binding outside `UI` survives Reset and silently carries one state's
 choice into the next walk.
 
 Realistic content only: real-shaped names, real-shaped ids (`cus_QX81…`), plausible amounts, dates
@@ -121,5 +121,5 @@ just annoys.
 The current state id is in the URL hash, so a reader can send someone a link to step 4 of the file
 they were both sent. It survives being copied to another machine.
 
-Keep the finished file under about 2MB. Past that, a screenshot is being inlined that should have
-been built from measured styles instead.
+Keep the finished file under about 2MB. Past that, replace the inlined screenshot with styles built
+from measurement instead.

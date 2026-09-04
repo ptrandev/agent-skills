@@ -31,15 +31,15 @@ Answer four questions **against this session specifically**, not in the abstract
    requirements interpretation.
 2. **Which early decision am I least sure about now?** Calls made when context was thin
    and never revisited once the picture filled in.
-3. **What is the user missing about this situation?** The thing they'd be surprised to
-   learn: scope implications, side effects, a smell adjacent to the work.
-4. **If this breaks in 3 months, what's the most likely reason?** Fragility baked in:
+3. **What is the user missing about this situation?** The surprising thing they do not
+   know yet: scope implications, side effects, a smell adjacent to the work.
+4. **If this breaks in 3 months, what is the most likely reason?** Fragility baked in:
    scale assumptions, hardcoded values, drift-prone couplings, missing edge cases.
 
 Rules:
 - 3-7 items across questions 1 and 2, ranked by expected damage. Questions 3 and 4 produce
   one item each, reported separately.
-- **Name a check that would settle every item under questions 1-2**: a command to run, a
+- **Name a check that settles every item under questions 1-2**: a command to run, a
   test to execute, a file/line to read, a doc to consult. Label an item with no conceivable
   check `JUDGMENT CALL` explicitly. **Never** dress it up as an investigation.
 - **Do not** investigate a doubt using the same assumption that created it. If the doubt is
@@ -109,4 +109,4 @@ Offer to fix the real gaps as a follow-up. **Do not** start fixing unprompted.
 ## Relationship to sibling skills
 
 - `/grilling` interrogates a **plan before** building. `/debrief` interrogates the **session after**.
-- `/phillip` reviews the **diff**. `/debrief` audits the **process**: assumptions, unverified claims, and context the diff can't show.
+- `/phillip` reviews the **diff**. `/debrief` audits the **process**: assumptions, unverified claims, and context the diff cannot show.

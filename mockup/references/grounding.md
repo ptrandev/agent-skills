@@ -47,7 +47,7 @@ The frame renders the whole screen, so the app shell is part of the mockup and g
 treatment as the change itself. **Read the layout component that hosts the page before drawing any
 chrome**, and take these five facts out of it by reading, never by assuming:
 
-1. The breakpoint at which the nav changes form. It is usually **not** the one the page content
+1. The breakpoint at which the nav changes form. It is most often **not** the one the page content
    uses, so a mockup that reuses the content breakpoint for the shell is wrong at every width
    between the two.
 2. What the nav is on each side of that breakpoint: pinned rail, drawer, top bar, tab bar.

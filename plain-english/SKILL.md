@@ -16,14 +16,14 @@ consequence for the reader, not the topic of the text.
 
 ## The guarantee
 
-> Add nothing. Drop nothing that would change the reader's take.
+> Add nothing. Drop nothing that changes the reader's take.
 
 **Never** carry a hedge, bound, condition, scope limit, or attribution forward as
 its own text. It rides along as part of the claim it modifies.
 
 ## Output contract
 
-**Never** write anything before the bottom line. No preamble, no "Here's the
+**Never** write anything before the bottom line. No preamble, no "Here is the
 breakdown".
 
 ```
@@ -77,7 +77,7 @@ Attach each of these to its bullet, in plain words.
 
 | Carry | Words and test |
 | --- | --- |
-| **Hedges** | may, might, could, should, expects, aims to, is designed to, we believe, we expect, estimated, projected, planned, targeted |
+| **Hedges** | may, might, could, should, expects, aims to, is designed to, we believe, we expect, estimated, projected, planned, targeted | <!-- lint-style: ignore -->
 | **Attribution** | according to, X says, reportedly, per, sources indicate, said |
 | **Bounds** | about, roughly, up to, at least, at most, more than, fewer than. "up to 40%" is not "40%". "at least 7 days" is not "7 days". |
 | **Quantifiers** | all, most, many, some, few, none, only |
@@ -86,9 +86,9 @@ Attach each of these to its bullet, in plain words.
 | **Time and scope limits** | as of `<date>`, in `<year>`, so far, in `<region>`, for `<group>`, on `<platform>` |
 | **Numbers, units, dates, currency, versions, names, percentages** | copied verbatim. Convert nothing, round nothing. |
 
-Judge these by meaning: `essentially` and `effectively` are hedges when they mean
-"close but not exactly"; `only` is a bound in "only 3 users" and filler in "just
-click here"; `significant` is a claim when the source gives the number and vague
+Judge these by meaning. `essentially` and `effectively` are hedges when they mean
+"close but not exactly". `only` is a bound in "only 3 users" and filler in "just
+click here". `significant` is a claim when the source gives the number and vague
 when it does not.
 
 ## Add nothing

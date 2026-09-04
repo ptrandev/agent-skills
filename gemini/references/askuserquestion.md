@@ -33,7 +33,7 @@ Net: <one-line synthesis of what you're actually trading off>
 
 Number the first question `D1`, then increment for each next question.
 
-- Completeness: use `N/10` when options differ in coverage; otherwise "differ in kind" note.
+- Completeness: use `N/10` when options differ in coverage. Otherwise, note that they "differ in kind".
 - Min 2 ✅ and 1 ❌ per option, each ≥40 chars. Hard-stop escape: `✅ No cons. This is a hard-stop choice`.
 - Add an effort label when the options differ in time cost: `(human: ~X days / CC: ~Y min)`.
 
