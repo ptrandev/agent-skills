@@ -39,11 +39,11 @@ Two rules here are load-bearing, both learned by testing:
 - **Flat, hyphenated, never `pr-<n>/<sha>`.** A nested form collides with any existing
   `refs/ui-walkthrough/pr-<n>` ref as a git **directory/file conflict**, and the push is rejected.
 - **No parent commit.** An earlier design parented each run on the previous ref value to keep old
-  images reachable; a per-head ref achieves that with no parent, no `read-tree` of a remote object,
+  images reachable. A per-head ref achieves that with no parent, no `read-tree` of a remote object,
   and one less failure mode.
 
 `GIT_INDEX_FILE` keeps the user's real index and working tree untouched, which invariant 9 requires
-because this may run against a dirty clone.
+because this can run against a dirty clone.
 
 ```bash
 ASSET_REF="refs/ui-walkthrough/pr-$PR-$HEAD_SHA"
@@ -78,7 +78,7 @@ Verify after publishing: `git ls-remote origin "$ASSET_REF"` returns the commit.
 
 ## Fallback ladder (degrade, never block)
 
-1. Detached-ref push succeeds -> inline embeds. Primary; works locally and off-proxy (invisible ref,
+1. Detached-ref push succeeds -> inline embeds. Primary. Works locally and off-proxy (invisible ref,
    not fetched by default, so **no clone growth**).
 2. **Detached-ref push rejected** (cloud git proxies allowlist only `refs/heads/*` and 403 a custom
    ref at the transport, verified 2026-07-30) -> retry as a `claude/`-prefixed **branch**
@@ -86,16 +86,16 @@ Verify after publishing: `git ls-remote origin "$ASSET_REF"` returns the commit.
    URL. TRADE-OFF: a real branch *is* fetched by default clones, so it adds modest, permanent,
    shared clone growth, the accepted price of autonomous inline embedding on a private repo. CI is
    unaffected here (agents-portal workflows filter push to `master`/`proj-**` + code paths).
-3. **No push access at all** (read-only, or a fork PR whose base you can't push) -> post the findings
-   with **no inline images**, note the local artifact directory, and say plainly that images couldn't
-   be attached. Findings still land.
+3. **No push access at all** (read-only, or a fork PR whose base you cannot push) -> post the findings
+   with **no inline images**, note the local artifact directory, and say plainly that attaching images
+   was not possible. Findings still land.
 4. Local + author mode only, optional: drive a real browser to attach images to the comment box with
-   your logged-in session. Produces native `user-attachments` URLs but needs cookies, so it can't run
+   your logged-in session. Produces native `user-attachments` URLs but needs cookies, so it cannot run
    in a routine. Never the default.
 
 ## Pruning
 
-`refs/ui-walkthrough/*` isn't fetched by default so clones stay lean, but the server-side repo does
+`refs/ui-walkthrough/*` is not fetched by default so clones stay lean, but the server-side repo does
 grow. Prune closed PRs' refs periodically: `git ls-remote origin 'refs/ui-walkthrough/*'` then
 `git push origin --delete <ref>`. Deleting a ref breaks the images in that PR's older comments, so
 only prune closed or merged PRs.

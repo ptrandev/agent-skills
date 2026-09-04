@@ -6,7 +6,7 @@ Owns the post payloads, both body templates, the local report, and the teardown 
 ## Phase 8: post
 
 **Re-check before posting** (invariant 10): re-read `draft` and `author`, and re-run the Phase 2
-marker query. A concurrent routine may have posted since discovery, or the PR may have flipped to
+marker query. A concurrent routine can have posted since discovery, or the PR can have flipped to
 draft. Either -> skip with a note. Every body posted here, both modes, is held to **Writing style**.
 
 **Post through `GH_TRANSPORT`** ([../review-pr/github-transport.md](../review-pr/github-transport.md)).
@@ -20,20 +20,20 @@ gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" --method POST --input "$SCRATCH/pa
 # { commit_id, event: REQUEST_CHANGES|COMMENT, body, comments:[{path,line,side,body}] }
 ```
 
-- `event`: `REQUEST_CHANGES` iff >= 1 BLOCKER; else `COMMENT`. **Never `APPROVE`** (invariant 5).
+- `event`: `REQUEST_CHANGES` iff >= 1 BLOCKER. Otherwise `COMMENT`. **Never `APPROVE`** (invariant 5).
 - Inline anchors: `side:"RIGHT"` + the new-file line, and the line **must be inside a diff hunk**
   or GitHub 422s. Pre-validate against `gh api .../pulls/$PR/files`. A finding outside the diff
   folds into the summary `body` as a `file:line` reference. On a residual 422 for one comment,
   retry it folded into the body rather than losing the whole review.
 - Build the JSON with `jq -n`, never hand-quote bodies containing image markdown.
 - **Clean run -> still post.** A `COMMENT` review whose body is the proof gallery. That is the
-  "walkthrough was done" artifact, and it's the whole reason this runs on clean PRs.
+  "walkthrough was done" artifact, and it is the whole reason this runs on clean PRs.
 - **The review `body` ends with the same `### Coverage` block as the author template below**,
   video line included. A local reviewer run records too, so a review that shows the link without
   the viewport line reads as desktop-only coverage on a colleague's PR.
 
 **Author mode**: one comment (`gh pr comment`). The image row below is for **notable surfaces
-only**, the ones Phase 7's priority list kept; every other surface gets a linked line:
+only**, the ones Phase 7's priority list kept. Every other surface gets a linked line:
 
 ```markdown
 ## UI walkthrough: <n> surfaces × <viewports>
@@ -65,8 +65,8 @@ Video: <link> (desktop journey, all <n> surfaces, <b> beats). Screenshots cover 
 ```
 
 **The Coverage block always names the viewports, and always next to the video line.** The video is
-desktop-only by design ([opencap.md](opencap.md)), so a reader who sees only the link would otherwise
-read desktop-only coverage into a run that walked three widths.
+desktop-only by design ([opencap.md](opencap.md)), so a reader who sees only the link otherwise
+reads desktop-only coverage into a run that walked three widths.
 
 **The Coverage block counts changed components, not only routes** (invariant 11). Name every
 changed file whose mount probe never passed, with the reason and the last ladder rung tried:
@@ -111,13 +111,13 @@ Posted: <review id|comment url>, event=<…>, <k> inline, <m> images embedded.
 
 The `Video:` field is never bare. Either a URL with its surface, beat, and jump counts
 (`https://opencap.dev/r/Bs_eYjKW (desktop journey, all 8 surfaces, 9 beats, 1 jump)`), or the reason
-it's absent: `skipped (headless browse daemon running)`, `skipped (screen-recording permission)`,
+it is absent: `skipped (headless browse daemon running)`, `skipped (screen-recording permission)`,
 `skipped (headless routine)`, `truncated at 5:00 (Free tier)`. "Video: ✓" without a URL is not a
 report. Say in the report when a journey is mostly jumps: it means the app had no in-app route
 between those surfaces.
 
 **The journey covers every walked surface, so the count reads `all <n>` and matches
-`Surfaces walked`.** A surface the route could not reach at all is named with its reason. That is a
+`Surfaces walked`.** A surface the route fails to reach at all is named with its reason. That is a
 run defect to report, never a length trade the skill is allowed to make.
 
 Teardown is the EXIT trap from Phase 4 (stack down, lock released). It must not depend on the
@@ -126,7 +126,7 @@ walkthrough having succeeded. It must leave the machine exactly as it was found:
 - [ ] the injected `uiw-hold.spec.ts` **and any in-workspace driver/probe `.mjs`** (Phase 0, they
       cannot live in `$SCRATCH`) **deleted** from the checkout
 - [ ] the user's original branch restored (recorded before checkout)
-- [ ] the local branch `gh pr checkout` created **deleted** (`git branch -D <branch>`): it's fully
+- [ ] the local branch `gh pr checkout` created **deleted** (`git branch -D <branch>`): it is fully
       pushed, and leaving one per reviewed PR silts up their branch list
 - [ ] any worktree removed (`git worktree remove --force`)
 - [ ] the lane's lock released, and the lane's ports free (`concurrency.md` *Teardown*)

@@ -125,7 +125,7 @@ BASE_URL="http://localhost:$((3000+O))"
 
 **Never export `E2E_PREFLIGHT_PORTS`.** `e2e-stack.sh` treats it as a full override
 (`_PREFLIGHT_PORTS="${E2E_PREFLIGHT_PORTS:-...}"`), so a hand-written list silently replaces the
-lane-derived one and drops the Hub and Logging ports from the check. Two lanes would then pass
+lane-derived one and drops the Hub and Logging ports from the check. Two lanes then pass
 preflight and collide at emulator boot. Export `E2E_LANE` and let the script build the list.
 
 `e2e-ci.sh` captures every lane-derived var before it sources `.env.e2e`, then re-exports it, so
@@ -166,7 +166,7 @@ if [ "$LANE" != 0 ]; then WORKDIR="$SCRATCH/checkout"; fi   # git worktree add "
 Pay the cost knowingly: the repo is `nodeLinker: node-modules` with `enableGlobalCache: false`, so a
 worktree needs its own `yarn install`, roughly **3.6 GB and several minutes**. Budget it before
 claiming lane 1, and `git worktree remove --force` in teardown. A second concurrent walkthrough is
-worth that; a third rarely is.
+worth that. A third rarely is.
 
 ## Scoping the `browse` daemon
 

@@ -13,7 +13,7 @@ the `--target=dev` opt-in at the bottom.
 ## Default: seeded emulator personas (no setup)
 
 `firebase emulators:exec --project atllas-dev --only auth,firestore,database,storage,pubsub`. The
-project ID is only a namespace label; traffic is intercepted by local emulators, state is fresh
+project ID is only a namespace label. Traffic is intercepted by local emulators, state is fresh
 in-memory per run (no `--import`), and `E2E_STUB_EXTERNAL=1` / `STUB_FORGE=1` short-circuit every
 external SaaS call.
 

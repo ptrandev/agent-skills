@@ -15,11 +15,11 @@ Reached only when a human typed `--target=dev` or exported `UIW_TARGET=dev`, or 
 
 `yarn agents-portal` (`npm run set-dev` + `turbo run dev --filter=agents-portal --filter=api
 --filter=ui`) against **real atllas-dev**. Dev-mode Next, no `next build`, no emulator boot, no
-seed, usually already running.
+seed, already running when the operator has a dev server up.
 
 - **Unattended runs never get `dev`.** Phase 0 sets `ATTENDED=0` when `UIW_UNATTENDED=1`, `CI` is
   set, or the environment is a routine. `dev` under `ATTENDED=0` exits with a neutral note, unless
-  `UIW_ALLOW_DEV=1`. It never falls back to `e2e` silently, because the evidence would describe a
+  `UIW_ALLOW_DEV=1`. It never falls back to `e2e` silently, because a silent fallback describes a
   different environment than the run intended.
 - **It occupies the machine.** `yarn agents-portal` binds `:3000` and `:4000` with no port
   parameterization, so a `dev` walkthrough takes the ports the operator's own dev server needs and
@@ -29,7 +29,7 @@ seed, usually already running.
 - **Dev mode shows overlays.** Next's dev indicator, hydration warnings, and Fast Refresh toasts can
   land in a screenshot and read as UI defects. Dismiss or hide them (`browse prettyscreenshot
   --cleanup --hide`) and never report an overlay as a finding.
-- **No external stubbing.** Exercise happy paths that don't fire real integrations. Skip a surface
+- **No external stubbing.** Exercise happy paths that do not fire real integrations. Skip a surface
   rather than trigger a real charge, call, or SMS, and note the skip.
 - **Real data lands in published screenshots.** Prefer your own records. If another user's data is
   visible on a surface, capture a narrower element shot rather than the full page.
@@ -95,7 +95,7 @@ the script directly skips that wrapper entirely and holds fine. (`nohup … & di
 
 **Pre-warm before you boot, or the hold never happens.** A cold boot is emulators -> seed -> SDK
 build -> API -> `next build` -> Playwright, \~15 min, over the Bash tool's hard 600 s per-call
-ceiling. A `git merge` of the base branch invalidates the caches that would otherwise save you. Run
+ceiling. A `git merge` of the base branch invalidates the caches that otherwise save you. Run
 the two expensive steps in their own foreground calls first, then boot:
 
 ```bash
@@ -109,7 +109,7 @@ yarn workspace agents-portal e2e:build                 # ~2 min cold, and it is 
 
 **Order matters: source `.env.e2e` first, then eval the lane.** `.env.e2e` carries the lane-0
 literals for `PUBSUB_EMULATOR_HOST` and every `NEXT_PUBLIC_FB_EMU_*_PORT`, and `next build` bakes
-the `NEXT_PUBLIC_*` values into the bundle. Sourcing after the eval would ship a frontend calling
+the `NEXT_PUBLIC_*` values into the bundle. Sourcing after the eval ships a frontend calling
 lane 0's emulators from lane 1. `e2e-ci.sh` solves the same problem the same way, by re-exporting
 after the source.
 
@@ -124,16 +124,16 @@ command line, so the condition can never go false and the loop spins forever. **
 readiness. Miss it -> teardown, neutral note, no retry spiral. The FE is `next start` over a
 prebuilt bundle, so no dev overlays pollute screenshots.
 
-Pick `$PROJ` at runtime (`npx playwright test --list` in the checkout). **Don't hardcode a project
+Pick `$PROJ` at runtime (`npx playwright test --list` in the checkout). **Never hardcode a project
 name**, they change. Choose a chromium project that **depends on the persona setup project** you
 need: those setup projects log each persona in and write an authenticated `storageState`.
 
 - **Form login is the working path.** Fill the seeded persona from Phase 0 and submit.
-- **`storageState` cookie-import does NOT authenticate you.** Don't reach for it. The harness writes
+- **`storageState` cookie-import does NOT authenticate you.** Never reach for it. The harness writes
   `e2e/.auth/user.json` with `indexedDB: true`, and the Firebase JS SDK keeps the session in
   **IndexedDB**, not cookies: the file's 7 cookies are analytics/Stripe only (`_ga`, `__stripe_mid`,
   `ph_…`). `browse cookie-import` moves cookies alone, so importing them yields a **logged-out**
-  browser that still loads the page. You'd screenshot the login screen or an empty dashboard and
+  browser that still loads the page. You screenshot the login screen or an empty dashboard and
   never notice. Verified 2026-07-30. Replaying `origins[].indexedDB` works but needs a driver that
   can write IndexedDB pre-navigation, which is exactly what the Playwright `storageState` driver in
   Phase 0 does. Form login is simpler and honest for the `browse` path.
@@ -142,7 +142,7 @@ need: those setup projects log each persona in and write an authenticated `stora
 
 `/review-pr` Phase 3 says clean clone -> `gh pr checkout`, dirty clone -> worktree at the head SHA.
 For a **walkthrough** that rule is too blunt, because a worktree needs its own `yarn install`: the
-repo is `nodeLinker: node-modules` with `enableGlobalCache: false`, so that's **\~3.6 GB and minutes
+repo is `nodeLinker: node-modules` with `enableGlobalCache: false`, so that is **\~3.6 GB and minutes
 of install per run**, on a machine where the main clone already has those deps.
 
 Refine it by *what kind* of dirty:
@@ -151,7 +151,7 @@ Refine it by *what kind* of dirty:
 |---|---|---|
 | clean | `gh pr checkout` | reuses `node_modules` |
 | **untracked files only** | `gh pr checkout` | untracked files survive a branch switch untouched; nothing of the user's is at risk |
-| untracked files that **collide** with paths the PR adds | worktree | the checkout would refuse or clobber |
+| untracked files that **collide** with paths the PR adds | worktree | the checkout refuses or clobbers |
 | **modified/staged tracked** files | worktree | never switch branches under someone's edits |
 
 ```bash
@@ -159,7 +159,7 @@ git -C "$CLONE" status --porcelain | grep -qv '^??' && DIRTY_TRACKED=1 || DIRTY_
 ```
 
 **Always restore the user's branch in teardown.** Record `git rev-parse --abbrev-ref HEAD` before
-checkout and switch back in the EXIT trap. This skill borrows the clone, it doesn't take it.
+checkout and switch back in the EXIT trap. This skill borrows the clone, it does not take it.
 Worktree path -> `git worktree remove --force` instead, and expect the install cost.
 
 ## Lifecycle: defer to the harness, then to `/review-pr`
@@ -172,7 +172,7 @@ builds the port list from the effective `BACK_PORT` and `E2E_FE_PORT` plus
 `node scripts/e2e-lane.mjs backend-ports "$E2E_LANE"`, then runs `e2e-preflight.mjs`, which fails
 loudly naming the squatter's pid/command/cwd. The lane list covers the Hub (4400) and Logging
 (4500) ports that `firebase.json` never declares and `emulators:exec` always starts. Reimplementing
-an `lsof` list here would drift from `firebase.json`; it already has. **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you don't
+an `lsof` list here drifts from `firebase.json`. It already has. **Never set `E2E_KILL_SQUATTERS=1`**: killing a process you do not
 own is exactly the "provably ours" rule violation `/review-pr` forbids. Its failure is a **neutral
 note**, never a finding.
 
@@ -184,6 +184,6 @@ the loaded `review-pr/stack-lifecycle.md` names, so a `review-pr` walkthrough an
 
 For everything else (post-boot identity assertion, `yarn turbo run build --filter='./packages/*'`
 pre-build, Node 24 per `.nvmrc`, EXIT-trap teardown) read
-the loaded `review-pr/stack-lifecycle.md` and follow it. It's verified against a cloud boot; a
-second copy would drift. Read its lock block as the lane-0 case of
+the loaded `review-pr/stack-lifecycle.md` and follow it. It is verified against a cloud boot. A
+second copy drifts. Read its lock block as the lane-0 case of
 [concurrency.md](concurrency.md)'s.

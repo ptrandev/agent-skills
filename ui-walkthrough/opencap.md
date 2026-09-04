@@ -68,16 +68,16 @@ browser has no window to target either, which is the only reason this skill ever
 
 ## Invariants
 
-1. **Never fall back to display capture.** If the window id can't be resolved, if `--headed` isn't
+1. **Never fall back to display capture.** If the window id cannot be resolved, if `--headed` is not
    available, if anything at all is uncertain → **skip the video** with a neutral note. A missing
    video is a footnote. A published recording of someone's desktop is not recoverable.
-2. **Never use `--pick`.** It's an interactive TTY picker. In an unattended run it either hangs or
+2. **Never use `--pick`.** It is an interactive TTY picker. In an unattended run it either hangs or
    resolves to nothing.
 3. **Never target the terminal.** ScreenCaptureKit deadlocks capturing the window that hosts the
    process that started it. Target Chromium, only ever Chromium.
 4. **Never start a second recording.** One run produces one video. The active-session lock lives at
    `~/.opencap/active`, and `opencap event` appends to *the* active recording, so with two live
-   sessions marker routing is undefined. If `record status` reports an active session, it isn't
+   sessions marker routing is undefined. If `record status` reports an active session, it is not
    yours: skip with a note.
 5. **Never record the matrix or the detectors.** They are Phase 5a and 5b, both silent.
 6. **Start recording after login, never before.** The credential entry must not be in the video.
@@ -98,7 +98,7 @@ Video is available only when **all** of these hold. Probe them in Phase 0 and ca
 
 | Condition | Probe | Why |
 |---|---|---|
-| macOS | `[ "$(uname)" = Darwin ]` | OpenCap rides ScreenCaptureKit; Linux/Windows aren't shipped |
+| macOS | `[ "$(uname)" = Darwin ]` | OpenCap rides ScreenCaptureKit; Linux/Windows are not shipped |
 | Binary present | `command -v opencap` | n/a |
 | Healthy install | `opencap config doctor` | Checks binary signing, **the macOS screen-recording permission**, network, credentials. The permission is a TCC grant. It cannot be granted from a script, so a `doctor` failure here is terminal for video on this run |
 | Signed in | `opencap whoami` | Exit 3 = auth error → `opencap login` once, interactively |
@@ -123,7 +123,7 @@ posted review carries the link whenever the run is local.
 
 **Attendance does not gate it.** Recording does not occupy the machine (see the focus note below), so
 an unattended local `/loop` run records exactly like an attended one. `UIW_UNATTENDED=1` still
-refuses `--target=dev` (`SKILL.md` Phase 0); it has no effect on video.
+refuses `--target=dev` (`SKILL.md` Phase 0). It has no effect on video.
 
 Two consequences of recording in reviewer mode, both already covered by rules above, both worth
 naming because the target is someone else's PR:
@@ -138,13 +138,13 @@ naming because the target is someone else's PR:
 ### The headed-browser condition
 
 `--headed` is a **daemon-startup** setting in `browse`. A daemon already running headless will not
-serve a headed request; it refuses and tells you to `browse disconnect` first.
+serve a headed request. It refuses and tells you to `browse disconnect` first.
 
 **Read the state of this lane's daemon, not the default one.** Every probe and every call here
 carries `$B_ENV` ([concurrency.md](concurrency.md)). On any lane above 0 the daemon is this run's own
 and starts headed, so the headless row below is a lane-0 case in practice.
 
-**Do not disconnect a daemon you did not start.** It may be holding the operator's logged-in
+**Do not disconnect a daemon you did not start.** It can be holding the operator's logged-in
 session, tabs, and cookies, and taking it out to get a nicer PR artifact is the same class of
 mistake as killing a port squatter. The rule:
 
@@ -158,7 +158,7 @@ mistake as killing a port squatter. The rule:
 Two consequences of headed mode, both worth stating in the report:
 
 - **`viewport --scale N` is unsupported headed**, so the retina hero shot is unavailable on a
-  recorded run. The matrix already runs at scale 1; just don't add the hero shot.
+  recorded run. The matrix already runs at scale 1. Just do not add the hero shot.
 - **The Chromium window takes focus once, when it launches.** After that it can be moved, covered,
   or sent to another Space with no effect on the recording. ScreenCaptureKit holds the window's
   offscreen surface, and Playwright drives over CDP rather than synthetic OS input, so the browser
@@ -206,7 +206,7 @@ broken, not long.
 Read the plan before treating the ceiling as 60 minutes. `opencap billing usage` prints it. On Free,
 the binding limit is the **lifetime count**, not the per-recording length: one recording per run is
 25 runs for the account. That is the reason invariant 4 is absolute. OpenCap warns at 80% of a limit
-and pauses new recordings at 100%; a paused start is just another `CAN_VIDEO=0` path. **A Free-tier
+and pauses new recordings at 100%. A paused start is just another `CAN_VIDEO=0` path. **A Free-tier
 5-minute ceiling still never drops a surface**: it truncates the tail, and the report says so.
 
 ---
@@ -286,7 +286,7 @@ to display capture, which invariant 1 forbids.
 
 Three rules make the route read as usage rather than automation.
 
-### 1. Click, don't `goto`
+### 1. Click, never `goto`
 
 `goto` teleports. A user clicks. Navigate between surfaces through the app's own nav and links, in
 the order Phase 3 discovered them:
@@ -414,7 +414,7 @@ fi
 ```
 
 `record discard` stops without uploading. Use it on **every** abort path: bail-out, stack death,
-detector crash, interrupt. A completed run uses `record stop`; nothing else does.
+detector crash, interrupt. A completed run uses `record stop`. Nothing else does.
 
 If we started the headed daemon, `browse disconnect` it in the same trap. If we reused one, leave it.
 
@@ -423,7 +423,7 @@ If we started the headed daemon, `browse disconnect` it in the same trap. If we 
 ## Reporting
 
 Report the video the way the rest of this skill reports evidence, factually, including when it
-didn't happen:
+did not happen:
 
 ```
 Video: https://opencap.dev/r/Bs_eYjKW  (desktop journey, all 8 surfaces, 9 beats, 1 jump)
@@ -433,7 +433,7 @@ Video: truncated at 5:00 (Free tier), covers beats 1 to 6 of 9
 ```
 
 **The surface count is `all <n>`, matching the surfaces Phase 3 walked.** Full coverage is the
-contract, so the line states it rather than leaving a reader to assume. A route that could not reach
+contract, so the line states it rather than leaving a reader to assume. A route that fails to reach
 a surface at all names it and says why (`7 of 8 surfaces, /billing never rendered`). That is a
 defect in the run or in the PR, never a length decision, and it is reported as one.
 
@@ -469,7 +469,7 @@ Reach for a clip when one defect matters much more than the rest of the route, n
 ## Command reference
 
 Only what these skills use. Full docs: <https://opencap.dev/docs/cli>. Flags below re-verified
-against **opencap 0.1.3** (2026-08-05) by running each `--help`; treat them as version-pinned facts,
+against **opencap 0.1.3** (2026-08-05) by running each `--help`. Treat them as version-pinned facts,
 not guesses, and re-verify after an upgrade.
 
 **Never swallow the CLI's stderr.** Every call here is best-effort, so the natural wrapper is
@@ -494,5 +494,5 @@ an `--unexpected argument` on `record start`.
 | `opencap billing usage` | plan + recording count |
 
 Exit codes: `0` ok · `1` user error · `2` system · `3` auth · `4` not found.
-`OPENCAP_TOKEN` overrides `~/.opencap/credentials` (useful headless); `OPENCAP_API` overrides the
+`OPENCAP_TOKEN` overrides `~/.opencap/credentials` (useful headless). `OPENCAP_API` overrides the
 server URL.

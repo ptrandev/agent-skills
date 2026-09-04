@@ -2,7 +2,7 @@
 
 Owns driver selection, the `browse` build probe, the headed Playwright fallback, the cloud launch
 arguments, and the capacity gate. `SKILL.md` Phase 0 keeps the pointer here. Read this before
-driving anything. Recording is [opencap.md](opencap.md)'s; this file only guarantees a window
+driving anything. Recording is [opencap.md](opencap.md)'s. This file only guarantees a window
 exists for it to scope to.
 
 **Driver** (in preference order, first available wins):
@@ -32,7 +32,7 @@ case "$BROWSE_HELP" in *--headed*) BROWSE_CAN_HEAD=1;; *) BROWSE_CAN_HEAD=0;; es
 **`BROWSE_CAN_HEAD=0` swaps the driver, it never drops the video.** One headed Playwright launch
 gives what `browse` cannot: a real OS window for OpenCap to scope to, a native `.webm` even when
 OpenCap is unavailable, and `storageState` auth that **does** restore the Firebase session
-(Playwright replays `origins[].indexedDB`; `browse cookie-import` cannot, see [stack.md](stack.md)),
+(Playwright replays `origins[].indexedDB`, but `browse cookie-import` cannot, see [stack.md](stack.md)),
 so the harness's own `e2e/.auth/*.json` replaces form login.
 
 ```js
@@ -52,8 +52,8 @@ const context = await browser.newContext({
 - **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Verified in `/review-pr`
   Phase 6: a TLS-terminating middlebox on the cloud egress path resets Chromium's TLS 1.3
   ClientHello, so every HTTPS request fails `net::ERR_CONNECTION_RESET` and the app hangs on its
-  splash (`_app` can't load `js.stripe.com`, so the login form never mounts). TLS 1.2 shrinks the
-  ClientHello enough to pass; cert-ignore and proxy flags do not help. Driving the repo's own
+  splash (`_app` cannot load `js.stripe.com`, so the login form never mounts). TLS 1.2 shrinks the
+  ClientHello enough to pass. Cert-ignore and proxy flags do not help. Driving the repo's own
   harness, inject the arg into `use.launchOptions.args` **in the ephemeral checkout only**.
 - **Cloud browser build: probe for a preinstalled Chromium before concluding "no browser".** A
   routine sandbox ships its own Playwright browsers and **forbids `playwright install`**, so the
