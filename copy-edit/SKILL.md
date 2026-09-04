@@ -168,10 +168,10 @@ These mechanics carry over, and only these:
 - American spelling.
 - Escape `\~` and `\$` where they appear literally in prose.
 - No AI tells: significance inflation, participle tails ("..., making it easy"), "not just X,
-  but Y", decorative triplets, vague attribution ("studies show"), "it is worth noting", emoji
+  but Y", decorative triplets, vague attribution ("studies show"), "it is worth noting", emoji <!-- lint-style: ignore -->
   as structure, bold as decoration.
-- Delete words that carry no fact: seamlessly, robust, powerful, comprehensive, leverage,
-  delve, pivotal, "in order to".
+- Delete words that carry no fact: seamlessly, robust, powerful, comprehensive, leverage, <!-- lint-style: ignore -->
+  delve, pivotal, "in order to". <!-- lint-style: ignore -->
 - No closing section that restates the post.
 
 A construction the author actually spoke survives, even when it appears on the tells list.

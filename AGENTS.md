@@ -1,7 +1,7 @@
 # Writing skills in this repo
 
 Every top-level directory with a `SKILL.md` is a canonical agent skill. `scripts/link-skills`
-symlinks shared skills into Claude Code and Codex; the `claude` skill is Codex-only. Each file has
+symlinks shared skills into Claude Code and Codex. The `claude` skill is Codex-only. Each file has
 two readers: an agent that must act on it, and a human who must maintain it. Write for both.
 Neither one is served by extra words.
 
@@ -23,8 +23,7 @@ Standard ASD-STE100 optimizes for a human who reads once. A skill is read by a m
 every sentence. These rules take priority over the general writing style in `global/CLAUDE.md`:
 
 - **One instruction per sentence.** Split any sentence carrying two.
-- **Imperative mood, actor named.** "Run `gh pr view`." Not "the PR should be viewed" or "you may
-  want to run".
+- **Imperative mood, actor named.** "Run `gh pr view`." Never "the PR should be viewed". <!-- lint-style: ignore -->
 - **One word, one meaning.** Pick a term for each concept and repeat it in every sentence. Never
   vary a name for style. `PR`, `thread`, `finding`, `verdict` stay those words throughout a skill.
 - **Short common words.** `use` not `utilize`, `before` not `prior to`, `run` not `execute`.
@@ -42,8 +41,8 @@ every sentence. These rules take priority over the general writing style in `glo
 
 ## Brevity: every sentence changes behavior
 
-Apply the **deletion test** to each sentence. Remove it. If the agent would still do the same
-thing in the same order, leave it removed.
+Apply the **deletion test** to each sentence. Remove it. If the agent still does the same thing
+in the same order, leave it removed.
 
 Delete on sight:
 
@@ -109,11 +108,33 @@ detail, no phase names, no flags.
 Add `allowed-tools` only to restrict a skill below the session's tools. Omitting it grants all of
 them.
 
+## Enforcement
+
+`scripts/lint-style` checks the mechanical rules above: em dashes, hedges, bare modals, filler
+words, contractions, semicolons, unescaped `\~` and `\$`, sentence length, `SKILL.md` line budget,
+and description length. It strips code fences, inline code, and link targets first, so a banned
+word quoted as `try to` never counts.
+
+```bash
+scripts/lint-style                    # every skill file
+scripts/lint-style ui-walkthrough     # one skill
+scripts/lint-style --summary          # counts per file
+scripts/lint-style --only contraction # one check
+```
+
+A passage that must name a banned word gets an exemption. Put `<!-- lint-style: ignore -->` at the
+end of one line. Wrap a longer passage in `<!-- lint-style: off -->` and `<!-- lint-style: on -->`
+on their own lines, outside a list.
+
+The linter cannot see the judgment rules: the deletion test, structure over prose, progressive
+disclosure, and one owner per fact. `/skill-edit` applies those to one file at a time.
+
 ## Before you finish
 
 1. Run the deletion test over every sentence you added.
-2. Confirm each new reference file has exactly one imperative pointer in `SKILL.md`.
-3. Update the skill's entry in `README.md`, including any new reference file it links.
-4. New skill: add repository symlinks under `.agents/skills/` and `.claude/skills/`.
+2. Run `scripts/lint-style <file>` on every file you changed. Fix or exempt each finding.
+3. Confirm each new reference file has exactly one imperative pointer in `SKILL.md`.
+4. Update the skill's entry in `README.md`, including any new reference file it links.
+5. New skill: add repository symlinks under `.agents/skills/` and `.claude/skills/`.
    Skip the Claude Code symlink for a Codex-only skill.
-5. Changed the Writing style block: run the drift check in `README.md` against all three copies.
+6. Changed the Writing style block: run the drift check in `README.md` against all three copies.

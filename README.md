@@ -161,6 +161,45 @@ The post body follows your voice, not the ASD-STE100 rules in [`global/CLAUDE.md
 
 ---
 
+## House style
+
+Every skill file follows one style, described in [`AGENTS.md`](AGENTS.md): imperative mood, one
+instruction per sentence, one word per concept, no hedges, no em dashes. Two things hold the line.
+
+`scripts/lint-style` checks the mechanical rules. It reads every `.md` file in every skill
+directory, plus `AGENTS.md`, and reports each finding as `path:line: code message`. It strips code
+fences, inline code, and link targets first, so a banned word quoted as `try to` never counts.
+
+```bash
+scripts/lint-style                    # every skill file
+scripts/lint-style ui-walkthrough     # one skill
+scripts/lint-style --summary          # counts per file
+scripts/lint-style --only contraction # one check
+```
+
+| Code | Catches |
+|---|---|
+| `em-dash` | The em dash. |
+| `hedge` | `should`, `try to`, `as needed`, `generally`, and the rest. |
+| `modal` | `would`, `may`, `might`, `could`. Weaker signal, since a counterfactual sometimes needs one. |
+| `filler` | `simply`, `leverage`, `comprehensive`, `in order to`, and the rest. |
+| `contraction` | `don't`, `isn't`, `it's`. Possessive `'s` does not count. |
+| `semicolon` | A semicolon in prose. Table rows are exempt. |
+| `unescaped-tilde`, `unescaped-dollar` | A literal `~` or `$` that GitHub renders as strikethrough or math. |
+| `long-sentence` | Over 25 words. |
+| `long-skill` | A `SKILL.md` over 500 lines, which means a reference file is due. |
+| `long-description` | A frontmatter description over 60 words, which every session pays for. |
+
+Exempt a passage that must name a banned word: `<!-- lint-style: ignore -->` at the end of one
+line, or `<!-- lint-style: off -->` and `<!-- lint-style: on -->` around a longer passage, on their
+own lines and outside a list. The `## Writing style` section is skipped everywhere, because four
+skills carry a verbatim copy of it.
+
+`/skill-edit` applies the judgment rules the linter cannot see: the deletion test, structure over
+prose, progressive disclosure, and one owner per fact.
+
+---
+
 ## Setup
 
 No setup is required to use either agent inside this repository:

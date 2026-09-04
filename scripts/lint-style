@@ -1,0 +1,323 @@
+#!/usr/bin/env python3
+"""Style linter for the skill files in this repository.
+
+Checks the mechanical rules from AGENTS.md. Judgment rules (deletion test,
+structure over prose, progressive disclosure) belong to /skill-edit.
+
+Code fences, inline code, and link targets are stripped before every check, so
+a banned word quoted as `try to` never counts as a violation.
+
+Put `<!-- lint-style: off -->` on its own line to stop checking, and
+`<!-- lint-style: on -->` to resume. An `off` with no `on` after it exempts the
+rest of the file, so `off` on line one exempts the whole file. Use it for a
+passage that must name a banned word, such as a rule that bans the word.
+
+Put `<!-- lint-style: ignore -->` at the end of one line to exempt that line.
+
+The `## Writing style` section is skipped everywhere. README.md explains why
+four skills carry a verbatim copy of it.
+"""
+
+import argparse
+import os
+import re
+import sys
+
+SENTENCE_LIMIT = 25
+SKILL_LINE_BUDGET = 500
+DESCRIPTION_WORD_BUDGET = 60
+
+BLOCK_OFF = "<!-- lint-style: off -->"
+BLOCK_ON = "<!-- lint-style: on -->"
+LINE_OFF = "<!-- lint-style: ignore -->"
+COPIED_SECTION = "## Writing style"
+
+HEDGES = [
+    "try to", "if possible", "if needed", "as needed", "where appropriate",
+    "as appropriate", "generally", "typically", "usually", "ideally",
+    "probably", "perhaps", "should",
+]
+
+# Weaker signal than HEDGES: a counterfactual sometimes needs one. Reported
+# under its own code so a sweep can triage them separately.
+MODALS = ["would", "may", "might", "could"]
+
+FILLER = [
+    "simply", "seamlessly", "robust", "powerful", "comprehensive", "leverage",
+    "delve", "pivotal", "in order to", "it is worth noting", "utilize",
+    "prior to", "crucial", "a testament to", "needless to say",
+]
+
+CONTRACTION = re.compile(
+    r"\b\w+(?:n['’]t|['’](?:re|ve|ll|d|m))\b"
+    r"|\b(?:it|that|there|what|here|let|who|he|she|one)['’]s\b",
+    re.IGNORECASE,
+)
+
+ABBREVIATIONS = {"e.g", "i.e", "vs", "etc", "no", "fig", "cf", "approx"}
+
+FENCE = re.compile(r"^\s*(```|~~~)")
+INLINE_CODE = re.compile(r"`[^`]*`")
+INLINE_CODE_MULTILINE = re.compile(r"`[^`]*`", re.DOTALL)
+LINK_TARGET = re.compile(r"\]\([^)]*\)")
+AUTOLINK = re.compile(r"<https?://[^>]*>")
+BARE_URL = re.compile(r"https?://\S+")
+HTML_COMMENT = re.compile(r"<!--.*?-->")
+QUOTED = re.compile(r"\"[^\"\n]{1,80}\"")
+
+
+def word_regex(phrase):
+    return re.compile(r"(?<![\w'’-])" + re.escape(phrase) + r"(?![\w'’-])", re.IGNORECASE)
+
+
+HEDGE_RES = [(p, word_regex(p)) for p in HEDGES]
+MODAL_RES = [(p, word_regex(p)) for p in MODALS]
+FILLER_RES = [(p, word_regex(p)) for p in FILLER]
+
+
+class Finding:
+    def __init__(self, path, line, code, message):
+        self.path = path
+        self.line = line
+        self.code = code
+        self.message = message
+
+    def render(self, root):
+        rel = os.path.relpath(self.path, root)
+        return "%s:%d: %s %s" % (rel, self.line, self.code, self.message)
+
+
+def mask_spanning_code(lines):
+    """Blank inline code that wraps across a line break, keeping line numbers."""
+    text = "\n".join(lines)
+
+    def replace(match):
+        return " CODE " + "\n" * match.group(0).count("\n")
+
+    return INLINE_CODE_MULTILINE.sub(replace, text).split("\n")
+
+
+def mask(text):
+    """Remove everything the style rules do not govern."""
+    text = HTML_COMMENT.sub(" ", text)
+    text = INLINE_CODE.sub(" CODE ", text)
+    text = AUTOLINK.sub(" URL ", text)
+    text = LINK_TARGET.sub("]", text)
+    text = BARE_URL.sub(" URL ", text)
+    text = QUOTED.sub(" QUOTED ", text)
+    return text
+
+
+def blank_uncovered(lines):
+    """Blank frontmatter, fenced code, and indented code, keeping line numbers.
+
+    This runs before any backtick masking, so a backtick inside a fenced block
+    never pairs with one in the prose around it.
+    """
+    kept = []
+    in_fence = False
+    in_frontmatter = False
+    for number, raw in enumerate(lines, start=1):
+        if number == 1 and raw.strip() == "---":
+            in_frontmatter = True
+            kept.append("")
+            continue
+        if in_frontmatter:
+            if raw.strip() == "---":
+                in_frontmatter = False
+            kept.append("")
+            continue
+        if FENCE.match(raw):
+            in_fence = not in_fence
+            kept.append("")
+            continue
+        if in_fence or (raw.startswith("    ") and raw.strip()):
+            kept.append("")
+            continue
+        kept.append(raw)
+    return kept
+
+
+def prose_lines(lines):
+    """Yield (line_number, masked_prose) for every line the rules govern."""
+    lines = mask_spanning_code(blank_uncovered(lines))
+    disabled = False
+    in_copied_section = False
+    for number, raw in enumerate(lines, start=1):
+        if not raw.strip():
+            continue
+        if BLOCK_OFF in raw:
+            disabled = True
+            continue
+        if BLOCK_ON in raw:
+            disabled = False
+            continue
+        if disabled:
+            continue
+        if raw.startswith("#"):
+            in_copied_section = raw.strip() == COPIED_SECTION
+        if in_copied_section:
+            continue
+        if LINE_OFF in raw:
+            continue
+        yield number, mask(raw)
+
+
+def strip_markup(text):
+    text = re.sub(r"^\s*[-*+]\s+", "", text)
+    text = re.sub(r"^\s*\d+[.)]\s+", "", text)
+    text = re.sub(r"^\s*#{1,6}\s+", "", text)
+    text = re.sub(r"^\s*>\s?", "", text)
+    text = re.sub(r"[*_\[\]]", "", text)
+    return text.strip()
+
+
+def split_sentences(text):
+    parts = re.split(r"(?<=[.!?])\s+", text)
+    sentences = []
+    for part in parts:
+        stripped = part.strip()
+        if not stripped:
+            continue
+        tail = re.sub(r"[^\w.]", "", stripped.split()[-1]).rstrip(".").lower()
+        if sentences and tail in ABBREVIATIONS:
+            sentences[-1] = sentences[-1] + " " + stripped
+        else:
+            sentences.append(stripped)
+    return sentences
+
+
+def check_line(path, number, text, findings):
+    if "—" in text:
+        findings.append(Finding(path, number, "em-dash",
+                                "em dash: use a period, comma, colon, or parentheses"))
+    for phrase, pattern in HEDGE_RES:
+        for _ in pattern.finditer(text):
+            findings.append(Finding(path, number, "hedge",
+                                    "%r: state the condition or write must" % phrase))
+    for phrase, pattern in MODAL_RES:
+        for _ in pattern.finditer(text):
+            findings.append(Finding(path, number, "modal",
+                                    "%r: write can, will, or must" % phrase))
+    for phrase, pattern in FILLER_RES:
+        for _ in pattern.finditer(text):
+            findings.append(Finding(path, number, "filler",
+                                    "%r: delete it or use the plain word" % phrase))
+    for match in CONTRACTION.finditer(text):
+        findings.append(Finding(path, number, "contraction",
+                                "%r: write it out" % match.group(0)))
+    if re.search(r"(?<![\\`])~", text) and "|" not in text:
+        findings.append(Finding(path, number, "unescaped-tilde",
+                                r"literal ~ must be escaped as \~ or fenced in backticks"))
+    if re.search(r"(?<![\\`])\$", text):
+        findings.append(Finding(path, number, "unescaped-dollar",
+                                r"literal $ must be escaped as \$ or fenced in backticks"))
+    prose = strip_markup(text)
+    if prose.startswith("|") or prose.startswith("---"):
+        return
+    if ";" in prose:
+        findings.append(Finding(path, number, "semicolon", "write two sentences"))
+    for sentence in split_sentences(prose):
+        count = len(sentence.split())
+        if count > SENTENCE_LIMIT:
+            findings.append(Finding(path, number, "long-sentence",
+                                    "runs %d words, limit is %d" % (count, SENTENCE_LIMIT)))
+
+
+def frontmatter_description(lines):
+    if not lines or lines[0].strip() != "---":
+        return None
+    body = []
+    collecting = False
+    for raw in lines[1:]:
+        if raw.strip() == "---":
+            break
+        if re.match(r"^description:", raw):
+            collecting = True
+            body.append(re.sub(r"^description:\s*>?-?\s*", "", raw))
+            continue
+        if collecting:
+            if re.match(r"^\S", raw):
+                break
+            body.append(raw)
+    return " ".join(body).strip() if body else None
+
+
+def check_file(path, root, findings):
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    lines = text.splitlines()
+    for number, masked in prose_lines(lines):
+        check_line(path, number, masked, findings)
+    if os.path.basename(path) == "SKILL.md":
+        if len(lines) > SKILL_LINE_BUDGET:
+            findings.append(Finding(path, len(lines), "long-skill",
+                                    "SKILL.md runs %d lines, budget is %d: split a reference file"
+                                    % (len(lines), SKILL_LINE_BUDGET)))
+        description = frontmatter_description(lines)
+        if description is None:
+            findings.append(Finding(path, 1, "no-description", "frontmatter description is missing"))
+        else:
+            count = len(mask(description).split())
+            if count > DESCRIPTION_WORD_BUDGET:
+                findings.append(Finding(path, 1, "long-description",
+                                        "description runs %d words, budget is %d: it loads every session"
+                                        % (count, DESCRIPTION_WORD_BUDGET)))
+
+
+def collect(root, targets):
+    if targets:
+        return [os.path.abspath(t) for t in targets]
+    found = []
+    for entry in sorted(os.listdir(root)):
+        directory = os.path.join(root, entry)
+        if not os.path.isdir(directory) or entry.startswith("."):
+            continue
+        if not os.path.isfile(os.path.join(directory, "SKILL.md")):
+            continue
+        for base, _, files in os.walk(directory):
+            for name in sorted(files):
+                if name.endswith(".md"):
+                    found.append(os.path.join(base, name))
+    found.append(os.path.join(root, "AGENTS.md"))
+    return found
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Lint skill prose against AGENTS.md")
+    parser.add_argument("paths", nargs="*", help="files to lint (default: every skill file)")
+    parser.add_argument("--only", action="append", default=[], metavar="CODE",
+                        help="report only this check, repeatable")
+    parser.add_argument("--summary", action="store_true", help="print counts per file, not each finding")
+    args = parser.parse_args()
+
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    findings = []
+    for path in collect(root, args.paths):
+        if os.path.isfile(path):
+            check_file(path, root, findings)
+    if args.only:
+        findings = [f for f in findings if f.code in args.only]
+
+    if not findings:
+        print("style clean")
+        return 0
+
+    if args.summary:
+        counts = {}
+        for finding in findings:
+            key = os.path.relpath(finding.path, root)
+            counts.setdefault(key, {}).setdefault(finding.code, 0)
+            counts[key][finding.code] += 1
+        for key in sorted(counts, key=lambda k: -sum(counts[k].values())):
+            detail = ", ".join("%s=%d" % (c, n) for c, n in sorted(counts[key].items()))
+            print("%4d  %s  (%s)" % (sum(counts[key].values()), key, detail))
+    else:
+        for finding in findings:
+            print(finding.render(root))
+    print("%d style findings" % len(findings), file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
