@@ -2,22 +2,31 @@
 set -eu
 
 usage() {
-  echo "usage: link-skills [--dry-run] [--host all|claude|codex] [--claude-dir DIR] [--codex-dir DIR]" >&2
+  echo "usage: link-skills [--dry-run] [--scope all|repo|user] [--host all|claude|codex] [--claude-dir DIR] [--codex-dir DIR]" >&2
   exit 2
 }
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+skills_root=$repo_root/skills
 dry_run=false
+selected_scope=all
 selected_host=all
 claude_dir=${HOME}/.claude/skills
 codex_dir=${HOME}/.agents/skills
+repo_claude_dir=$repo_root/.claude/skills
+repo_codex_dir=$repo_root/.agents/skills
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --dry-run)
       dry_run=true
       shift
+      ;;
+    --scope)
+      [ "$#" -ge 2 ] || usage
+      selected_scope=$2
+      shift 2
       ;;
     --host)
       [ "$#" -ge 2 ] || usage
@@ -45,6 +54,11 @@ case "$selected_host" in
   *) usage ;;
 esac
 
+case "$selected_scope" in
+  all|repo|user) ;;
+  *) usage ;;
+esac
+
 link_skill() {
   host=$1
   source_dir=$2
@@ -55,6 +69,17 @@ link_skill() {
   if [ -L "$link_path" ]; then
     if [ -d "$link_path" ] && [ "$(CDPATH= cd -- "$link_path" && pwd -P)" = "$(CDPATH= cd -- "$source_dir" && pwd -P)" ]; then
       echo "ok      $host $skill_name"
+      return 0
+    fi
+    current_target=$(readlink "$link_path")
+    legacy_target=$repo_root/$skill_name
+    if [ "$current_target" = "$legacy_target" ] || [ "$current_target" = "../../$skill_name" ]; then
+      if [ "$dry_run" = true ]; then
+        echo "relink  $host $link_path -> $source_dir"
+      else
+        ln -sfn "$source_dir" "$link_path"
+        echo "relinked $host $skill_name"
+      fi
       return 0
     fi
     echo "conflict $host $link_path points to $(readlink "$link_path")" >&2
@@ -78,31 +103,54 @@ link_skill() {
 
 status=0
 
-# shared/ holds reference files that skills cross-link as ../shared/<file>. It has no SKILL.md,
+# skills/shared/ holds files that skills cross-link as ../shared/<file>. It has no SKILL.md,
 # so link it beside the skills to keep that relative path valid from either host directory.
-if [ -d "$repo_root/shared" ]; then
-  if [ "$selected_host" = all ] || [ "$selected_host" = claude ]; then
-    link_skill claude "$repo_root/shared" "$claude_dir" || status=1
-  fi
-  if [ "$selected_host" = all ] || [ "$selected_host" = codex ]; then
-    link_skill codex "$repo_root/shared" "$codex_dir" || status=1
-  fi
+if [ ! -d "$skills_root" ]; then
+  echo "ERROR skills directory missing: $skills_root" >&2
+  exit 1
 fi
 
-for skill_file in "$repo_root"/*/SKILL.md; do
+link_targets() {
+  scope=$1
+  host=$2
+  source_dir=$3
+
+  case "$scope:$host" in
+    repo:claude) target_root=$repo_claude_dir ;;
+    repo:codex) target_root=$repo_codex_dir ;;
+    user:claude) target_root=$claude_dir ;;
+    user:codex) target_root=$codex_dir ;;
+  esac
+
+  link_skill "$scope-$host" "$source_dir" "$target_root" || status=1
+}
+
+link_source() {
+  source_dir=$1
+  skill_name=$(basename -- "$source_dir")
+
+  for scope in repo user; do
+    if [ "$selected_scope" != all ] && [ "$selected_scope" != "$scope" ]; then
+      continue
+    fi
+
+    if { [ "$selected_host" = all ] || [ "$selected_host" = claude ]; } && [ "$skill_name" != claude ]; then
+      link_targets "$scope" claude "$source_dir"
+    fi
+    if [ "$selected_host" = all ] || [ "$selected_host" = codex ]; then
+      link_targets "$scope" codex "$source_dir"
+    fi
+  done
+}
+
+if [ -d "$skills_root/shared" ]; then
+  link_source "$skills_root/shared"
+fi
+
+for skill_file in "$skills_root"/*/SKILL.md; do
   [ -f "$skill_file" ] || continue
   skill_dir=$(dirname -- "$skill_file")
-  skill_name=$(basename -- "$skill_dir")
-
-  if [ "$selected_host" = all ] || [ "$selected_host" = claude ]; then
-    if [ "$skill_name" != claude ]; then
-      link_skill claude "$skill_dir" "$claude_dir" || status=1
-    fi
-  fi
-
-  if [ "$selected_host" = all ] || [ "$selected_host" = codex ]; then
-    link_skill codex "$skill_dir" "$codex_dir" || status=1
-  fi
+  link_source "$skill_dir"
 done
 
 exit "$status"

@@ -274,19 +274,21 @@ def walk_md(directory):
     return found
 
 
-def collect(root, targets):
+def collect(root, skills_root, targets):
     if targets:
         found = []
         for target in targets:
             path = os.path.abspath(target)
+            if not os.path.exists(path):
+                path = os.path.join(skills_root, target)
             if os.path.isdir(path):
                 found.extend(walk_md(path))
             else:
                 found.append(path)
         return found
     found = []
-    for entry in sorted(os.listdir(root)):
-        directory = os.path.join(root, entry)
+    for entry in sorted(os.listdir(skills_root)):
+        directory = os.path.join(skills_root, entry)
         if not os.path.isdir(directory) or entry.startswith("."):
             continue
         if not os.path.isfile(os.path.join(directory, "SKILL.md")):
@@ -305,8 +307,9 @@ def main():
     args = parser.parse_args()
 
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    skills_root = os.path.join(root, "skills")
     findings = []
-    paths = collect(root, args.paths)
+    paths = collect(root, skills_root, args.paths)
     missing = [p for p in paths if not os.path.isfile(p)]
     if missing:
         for path in missing:

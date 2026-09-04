@@ -226,7 +226,7 @@ step 7 (still update the cursor).
 If any anchor pair is missing (older rubric), do NOT guess a spot and do NOT insert the block
 yourself. ALWAYS skip the write. Print: "phillip-sync: anchors missing in RUBRIC.md ->
 skipping write. Fix: copy the missing `<!-- phillip-sync:... START/END -->` marker lines from
-the repo clone's `phillip/RUBRIC.md` into the installed
+the repo clone's `skills/phillip/RUBRIC.md` into the installed
 `$PHILLIP_DIR/RUBRIC.md`." Then go to step 7.
 
 For each NEW row, APPEND it just before its block's END marker, using the Edit tool anchored

@@ -51,9 +51,9 @@ rm -rf /tmp/agent-skills
 git clone --depth 1 https://github.com/ptrandev/agent-skills.git /tmp/agent-skills
 mkdir -p "$HOME/.claude/skills"
 for item in review-pr phillip phillip-sync gemini full-send ui-walkthrough shared; do
-  if [ -d "/tmp/agent-skills/$item" ]; then
+  if [ -d "/tmp/agent-skills/skills/$item" ]; then
     rm -rf "$HOME/.claude/skills/$item"
-    cp -R "/tmp/agent-skills/$item" "$HOME/.claude/skills/$item"
+    cp -R "/tmp/agent-skills/skills/$item" "$HOME/.claude/skills/$item"
   else
     echo "WARN: '$item' is unavailable"
   fi

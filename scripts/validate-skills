@@ -2,13 +2,15 @@
 set -eu
 
 usage() {
-  echo "usage: validate-skills [--links] [--claude-dir DIR] [--codex-dir DIR]" >&2
+  echo "usage: validate-skills [--links] [--scope all|repo|user] [--claude-dir DIR] [--codex-dir DIR]" >&2
   exit 2
 }
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/.." && pwd)
+skills_root=$repo_root/skills
 check_links=false
+selected_scope=all
 claude_dir=${HOME}/.claude/skills
 codex_dir=${HOME}/.agents/skills
 repo_claude_dir=$repo_root/.claude/skills
@@ -19,6 +21,11 @@ while [ "$#" -gt 0 ]; do
     --links)
       check_links=true
       shift
+      ;;
+    --scope)
+      [ "$#" -ge 2 ] || usage
+      selected_scope=$2
+      shift 2
       ;;
     --claude-dir)
       [ "$#" -ge 2 ] || usage
@@ -35,6 +42,11 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+case "$selected_scope" in
+  all|repo|user) ;;
+  *) usage ;;
+esac
 
 status=0
 count=0
@@ -62,7 +74,31 @@ check_link() {
   fi
 }
 
-for skill_file in "$repo_root"/*/SKILL.md; do
+check_generated_links() {
+  source_dir=$1
+  skill_name=$(basename -- "$source_dir")
+
+  if [ "$selected_scope" = all ] || [ "$selected_scope" = repo ]; then
+    if [ "$skill_name" != claude ]; then
+      check_link repo-claude "$source_dir" "$repo_claude_dir"
+    fi
+    check_link repo-codex "$source_dir" "$repo_codex_dir"
+  fi
+
+  if [ "$selected_scope" = all ] || [ "$selected_scope" = user ]; then
+    if [ "$skill_name" != claude ]; then
+      check_link user-claude "$source_dir" "$claude_dir"
+    fi
+    check_link user-codex "$source_dir" "$codex_dir"
+  fi
+}
+
+if [ ! -d "$skills_root" ]; then
+  echo "ERROR skills directory missing: $skills_root" >&2
+  exit 1
+fi
+
+for skill_file in "$skills_root"/*/SKILL.md; do
   [ -f "$skill_file" ] || continue
   count=$((count + 1))
   skill_dir=$(dirname -- "$skill_file")
@@ -104,25 +140,26 @@ for skill_file in "$repo_root"/*/SKILL.md; do
   fi
 
   if [ "$check_links" = true ]; then
-    if [ "$skill_name" != claude ]; then
-      check_link claude "$skill_dir" "$claude_dir"
-    fi
-    check_link codex "$skill_dir" "$codex_dir"
+    check_generated_links "$skill_dir"
   fi
-
-  if [ "$skill_name" != claude ]; then
-    check_link claude-repo "$skill_dir" "$repo_claude_dir"
-  fi
-  check_link codex-repo "$skill_dir" "$repo_codex_dir"
 done
 
-if [ -e "$repo_claude_dir/claude" ] || [ -L "$repo_claude_dir/claude" ]; then
-  echo "ERROR Claude Code must not expose the Codex-only claude skill" >&2
-  status=1
+if [ "$check_links" = true ]; then
+  if [ -d "$skills_root/shared" ]; then
+    check_generated_links "$skills_root/shared"
+  fi
+  if { [ "$selected_scope" = all ] || [ "$selected_scope" = repo ]; } && { [ -e "$repo_claude_dir/claude" ] || [ -L "$repo_claude_dir/claude" ]; }; then
+    echo "ERROR Claude Code must not expose the Codex-only claude skill: $repo_claude_dir/claude" >&2
+    status=1
+  fi
+  if { [ "$selected_scope" = all ] || [ "$selected_scope" = user ]; } && { [ -e "$claude_dir/claude" ] || [ -L "$claude_dir/claude" ]; }; then
+    echo "ERROR Claude Code must not expose the Codex-only claude skill: $claude_dir/claude" >&2
+    status=1
+  fi
 fi
 
 if [ "$count" -eq 0 ]; then
-  echo "ERROR no top-level skills found" >&2
+  echo "ERROR no skills found under $skills_root" >&2
   exit 1
 fi
 

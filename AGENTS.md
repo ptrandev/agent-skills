@@ -1,13 +1,13 @@
 # Writing skills in this repo
 
-Every top-level directory with a `SKILL.md` is a canonical agent skill. `scripts/link-skills`
-symlinks shared skills into Claude Code and Codex. The `claude` skill is Codex-only. Each file has
-two readers: an agent that must act on it, and a human who must maintain it. Write for both.
-Neither one is served by extra words.
+Every directory under `skills/` with a `SKILL.md` is a canonical agent skill.
+Run `scripts/link-skills` to expose shared skills to Claude Code and Codex.
+The `claude` skill is Codex-only. Each file has two readers: an agent and a human maintainer.
+Write for both. Neither reader is served by extra words.
 
 `AGENTS.md` is the canonical repository instruction file. `CLAUDE.md` imports it with
-`@AGENTS.md`. Repository skill entries under `.agents/skills/` and `.claude/skills/` are symlinks
-to the top-level skill directories. Edit only the canonical files.
+`@AGENTS.md`. Generated host adapters live under `.agents/skills/` and `.claude/skills/`.
+Git ignores these adapters. Edit only the canonical files under `skills/`.
 
 Three things load at different costs. Budget for each:
 
@@ -135,6 +135,5 @@ disclosure, and one owner per fact. `/skill-edit` applies those to one file at a
 2. Run `scripts/lint-style <file>` on every file you changed. Fix or exempt each finding.
 3. Confirm each new reference file has exactly one imperative pointer in `SKILL.md`.
 4. Update the skill's entry in `README.md`, including any new reference file it links.
-5. New skill: add repository symlinks under `.agents/skills/` and `.claude/skills/`.
-   Skip the Claude Code symlink for a Codex-only skill.
+5. New skill: run `scripts/link-skills` to refresh the generated host adapters.
 6. Changed the Writing style block: run the drift check in `README.md` against all three copies.

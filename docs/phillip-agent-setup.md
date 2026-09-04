@@ -233,7 +233,7 @@ test -f ~/.agents/skills/claude/SKILL.md && echo "Codex claude skill OK" || echo
 Validation must print `validated <n> skills`; both explicit checks must print `OK`. Claude Code
 discovers shared skills under `~/.claude/skills/`. Codex discovers them under `~/.agents/skills/`.
 
-`/phillip` already wires in `/phillip-sync` (its section-0 "Refresh the rubric first" step), and `phillip/RUBRIC.md` carries the three anchor pairs `/phillip-sync` writes into: `<!-- phillip-sync:auto ... -->`, `<!-- phillip-sync:auto-donotflag ... -->`, and `<!-- phillip-sync:candidates ... -->`. No further wiring is needed -> the first time the user runs `/phillip` in a repo with `gh` authed, sync seeds the rubric from the last 30 days of PR reviews.
+`/phillip` already wires in `/phillip-sync` (its section-0 "Refresh the rubric first" step), and `skills/phillip/RUBRIC.md` carries the three anchor pairs `/phillip-sync` writes into: `<!-- phillip-sync:auto ... -->`, `<!-- phillip-sync:auto-donotflag ... -->`, and `<!-- phillip-sync:candidates ... -->`. No further wiring is needed -> the first time the user runs `/phillip` in a repo with `gh` authed, sync seeds the rubric from the last 30 days of PR reviews.
 
 ---
 

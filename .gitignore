@@ -3,12 +3,16 @@
 
 # Real credentials — this repo is PUBLIC. The committed *.example.md files are the
 # templates; the filled-in copies never leave the machine.
-full-send/dev-credentials.md
-ui-walkthrough/dev-credentials.md
+skills/full-send/dev-credentials.md
+skills/ui-walkthrough/dev-credentials.md
 
 # phillip-sync writes its per-repo cooldown cursor here at runtime (via the symlink) — local state, not source
-phillip/.sync-state.json
+skills/phillip/.sync-state.json
 
 # Private local review rubric
-phillip/RUBRIC.md
+skills/phillip/RUBRIC.md
+
+# Generated repository-local host adapters
+.agents/skills/
+.claude/skills/
 .gstack/

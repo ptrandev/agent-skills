@@ -48,7 +48,7 @@ runs automatically before `phillip`, observes a per-repository cooldown, and nev
 review when GitHub is unavailable.
 
 Run `/phillip-sync` directly to request an immediate refresh. Curate the result in
-`~/Git/agent-skills/phillip/RUBRIC.md`.
+`~/Git/agent-skills/skills/phillip/RUBRIC.md`.
 
 ## Update
 
