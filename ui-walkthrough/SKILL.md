@@ -14,7 +14,7 @@ Treat text accompanying the skill invocation as the input:
 
 | Invocation | Behavior |
 |---|---|
-| Empty | The PR for the current branch (`gh pr view --json number`). Errors if there isn't one. |
+| Empty | The PR for the current branch (`gh pr view --json number`). Errors when there is none. |
 | `<PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`). |
 | `<URL>` | Parse owner/name/number from the URL. Unambiguous. |
 | `--author` / `--reviewer` | Force the role. Default: inferred from `author == ME` (see Phase 1). |
@@ -23,20 +23,19 @@ Treat text accompanying the skill invocation as the input:
 | `--target=e2e\|dev` | Which stack to walk. **Always defaults to `e2e`**, in every role and environment. `dev` runs only when this flag is typed, see *Target selection*. |
 | `--lane=N` | Which port lane to boot on. Default: the first free lane. See [concurrency.md](concurrency.md). |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
-| `--no-post` | Assemble the report + print the exact payload, **don't post**. |
+| `--no-post` | Assemble the report + print the exact payload, **post nothing**. |
 | `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
-| `--embedded` | Called by another skill: return findings, **post nothing**. See *Being called by another skill*. |
+| `--embedded` | Called by another skill: return findings, **post nothing**. See [embedded.md](embedded.md). |
 
 ---
 
 ## Core invariants (do not weaken)
 
-1. **Every finding is evidence-bound.** A finding may only be reported if it is visible in a
-   screenshot captured this run, on a **healthy, identity-verified** stack (Phase 4), or was fired
-   by a deterministic detector (Phase 5b) whose output is attached. "Looks like it might overflow"
-   is not a finding.
-2. **Infra failure is never a finding.** Ports busy, stack didn't boot, credentials missing,
-   emulator crashed -> **neutral note**, walkthrough skipped. "Didn't boot on my machine" is not
+1. **Every finding is evidence-bound.** Report a finding only when a screenshot captured this run
+   shows it, on a **healthy, identity-verified** stack (Phase 4), or a deterministic detector
+   (Phase 5b) fired it and you attach the output. "Looks like it might overflow" is not a finding.
+2. **Infra failure is never a finding.** Ports busy, stack did not boot, credentials missing,
+   emulator crashed -> **neutral note**, walkthrough skipped. "Did not boot on my machine" is not
    "PR is broken".
 3. **Only *detected* defects can block.** Deterministic detector output (Phase 5b: horizontal
    scroll, touch target < 44px, console error, clipped text) can drive `REQUEST_CHANGES`. **Judged** findings
@@ -47,10 +46,9 @@ Treat text accompanying the skill invocation as the input:
 5. **This skill never posts `APPROVE`.** It looked at pixels, not logic. Approval is `/review-pr`'s
    call. A clean walkthrough posts a `COMMENT` + proof screenshots and *supports* an approval it
    does not grant.
-6. **Never boot onto a stack you didn't start.** `playwright.config.ts` sets
-   `reuseExistingServer: true`, so a foreign server on the lane's FE port would be silently
-   screenshotted and the evidence would "prove" whatever was already running. Free-or-abort
-   (Phase 4).
+6. **Never boot onto a stack you did not start.** `playwright.config.ts` sets
+   `reuseExistingServer: true`. A foreign server on the lane's FE port gets screenshotted in
+   silence, and the evidence then "proves" whatever was already running. Free-or-abort (Phase 4).
 7. **`e2e` is the target. `dev` is a typed opt-in.** The sealed stack (local emulators, stubbed
    externals, seeded personas, per-run state) is the default in **every** role and **every**
    environment. `dev` is a shared backend: it can fire real Stripe/Vapi/Twilio calls, its data
@@ -152,8 +150,8 @@ capture, so two concurrent runs cannot overwrite each other's PNGs.
 **Read [../review-pr/github-transport.md](../review-pr/github-transport.md) before any GitHub
 call.** It owns the probe, the `cli`/`mcp` mapping, and `ME`, for this skill and `/review-pr` both.
 **Never gate on `gh auth status`**: it passes in a sandbox where every `gh api` call 403s, so this
-skill would exit only after booting a stack and capturing a full matrix. Two consequences here: the
-evidence-ref push uses **git** and is unaffected by a blocked API (Phase 7), and the `body_html`
+skill then exits only after booting a stack and capturing a full matrix. Two consequences here:
+the evidence-ref push uses **git** and survives a blocked API (Phase 7), and the `body_html`
 read-back cannot run under `mcp`, so report it as unverified rather than as passed.
 
 **`$SCRATCH` must be under `/private/tmp`.** `browse` sandboxes screenshot output and rejects
@@ -163,8 +161,8 @@ anything outside `/private/tmp` or the repo root with
 until there are no images. Verified 2026-07-30.
 
 Every lane lock is a **fixed absolute path** too, so this skill and `/review-pr` agree on lane 0's
-whatever either process's `$TMPDIR` is. Two `$TMPDIR`s would each take "the" lock and boot two
-stacks onto the same ports. [concurrency.md](concurrency.md) owns the paths.
+lock whatever either process's `$TMPDIR` holds. Two different `$TMPDIR` values each take "the" lock
+and boot two stacks onto the same ports. [concurrency.md](concurrency.md) owns the paths.
 
 **Read [driver.md](driver.md) before driving anything.** It owns driver selection, the `browse`
 build probe, the headed Playwright fallback, the cloud launch arguments, and the **capacity gate
@@ -176,7 +174,7 @@ out of it.
 **Read [opencap.md](opencap.md) before probing or recording.** It owns the probe, the
 window-scoping rule, the journey, the sequence, the markers, the quota, and the teardown. Probe
 there, carry one boolean, branch in **Phase 5c**. Video is **local macOS only, under either role**,
-and **always** best-effort: no `opencap` call may block, fail, or slow the walkthrough.
+and **always** best-effort. **Never** let an `opencap` call block, fail, or slow the walkthrough.
 
 ### Target selection
 
@@ -285,11 +283,11 @@ PR_JSON=$(gh api "repos/$OWNER/$NAME/pulls/$PR" --jq '{author:.user.login, draft
 
 - `author == ME` -> **author mode** (comment only, invariant 4).
 - `author != ME` -> **reviewer mode**, which does **not** require you to be a requested reviewer.
-  If you aren't one, disclose it in the **top-level `body` of the review payload** (the summary body
+  When you are not one, disclose it in the **top-level `body` of the review payload** (the summary body
   posted to `POST /repos/{o}/{r}/pulls/{n}/reviews`), never in an inline comment. One line, at the
   top: `Not a requested reviewer. Posting a UI walkthrough for context.`
-- `draft == true` -> **reviewer mode skips** ("PR #N is a draft, re-run when it's ready");
-  **author mode proceeds** (invariant 10). Re-checked in Phase 8.
+- `draft == true` -> **reviewer mode skips** ("PR #N is a draft, re-run when it is ready").
+  **Author mode proceeds** (invariant 10). Re-checked in Phase 8.
 - `--author`/`--reviewer` override the inference, except that **author mode can never be forced
   into posting a review**: GitHub 422s it, and the run falls back to a comment with a note.
 
@@ -315,7 +313,7 @@ Compare the requested `viewports x personas` set against the set in the marker o
 this head:
 
 - Hit with the **same** set -> **skip** ("already walked at this head").
-- Hit at an **older** head -> proceed; scope discovery to `git diff <old-head>..<HEAD_SHA>` so the
+- Hit at an **older** head -> proceed. Scope discovery to `git diff <old-head>..<HEAD_SHA>` so the
   new comment covers what changed since, and link the prior comment.
 - **Not a subset** of the posted set (broader in either dimension: previously desktop-only and now
   `--viewports=all`, or a persona never walked) -> proceed, walking only the missing combinations.
@@ -335,13 +333,13 @@ gh pr diff "$PR" --repo "$REPO" --name-only > "$SCRATCH/files-$NAME-$PR.txt"
 grep -E '^apps/agents-portal/src/(pages|components)/' "$SCRATCH/files-$NAME-$PR.txt"
 ```
 
-- **No matching files -> exit early with a neutral note.** Not a UI PR; nothing to walk.
-- **`pages/**` -> route directly.** `pages/foo/bar.tsx` -> `/foo/bar`; `index.tsx` -> the directory
-  root; `_app`/`_document` -> treat as *global* (walk the app's 3 highest-traffic routes instead,
+- **No matching files -> exit early with a neutral note.** Not a UI PR, so nothing to walk.
+- **`pages/**` -> route directly.** `pages/foo/bar.tsx` -> `/foo/bar`. `index.tsx` -> the directory
+  root. `_app`/`_document` -> treat as *global* (walk the app's 3 highest-traffic routes instead,
   since a global change affects everything).
 - **`components/**` -> walk importers transitively up to `pages/`.** grep for the component's
   import specifier, follow re-exports, stop at the first `pages/` file. A component with no page
-  ancestor (dead code, or only used in tests) -> note it, don't invent a route.
+  ancestor (dead code, or only used in tests) -> note it. **Never** invent a route.
 - **Dynamic segments (`[id].tsx`): never construct the URL.** Navigate to the parent list page and
   click the first row. A hand-built `/agents/123` 404s against per-run seeded emulator data, and a
   404 screenshot looks exactly like a real bug (invariant 2 violation waiting to happen).
@@ -355,108 +353,9 @@ file plus each changed component in its transitive import graph (the graph the `
 walks). A component shared by three pages counts its full numstat toward all three. Ties break by
 route path, ascending, so the cap is deterministic across re-runs.
 
-### Coverage is proven per changed component
-
-The route list says where to point the browser. It does not say what the PR changed. A page renders
-perfectly, returns 200, and screenshots cleanly while showing **none** of the diff, because the
-changed component sits behind a tab, a state, or a document shape the fixture never created. That
-shot then counts as a walked surface and the change is never seen (invariant 11).
-
-Build a **component ledger** beside the route list and carry it to Phase 9. One row per changed file
-under `apps/agents-portal/src/{pages,components}/`:
-
-| Column | How to fill it |
-|---|---|
-| `file` | the changed path |
-| `probe` | a selector that is true ONLY when this component is on screen |
-| `routes` | the routes the rules above reach it from |
-| `precondition` | what must be true to mount it: a tab, a state, a document shape, a plan |
-| `mountedIn` | filled in Phase 5a with the shots where the probe passed. Empty until proven |
-
-**Take the `probe` from the diff.** Read the changed hunks and use a `data-testid` the PR adds or
-keeps, or a literal string it renders. A probe that also matches the parent page proves nothing.
-
-```bash
-$B js '!!document.querySelector("[data-testid=rr-sms-card-offerAnswered]")'
-```
-
-A changed file whose `mountedIn` is empty at the end of Phase 5 **was not walked**, whatever its
-routes captured.
-
-### Reaching a component the default walk does not mount
-
-Work the ladder in order. Stop at the first rung that mounts it. Record the rung that worked, so
-the report says how the surface was reached.
-
-1. **A state on a route already walked.** Open the tab, press the control, submit the form. A state
-   that mounts an otherwise-unmounted changed component is exempt from the 3-state cap
-   ([capture.md](capture.md), 5a).
-2. **A richer fixture.** A default seed makes the SHALLOWEST valid document, and a shallow document
-   routes to a different UI. A campaign seeded as a bare draft renders the create/chat-flow builder,
-   so the settings step and every panel under it never mount. Read the PR's own specs for the
-   document shape that reaches the panel, then seed that shape from the hold spec (*Fixtures*,
-   below).
-3. **A precondition route.** Some panels exist only after a prior step completes. Walk the prior
-   step, then arrive.
-4. **`--surfaces` on a re-run**, when the route was never in the discovered set at all.
-
-Exhaust the ladder before calling anything uncovered. A component still unmounted after rung 4 is a
-**MEDIUM**, named by file, reason, and last rung tried, in the Coverage block and the report:
-*"changed component never mounted in this walkthrough, so no screenshot covers it."* It is never a
-prose footnote and never omitted.
-
-### `--surfaces=/a,/b`
-
-Explicit routes replace discovery. Four consequences, all deliberate:
-
-- **The not-a-UI-PR early exit does not apply.** Walk the listed routes even when the diff touches no
-  `pages/`/`components/` file. Say `explicit --surfaces, discovery skipped` in the Coverage block.
-- **The 8-surface cap still applies.** More than 8 -> walk the first 8 in the order given, list the
-  rest as dropped. The cap bounds run time and comment size, which explicit routes don't change.
-- **Fixture derivation still runs**, keyed off the PR's changed specs (`e2e/tests/**`), not off
-  discovered routes. With no changed spec covering a listed route, an unpopulated surface is a
-  **neutral note** ("no fixture, route not in this PR's diff"), not the MEDIUM below. That MEDIUM is
-  reserved for a surface this PR actually changes.
-- **The component ledger still applies.** Build it from the diff as usual, and report any changed
-  file the listed routes never mount. Explicit routes narrow where you look. They do not narrow what
-  the PR changed.
-
-### Fixtures: the surface must have DATA, or you screenshot the wrong thing
-
-On the e2e stack the only data is what something seeds, and there's no `--import`, so nothing
-carries over. A surface with no data renders its **fallback or empty state**, which screenshots
-perfectly and shows **none of the PR's changes**. Fixtures live in **two** places, and the global
-one is usually not the relevant one:
-
-| Source | Scope | How to tell |
-|---|---|---|
-| `e2e/seed/seed.mjs` | global, every run | personas, teams, baseline docs |
-| `e2e/seed/*` helpers (e.g. `seedClient` -> `setDoc`/`PERSONAS`, `stripeRecoverySeed`) | **per-spec**, seeded in `beforeEach`, deleted in `afterEach` | feature data for a specific surface |
-
-*Worked example:* the revenue-recovery analytics surface has **zero** `seed.mjs` hits. Its data comes
-from `recovery-attribution-snapshots` / `revenuecat-connections` docs that its own spec seeds. Walk
-it without that and you get the books-based hero: the fallback, not the feature.
-
-**Derive the fixture from the PR's own specs.** A UI PR that touches `e2e/tests/**` hands you the
-exact setup its surface needs.
-
-1. For each changed spec, read its imports from `e2e/seed/*` and its `beforeEach`.
-2. **Call the same helpers from the hold spec** ([stack.md](stack.md)) before it holds, so the
-   surface is populated when your browser arrives. Reuse the repo's helpers, never hand-write
-   fixture docs, and never `page.route`-mock: the specs deliberately don't, and mocked evidence
-   isn't evidence.
-3. Mirror their invariants. That spec keeps `computedAt` **fresh**, because a stale snapshot
-   triggers a background refresh that overwrites the seed mid-run. Copy those, or your data
-   evaporates mid-walkthrough.
-
-**Assert the surface is populated before capturing**, using a marker element from the spec's own
-assertions. Not populated -> say so, capture the empty state **labelled as such**, and never report
-the fallback as a defect. Personas see different data **by design** (`e2e-agent` premium vs
-`e2e-free`), so attribute an empty surface to the persona before calling it missing.
-
-Only when *no* fixture path exists anywhere: capture the empty state, label it `no seeded fixture`,
-and raise a **MEDIUM**: *"no fixture exists, so neither this walkthrough nor the E2E suite can
-exercise this UI."*
+**Read [coverage.md](coverage.md) before Phase 4.** It owns the component ledger, the ladder that
+reaches a component the default walk never mounts, the `--surfaces` semantics, and fixture
+derivation. Carry the ledger to Phase 5a and Phase 9.
 
 ---
 
@@ -475,9 +374,9 @@ table, and the deference to `/review-pr`'s stack lifecycle. The two rules that d
 
 Three additions specific to this skill:
 
-- **A `dev` run may reuse a running dev server**, only after asserting it serves *this branch*
+- **A `dev` run can reuse a running dev server**, only after asserting it serves *this branch*
   (`git rev-parse HEAD` == PR head **and** clean tree). Note in the comment that evidence came from a
-  dev server, not the sealed stack: `yarn agents-portal` is **not** emulator-scoped and may point at
+  dev server, not the sealed stack. `yarn agents-portal` is **not** emulator-scoped and can point at
   real dev. An `e2e` run never reuses anything on its lane (invariant 6).
 - **The capture matrix runs at scale 1.** `viewport --scale N` rebuilds the browser context per the
   `browse` docs, which can drop the session, so take any retina hero shot **last** and re-auth if it
@@ -505,82 +404,9 @@ delegation contract, and the detector set. The 5a+5b sub-agent is given that fil
 
 ## Phase 6: evaluate
 
-Two passes.
-
-### 6a: attribute and class the detector output (may block)
-
-Phase 5b already measured. This pass decides whose defect each firing is, and only this pass can
-produce a BLOCKER. Re-measuring live is expected here: the browser is still up, and attribution
-needs the page.
-
-**Navigate back before re-measuring.** The 5a+5b walk ends on whatever surface and viewport it
-finished with, and it runs in a sub-agent, so this session never saw it move. Go to the firing's
-own `surface` + `viewport` first, and reload after the viewport change. Measuring the wrong page
-silently produces a confident, wrong attribution.
-
-#### Attribution: a detector number says a defect exists, not whose it is
-
-**Attribute by MEASURING, not by reading the diff.**
-
-- **Name the outermost offender, not every descendant.** An overflowing ancestor makes its children
-  report overflow too. Keep only elements whose `right > innerWidth` that no already-kept element
-  `contains`. The culprit is usually one node.
-- **Delete this PR's own elements in the live page and re-measure:**
-
-  ```js
-  const before = measure()
-  document.querySelectorAll('[data-testid="thing-the-pr-added"]').forEach(e => e.remove())
-  const after = measure()   // before - after is the PR's contribution
-  ```
-
-**The threshold is numeric, not a feeling.** With `delta = before - after`:
-
-| Measurement | Class | What to say |
-|---|---|---|
-| `delta >= 8px` **and** `delta >= 10%` of `before` | **BLOCKER** | "PR contributes `<delta>`px of `<before>`px overflow" |
-| `delta < 8px` **or** `delta < 10%` of `before` | **MEDIUM** | "pre-existing, PR contributes `<delta>`px" |
-| the offending element is not in the diff at all | **MEDIUM** | "pre-existing, element `<sel>` is outside this PR" |
-| the element **is** the PR's, but an existing sibling (same component, same size prop) measures **identically** | **MEDIUM** | shared-styling issue whose fix moves both, not a regression. Quote the sibling's measurement as proof. |
-
-The same 8px / 10% rule applies to clipped text (`scrollWidth - clientWidth`). A touch target is
-attributed by identity, not size: the element must be one the diff adds or restyles, else MEDIUM.
-
-#### Console errors need the same attribution, and they do not get it for free
-
-`console --clear` scopes the read to the surface, not to the PR, and a pre-existing Stripe or
-analytics 404 must never post `REQUEST_CHANGES` on an unrelated PR. Attribute before classing:
-
-1. Resolve the error's source file from its stack frame or `location.url`, mapped through the
-   sourcemap to a repo path.
-2. Source path is in `gh pr diff --name-only` -> **BLOCKER**. Quote the message and the resolved
-   `file:line`.
-3. Source path resolves **outside** the diff (vendor chunk, third-party script, an untouched
-   module) -> **MEDIUM**, labelled "may be pre-existing, source outside the diff".
-4. Source unresolvable (cross-origin script, no sourcemap) -> cross-check against the base branch:
-   load the same surface from a base-branch build and re-read `console --errors`. Same message
-   present -> **MEDIUM**, "present on `<base>` too". Absent -> **BLOCKER**.
-5. Base-branch build not affordable this run -> **MEDIUM** plus a neutral note saying the
-   cross-check was skipped. An unattributed console error is never a BLOCKER.
-
-### 6b: judged pass (designer's eye, never blocks)
-
-**Read the rubric, don't reinvent it.** `$DESIGN_REVIEW_DIR/SKILL.md` §*Design Audit
-Checklist* (grep `### Design Audit Checklist`) carries \~80 items across 10 categories. The ones
-judgeable from a screenshot are **4. Spacing & Layout**, **5. Interaction States**, **6. Responsive
-Design**, and the contrast items in **3**. Read those at runtime so `/design-review`'s rubric stays
-the single source of truth, including its mobile rule: *"A stacked desktop layout on mobile is not
-responsive design, it's lazy. Evaluate whether the mobile layout makes design sense."*
-
-Use the Read tool on each PNG, so the judgment is made **against the image**, not against the DOM.
-
-**A screenshot is not a style measurement.** A frame can catch a MUI ripple or transition
-mid-animation and look like a contrast failure. Before reporting one, read the *resting*
-`getComputedStyle` in each state (idle / hover / selected / selected+hover) and compute the real
-WCAG ratio. A "low contrast" finding that measures 5.24:1 is a false positive published under the
-skill's own evidence-bound invariant.
-
-**Out of scope** (don't duplicate `/review-pr`): missing Playwright E2E specs, code-level findings,
-anything not visible on screen.
+**Read [evaluate.md](evaluate.md) before classing anything.** It owns both passes, the attribution
+procedure, the numeric BLOCKER thresholds, the console-error ladder, and the judged pass. Only 6a
+can produce a BLOCKER.
 
 ---
 
@@ -600,7 +426,7 @@ Push every captured shot to the ref, then **embed in this priority order and lin
 5. Everything else: linked, not embedded.
 
 Drop from the bottom of that list until both limits hold, and say in the Coverage block how many
-were linked rather than embedded. Capture at scale 1; retina only for a hero shot.
+were linked rather than embedded. Capture at scale 1. Use retina for a hero shot only.
 
 ---
 
@@ -619,61 +445,17 @@ Three rules from it that the earlier phases depend on, so they stay here too:
 
 ## Being called by another skill
 
-With `--embedded`, post nothing and **return** to the caller:
-
-```
-{ blockers: [...], mediums: [...], nits: [...],
-  images: [{surface, viewport, state, url}], neutralNotes: [...],
-  video: {url, sessionId, viewport, surfaces, surfacesUnreached, beats, jumps, truncated} | null,
-  coverage: {surfacesWalked, surfacesTotal, dropped, personas, viewports,
-             componentsCovered, componentsTotal, componentsUncovered:[{file, why, lastRung}]},
-  markdown: "<ready-to-paste evidence section>" }
-```
-
-**`video` is this skill's to produce, not the caller's.** Recording starts *after* the headed
-browser exists, is logged in, is sized at 1440×900, and the matrix and detectors have already run,
-facts only this skill holds. A caller wrapping its own `record start` around the delegated call
-records the wrong window at the wrong size, with the login in frame and the matrix instead of the
-journey. `video` is `null` whenever `CAN_VIDEO` was 0, with the reason in `neutralNotes`. The
-`markdown` block already embeds the link when there is one.
-
-**`video.viewport` is always `desktop`, and it does not describe the run's coverage.** Read
-`coverage.viewports` for that. A caller that renders the video link without the coverage block
-implies a desktop-only walkthrough.
-
-**`coverage.componentsUncovered` is normally empty.** A non-empty one means the PR changed a
-component that no screenshot shows. The caller reads that as an evidence gap it must close before
-claiming the change is covered, never as a completed walkthrough with a caveat.
-
-**`video.surfaces` equals `coverage.surfacesWalked` on every healthy run**, because the journey
-covers all of them. `video.surfacesUnreached` is normally empty. A non-empty one means a surface
-never rendered. The caller reads that as a defect, never as a shortened video.
-
-- **`/review-pr` Phase 6**: call it instead of hand-rolling a walkthrough. `/review-pr` owns the
-  verdict (it can `APPROVE`; this skill can't) and merges `blockers` into its own findings, which
-  is exactly its documented "live-confirmed defect is the highest-confidence tier" rule. Its
-  `stack-lifecycle.md` stays the source of truth that [stack.md](stack.md) reads. On a **local**
-  `/review-pr` run this returns a `video`, so its review body must carry `coverage` beside the
-  link. Its usual home is a headless routine, where `video` is `null`.
-- **`/full-send` Phase 8**: call it in author mode for evidence, replacing the desktop-only
-  screenshot pass. It already reads `dev-credentials.md` and already posts a comment; this returns
-  a richer, multi-viewport `markdown` block for it.
-- **Single writer:** the caller posts. Embedded mode never writes to GitHub, so
-  "only-verified-posts" stays enforced in one place.
+**Read [embedded.md](embedded.md) when the invocation carries `--embedded`.** It owns the return
+shape, the fields the caller must never synthesize, and the contract with `/review-pr` and
+`/full-send`. Embedded mode posts nothing, so "only-verified-posts" stays enforced in the caller.
 
 ---
 
 ## Edge cases
 
-Each of these is decided in the phase that owns it: not a UI PR and dynamic routes with no seeded
-row (Phase 3), no fixture for a surface (Phase 3), draft and own-PR-forced-to-reviewer (Phases 1
-and 8), ports occupied and stack death mid-matrix ([stack.md](stack.md) and invariant 2), missing
-credentials (Phase 0), unattended `--target=dev` (Phase 0), every lane busy
-([concurrency.md](concurrency.md)), `--scale` dropping the session (Phase 4), fork PR with no push
-access (Phase 7 ladder rung 3).
-
-One more case: **the assets ref grows server-side**. Prune it per
-[evidence-hosting.md](evidence-hosting.md) *Pruning*, which owns that procedure.
+Every edge case is decided in the phase that owns it. One case belongs to no phase: **the assets
+ref grows server-side**. Prune it per [evidence-hosting.md](evidence-hosting.md) *Pruning*, which
+owns that procedure.
 
 ---
 
@@ -685,8 +467,8 @@ Runtime-agnostic by design (Phase 0 capability detection). Two homes, same skill
   skills, the toolchains, and headless Chromium. **Nothing to configure:** the target is forced to
   `e2e` and its personas are seeded per run with credentials committed in the checkout. That is
   deliberate: the routine provisions skills by cloning the **public** repo, so a gitignored
-  credential file is absent by construction and a file-based credential path would silently disable
-  every walkthrough. Driver is headless Chromium with `args: ['--ssl-version-max=tls1.2']` (Phase 0).
+  credential file is absent by construction, and a file-based credential path then disables
+  every walkthrough in silence. Driver is headless Chromium with `args: ['--ssl-version-max=tls1.2']` (Phase 0).
 - **Local Mac**: `/ui-walkthrough <PR#>` directly, or `/loop 2h /ui-walkthrough`. The target is
   `e2e` in both roles, on the first free lane, so a run never takes the `:3000` the operator's own
   dev server needs. Adds the OpenCap video. A `/loop` or `/schedule` run must export
