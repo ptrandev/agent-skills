@@ -1,168 +1,109 @@
-# babysit-prs: Routine (cloud) setup
+# babysit-prs: Routine setup
 
-A Claude Code **Routine** runs `/babysit-prs` unattended in an Anthropic-managed cloud environment.
-It **clones your repo and runs a setup step**, so it has the *actual code* and a real toolchain,
-enough to make fixes and verify them (typecheck/lint/test).
+A Claude Code Routine can sweep review threads on a schedule, make safe fixes, and verify them in a
+fresh cloud checkout. It cannot capture local screenshots or video, so it leaves threads requiring
+visual proof open.
 
-> Source of truth: <https://code.claude.com/docs/en/routines> (research preview, limits/labels can
-> change). Configure at **claude.ai/code/routines** (web), the Desktop app (**Routines → New
-> routine → Remote**), or `/schedule` in the CLI. **Do not create a Routine from inside this
-> skill.**
+Claude's [Routine documentation](https://code.claude.com/docs/en/routines) is the source of truth
+for current product limits and UI labels.
 
-Capability tiers in a Routine:
-- ✅ **Tier 1** triage/reply/resolve and ✅ **Tier 2** fix + verify, fully in-cloud.
-- ❌ **Tier 3** visual evidence (screenshots/video), no display/OpenCap in the cloud session.
-  Leave a thread needing visual proof open, tagged *"needs local visual run,"* for a local pass.
+## Before you start
 
-Routines support these three trigger types and combine them. Configure them in §5.
+1. Connect GitHub with `/web-setup`. Install the Claude GitHub App too when using GitHub event
+   triggers.
+2. Confirm Claude Code on the web and Routines are enabled for the account.
+3. Plan to enable **Allow unrestricted branch pushes** for every target repository. The skill must
+   push fixes to existing PR branches.
 
-| Trigger | Cadence and limits |
-|---|---|
-| **Schedule** | 1 hour minimum cadence, or a one-off time. |
-| **GitHub event** | `pull_request.*` and `release.*` actions only. No review-comment or issue-comment event. |
-| **API** | An HTTP POST to a per-routine `/fire` endpoint with a bearer token. |
+Commits and replies use your connected GitHub identity.
 
----
+## Create the Routine
 
-## Two things to get right
+Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
-1. **Unrestricted branch pushes, required.** By default a Routine can push only to
-   `claude/`-prefixed branches. This skill commits to the *PR's own head branch* (e.g.
-   `ptrandev/AP-1810-…`). In the routine form's **Permissions** tab, enable **"Allow unrestricted
-   branch pushes"** for **each** repo. Without it, fixes cannot be pushed and every fix-needed
-   thread degrades to triage-only.
-2. **The session starts on the default branch.** Each run clones `master`. The prompt/skill must
-   `git fetch` and `gh pr checkout <PR>` onto the PR head before editing. The skill's Phase 4 does
-   this, so the Routine runs the *skill*. **Never run a hand-rolled one-liner instead.**
+1. **Name and prompt:** use `babysit-prs` and the prompt below.
+2. **Repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
+3. **Environment:** use the default Trusted network and the setup script below.
+4. **Permissions:** enable unrestricted branch pushes for both repositories.
+5. **Connectors:** remove connectors other than the GitHub access supplied by the Routine.
+6. **Trigger:** choose one of the options below.
+7. Create the Routine, then select **Run now** for validation.
 
----
+## Setup script
 
-## 1. Connect GitHub (no PAT)
-
-Routines use your **connected GitHub identity**, not a pasted token (that is the separate Managed
-Agents API). Two paths:
-
-- **`/web-setup`** in the CLI: grants repo access for **cloning**. Sufficient for a
-  **schedule-only** routine.
-- **Claude GitHub App**: required additionally for **GitHub event triggers** (webhook delivery).
-  The trigger setup prompts you to install it on the repo if it is not already installed.
-
-Commits, PR replies, and thread resolutions appear as **your** GitHub user.
-
-## 2. Create the routine (web form)
-
-At **claude.ai/code/routines → New routine**:
-
-1. **Name + prompt:** name it `babysit-prs`. Use the prompt in §4 below. (The prompt box has a
-   model selector. Pick your model, because it is used every run.)
-2. **Select repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`. Each is cloned
-   fresh from its default branch every run.
-3. **Select an environment:** §3 (setup script).
-4. **Select a trigger:** §5.
-5. **Connectors / Permissions tabs** (bottom of the form):
-   - **Permissions → enable "Allow unrestricted branch pushes"** for both repos (gotcha #1).
-   - **Connectors:** all your connected MCP connectors are included by default. Strip every one,
-     because this routine needs none beyond git/gh.
-6. **Create**, then use **Run now** on the detail page for the validation run (§6).
-
-## 3. Environment + setup script
-
-The **Default** environment uses **Trusted** network access (package registries + common dev
-domains like github.com reachable, arbitrary hosts blocked). Add a **setup script** (runs once,
-cached). **The two repos have different stacks. `codebase` is Yarn 3 (Berry), `aicc-queues` is
-Gradle/JVM, so the script must handle each correctly:**
+The repositories use different toolchains. The script installs the skill and warms both:
 
 ```bash
-# (a) Make the babysit-prs skill discoverable (public repo, no auth).
+rm -rf /tmp/agent-skills
 git clone --depth 1 https://github.com/ptrandev/agent-skills.git /tmp/agent-skills
 mkdir -p "$HOME/.claude/skills"
 cp -R /tmp/agent-skills/babysit-prs "$HOME/.claude/skills/babysit-prs"
 
-# Replace these with each repo's actual clone path in the session.
 CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
 AICC_DIR="${AICC_DIR:-./aicc-queues}"
 
-# (b) codebase: Yarn 3.8.7 Berry monorepo (Node >=20). Berry uses --immutable,
-#     NOT --frozen-lockfile (a Yarn 1 flag that Berry rejects with an error).
 if [ -f "$CODEBASE_DIR/package.json" ]; then
   ( cd "$CODEBASE_DIR" && corepack enable && yarn install --immutable ) \
-    || echo "codebase: yarn install failed, its fixes degrade to triage-only"
+    || echo "codebase: install failed; fixes degrade to triage-only"
 else
-  echo "codebase: clone not found at $CODEBASE_DIR, fixes degrade to triage-only"
+  echo "codebase: clone not found; fixes degrade to triage-only"
 fi
 
-# (c) aicc-queues: Gradle 8.10 / JVM (JDK 21 is present in the sandbox).
-#     Warm deps + compile only: full tests need Redis+Postgres, absent here.
 if [ -f "$AICC_DIR/build.gradle" ]; then
   ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) \
-    || echo "aicc-queues: gradle compile failed, its fixes degrade to triage-only"
+    || echo "aicc-queues: compile failed; fixes degrade to triage-only"
 else
-  echo "aicc-queues: clone not found at $AICC_DIR, fixes degrade to triage-only"
+  echo "aicc-queues: clone not found; fixes degrade to triage-only"
 fi
 ```
 
-Notes:
-- **Skill discovery:** `$HOME/.claude/skills` matches how Claude Code normally loads user skills and
-  works regardless of cwd. The docs also guarantee "skills **committed to the cloned repository**".
-  When `$HOME` discovery does not take, commit `babysit-prs` into a repo's `.claude/skills/`, or
-  **inline** SKILL.md into the prompt (the docs stress a self-contained one).
-- **Per-repo verification depth sets the auto-resolve bar.** The rule lives in Phase 4 of
-  [SKILL.md](SKILL.md) because the agent applies it every run. It is why (c) compiles rather than
-  tests.
-- **Network:** Gradle pulls its distribution from `services.gradle.org` and deps from Maven Central
-  / Google's Maven. When those are not in the Default Trusted allowlist, add them under **Network
-  access → Custom** (keep the default package-manager list checked), or `aicc-queues` setup fails
-  and that repo drops to triage-only. The npm registry `codebase` needs is in the default list.
-- First run is slow because of the cold install and Gradle distribution download. Later runs are
-  cached.
+Replace the clone paths when the Routine uses different directories. Add Gradle or Maven hosts to
+the Trusted network's custom allowlist when dependency downloads fail.
 
-## 4. The prompt
+The environment caches successful setup. Its first run is slower.
 
-Make the prompt **self-contained**: invoke the skill and state the guardrails, so a fresh session
-has full context.
+## Prompt
 
-```
-Run the /babysit-prs skill across my open PRs on Atllas-Inc/codebase and Atllas-Inc/aicc-queues.
+```text
+Run /babysit-prs across my open PRs on Atllas-Inc/codebase and Atllas-Inc/aicc-queues.
 
-For every open PR I authored, address unresolved review threads (bot AND teammate): fix the safe,
-mechanical, test-covered ones; reply to all; and resolve ONLY threads you actually fixed and
-verified (typecheck/lint/test green). Leave questions, judgment calls, and anything needing
-visual proof OPEN, tagged for me. You start on the default branch, so `git fetch` and
-`gh pr checkout <PR>` onto each PR's head branch before editing. Be idempotent: skip threads whose
-last reply is already mine. End with the report table and an explicit "Needs you" list.
+Address unresolved bot and teammate threads. Fix only safe, mechanical, test-covered findings.
+Reply to every handled thread. Resolve only threads you fixed and verified green. Leave questions,
+judgment calls, and anything needing visual proof open for me.
+
+Each checkout starts on the default branch. Fetch and check out each PR head before editing.
+Be idempotent: skip threads whose latest reply is already mine. Finish with the report table and an
+explicit "Needs you" list.
 ```
 
-Keep the prompt pointing at the skill, so cloud and local runs stay identical and SKILL.md
-improvements apply everywhere.
+Keep the prompt pointed at the skill so improvements to [`SKILL.md`](SKILL.md) apply to every run.
 
-## 5. Triggers
+## Triggers
 
-- **Schedule (primary):** pick the **Hourly** preset. For a gentler off-minute cadence, create it,
-  then `/schedule update` in the CLI to set cron `17 * * * *` (1-hour minimum is enforced).
-- **GitHub event (optional):** **Add another trigger → GitHub event →** repo → **Pull request**,
-  filtered to **Labels include `babysit`** (a manual "do this PR now" nudge) and/or
-  **action `opened`**. This installs/uses the Claude GitHub App. It can **not** fire on comments,
-  which is why the schedule is primary.
-- **API (optional):** add this trigger when an external system must POST-trigger a run.
+| Trigger | Use |
+|---|---|
+| Schedule | Recommended. The minimum cadence is one hour; `17 * * * *` runs hourly off the hour. |
+| GitHub event | Optional PR-level nudge. Review-comment and issue-comment events are unavailable. |
+| API | Optional POST trigger for another system. |
 
-## 6. First-run validation (before trusting it)
+A label-filtered pull-request event can provide a manual nudge, but the schedule remains the
+backstop for review comments.
 
-`green` in the run list only means the session did not crash. **Open the run transcript** to confirm
-what actually happened. Verify two things:
+## Validate before enabling fixes
 
-1. **Setup succeeded:** confirm `yarn install` + a typecheck ran in-session. If not → triage-only
-   until the env is fixed. Also confirm the skill was discovered (the prompt invoked `/babysit-prs`
-   and it ran, rather than the agent improvising).
-2. **Branch push works:** point it at one PR with a trivial nit and confirm a **commit lands on the
-   PR head** + the thread gets a reply and resolve. Proves the unrestricted-push toggle took.
+Open the run transcript. A green status only means the session completed.
 
-Until both are green, treat the Routine as **triage + reply + notify** and keep doing fixes locally.
+1. Confirm the setup installed the skill and both project toolchains.
+2. Confirm `/babysit-prs` ran instead of an improvised replacement.
+3. Point the Routine at a PR with a trivial finding.
+4. Confirm the fix commit reached the PR branch.
+5. Confirm the thread received a reply and was resolved.
 
-## 7. Limits to know (research preview)
+Until all five pass, treat the Routine as triage-only.
 
-- **1-hour minimum** schedule cadence. Runs can start a few minutes late (consistent stagger).
-- Per-account **daily routine-run cap** + preview-phase **hourly webhook caps** on GitHub triggers.
-  See current limits at claude.ai/code/routines. One-off runs do not count against the daily cap.
-- Requires a **Pro/Max/Team/Enterprise** plan with **Claude Code on the web** enabled. Team/Ent
-  Owners can disable Routines org-wide.
-- Routines are **personal** to your account (not shared with teammates).
+## Current limits
+
+- Scheduled runs have a one-hour minimum cadence and can start a few minutes late.
+- Account and webhook run limits depend on the current Claude plan.
+- Routines are personal and are not shared with teammates.
+- Visual evidence still requires a local `/babysit-prs` pass.

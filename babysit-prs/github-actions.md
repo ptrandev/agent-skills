@@ -1,49 +1,33 @@
-# babysit-prs: GitHub Actions bot (the comment-driven option)
+# babysit-prs: GitHub Actions setup
 
-An autonomous, event-driven bot that lives in the repo and fires the instant a review comment
-lands, for every author, with no machine on. Pick it over a Routine per the runtime table in
-"Running it unattended" in [SKILL.md](SKILL.md). Running **both** is fine: the Actions bot for
-instant comment response, the Routine's hourly sweep as a backstop. Idempotency keeps them from
-colliding.
+Use this option when review comments need an immediate response. The workflow runs in each target
+repository and can serve every author without a local machine.
 
-**Do not enable this until the local loop's resolution quality is trusted.**
+**Do not enable it until local `/babysit-prs` runs consistently make the right decisions.**
 
-## How it differs from the local loop
-
-| | Local loop (the skill) | Actions bot |
+| | Local or Routine | GitHub Actions |
 |---|---|---|
-| Trigger | You / a schedule | `pull_request_review_comment`, `issue_comment` events |
-| Identity | Your `gh` login | A bot token / GitHub App |
-| Scope | Your PRs | Any PR in the repo (configurable) |
-| Latency | Next scheduled pass | Seconds after the comment |
-| Supervision | You read each report | Fully autonomous |
+| Trigger | Manual or scheduled | Review and PR-comment events |
+| Identity | Your GitHub login | A bot account or GitHub App |
+| Scope | Your PRs | Any configured PR |
+| Latency | Next run | Seconds |
 
-Everything outside those rows is identical, and `SKILL.md` stays the spec the headless prompt
-points at.
+Running both is safe. Use Actions for immediate responses and a scheduled Routine as a backstop.
 
-## Safety deltas to add for unattended CI
+## Safety requirements
 
-The three safety invariants in `SKILL.md` still hold, plus:
+- Skip events created by the bot to prevent reply loops.
+- Use one concurrency group per PR.
+- Grant only `contents: write` and `pull-requests: write`.
+- Rebase onto the latest PR head. **Never** force-push or overwrite a branch a person is editing.
+- Treat fork PRs as read-only because their event token cannot push fixes.
+- Keep the resolution rules in [`SKILL.md`](SKILL.md): resolve only a thread the bot fixed and
+  verified.
 
-- **Guard against loops.** Skip events authored by the bot itself (`github.actor == <bot login>`),
-  or the bot triggers on its own replies forever.
-- **Branch contention. Never push to a branch a human is actively editing. Never use
-  `--force-with-lease` here.** Rebase onto the latest head instead. Bail when it cannot fast-forward
-  cleanly, and reply "your branch moved, leaving this for you".
-- **Permissions.** `contents: write` + `pull-requests: write` only. Resolving threads needs the
-  GraphQL `resolveReviewThread` mutation, available with `pull-requests: write`.
-- **Rate / cost.** Concurrency-group per PR so rapid-fire comments collapse into one run.
-- **Fork PRs.** `pull_request_review_comment` from forks has a read-only token. Detect and skip
-  (triage-only) rather than failing.
+## Workflow
 
-## Reference workflow
-
-The workflow is **per-repo**: it lives in each repo's `.github/workflows/`. Drop the same file
-into **both** `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues` (and any future target). The only
-per-repo differences are the install/test steps and the secrets each repo holds.
-
-`.github/workflows/babysit-prs.yml`, illustrative. Adapt secrets, paths, and the run command to
-however you invoke Claude Code headless in CI.
+Add `.github/workflows/babysit-prs.yml` to each target repository. Adjust the install, test, bot
+identity, and secrets for that repository.
 
 ```yaml
 name: babysit-prs
@@ -51,21 +35,19 @@ on:
   pull_request_review_comment:
     types: [created]
   issue_comment:
-    types: [created]   # only acts when the comment is on a PR (guarded below)
+    types: [created]
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  # Collapse rapid comments on the same PR into one run.
   group: babysit-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
   babysit:
     runs-on: ubuntu-latest
-    # Skip the bot's own activity (loop guard) and non-PR issue comments.
     if: >
       github.actor != 'atllas-babysit-bot' &&
       (github.event_name == 'pull_request_review_comment' ||
@@ -74,7 +56,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # The PR head, so fixes commit to the right branch.
           ref: ${{ github.event.pull_request.head.ref || github.head_ref }}
           token: ${{ secrets.BABYSIT_BOT_TOKEN }}
 
@@ -83,8 +64,8 @@ jobs:
         run: |
           echo "number=${{ github.event.pull_request.number || github.event.issue.number }}" >> "$GITHUB_OUTPUT"
 
-      # Install deps / Claude Code CLI as your CI does. Then run the skill headless,
-      # scoped to the single PR that triggered the event:
+      # Install project dependencies and the Claude Code CLI here.
+
       - name: Address review threads
         env:
           GH_TOKEN: ${{ secrets.BABYSIT_BOT_TOKEN }}
@@ -94,20 +75,18 @@ jobs:
             --dangerously-skip-permissions
 ```
 
-## Token / identity options
+## Bot identity
 
-- **PAT of a dedicated bot account** (`atllas-babysit-bot`) with `repo` scope: simplest. Commits
-  and resolutions show as that account. Store as `BABYSIT_BOT_TOKEN`.
-- **GitHub App**: cleaner identity, per-repo install, finer permissions, higher rate limits.
-  More setup. Preferred if this graduates to org-wide use.
-- **Never use the default `GITHUB_TOKEN`**: its pushes do not re-trigger downstream workflows (so
-  CI will not re-run on the bot's fix commit), and cross-PR thread resolution is awkward. Use a
-  real bot token/App.
+| Option | Tradeoff |
+|---|---|
+| Dedicated bot account PAT | Fastest setup. Store a `repo`-scoped token as `BABYSIT_BOT_TOKEN`. |
+| GitHub App | Finer permissions and higher limits, with more setup. Prefer for organization-wide use. |
+
+**Do not use the default `GITHUB_TOKEN`.** Its pushes do not trigger downstream workflows, so CI
+does not rerun on fix commits.
 
 ## Rollout
 
-1. Run the local loop on a schedule for a couple of weeks. Read every report.
-2. When the "needs you" queue is consistently the *right* things to escalate (and the auto-fixes
-   are consistently correct), enable this workflow on **draft PRs only** first (add an `if` on
-   `github.event.pull_request.draft == true`).
-3. Widen to all PRs once trusted.
+1. Run `/babysit-prs` locally or on a schedule and review every report.
+2. Enable Actions for draft PRs after the escalations and fixes are consistently correct.
+3. Expand it to all PRs after the draft-only run is trusted.

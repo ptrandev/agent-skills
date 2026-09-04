@@ -1,78 +1,60 @@
-# Using `/phillip`: day-to-day guide
+# Using `/phillip`
 
-First you set this up once, then you run one skill before every push. Claude Code uses `/phillip`;
-Codex uses `$phillip`.
+`phillip` reviews and fixes your current diff before you open a PR. Claude Code invokes it as
+`/phillip`. Codex invokes it as `$phillip`.
 
-## First-time setup (one-time, let Claude do it)
+## Set up once
 
-You don't install anything by hand. Claude provisions your Mac from the companion doc, which clones this repo and symlinks the skills for you:
+Give Claude Code the complete
+[`phillip-agent-setup.md`](phillip-agent-setup.md) task. It installs the required tools, clones
+this repository, links the skills, and verifies the result.
 
-1. Open Claude Code in any project and pick the best model: type `/model` and choose the most capable option offered.
-2. Paste the ENTIRE contents of **[`docs/phillip-agent-setup.md`](./phillip-agent-setup.md)** (the companion doc in this repo) as your message. It clones this repo and links the canonical skill directories into both Claude Code and Codex.
-3. Let it work. It does everything it can on its own and STOPS to ask you (an "ASK USER" block) only for the few things it can't do:
-   - GUI/password installers it can't click: `xcode-select --install` and the Homebrew installer.
-   - Your API keys (OpenAI for Codex, Google for Gemini): you paste them into `~/.zshenv` YOURSELF in your terminal. Keep them out of the chat; Claude never needs to see them.
-   - `gh auth login` (a browser login), plus the `/model` and `/effort ultracode` commands you type into the Claude input box.
-4. When its final "verify and report" step says the checks passed, you're set. Re-running the setup later is safe. It skips whatever's already installed and just refreshes the repo.
+The setup task pauses only for actions that require you, such as browser authentication or adding
+API keys locally. **Never paste an API key into chat.**
 
-After that, it's just the one move below before every push.
+## Run it
 
-## The one move
+Invoke the skill before you push:
 
-Before you push in Claude Code, type `/phillip`. In Codex, invoke `$phillip`.
-
-```
+```text
 /phillip
 ```
 
-No arguments. It reviews your current branch vs the default branch (main/master, auto-detected), including any staged or uncommitted edits you're about to ship.
+It reviews committed, staged, and unstaged changes against the repository's default branch.
 
-## What it does
+| Mode | Use it for |
+|---|---|
+| `/phillip` | Substantive changes. Runs the full multi-reviewer loop. |
+| `/phillip quick` | Small, low-risk changes. Runs one review round. |
 
-Runs your diff through three independent reviewers (Claude + Codex + Gemini) over multiple rounds. It verifies every finding against the real code, fixes the genuine HIGH/MEDIUM ones, rejects bad suggestions out loud (with a reason), and loops until a clean ("dry") round turns up nothing new. It caps at 4 rounds that find something, and the clean confirmation round after the last fix is always free on top of that (5 rounds maximum). If it is still finding HIGH/MEDIUM issues at the cap, it stops, applies them, and flags the result as unconfirmed (that's the "Needs human review" verdict below).
+Tiny or documentation-only diffs can scale down automatically.
 
-All three reviewers are genuinely independent. Codex, Gemini, and Claude run as separate CLI processes that see only the review scope. The orchestrating session does not count as a reviewer; it integrates and verifies their findings. The three processes run in parallel, so a round costs about the slowest reviewer rather than their combined time.
+## Read the result
 
-## Full vs quick
+The report lists each finding, its severity, location, reviewer, and resolution.
 
-- `/phillip` -> full multi-round, all three reviewers. Use on substantive diffs: logic, auth, data, anything user-facing.
-- `/phillip quick` -> one round, Claude-only (it may add one external reviewer if the diff is substantial). Use on small or low-risk diffs.
-- It auto-scales down on tiny diffs (docs-only, sub-30 lines, no logic) -> runs Claude-only even without `quick`.
+| Verdict | What to do |
+|---|---|
+| **Ready for PR** | The final review round was clean. Push the change. |
+| **Needs human review** | The round limit was reached before the latest fixes were confirmed. Review those fixes yourself. |
+| Any unresolved-item verdict | Read the listed items before shipping. |
 
-## Reading the result
+The active host also saves the report in its plans directory.
 
-You get a report table saved to the active host's plans directory and printed in chat. Columns: severity, `file:line`, finding, source (which reviewer raised it), status (Fixed + SHA / Listed / Rejected-with-reason).
+## Rubric updates
 
-Then the verdict line:
-- "Ready for PR" -> the loop ended on a clean dry round with nothing unresolved. Push and open the PR.
-- "Needs human review -> cap hit, final-round fixes unconfirmed" -> the loop hit its finding-round limit before a clean round, so the fixes it applied last were never re-verified by a dry round. Do NOT treat it as Ready for PR -> eyeball the final-round changes yourself before shipping.
-- Anything else (it lists what remains and why) -> read it; there are unresolved items. Take a beat before shipping.
+`phillip-sync` refreshes the shared rubric from recurring patterns in resolved PR feedback. It
+runs automatically before `phillip`, observes a per-repository cooldown, and never blocks a
+review when GitHub is unavailable.
 
-## Cost
+Run `/phillip-sync` directly to request an immediate refresh. Curate the result in
+`~/Git/agent-skills/phillip/RUBRIC.md`.
 
-The full loop is real work and real API spend (several external CLI calls, a few minutes). Use `quick` mode on small stuff so you actually keep the habit.
+## Update
 
-## Keeping it fresh (it does this itself)
-
-You don't maintain two rubrics. The canonical file is `~/Git/agent-skills/phillip/RUBRIC.md`; both host skill paths resolve to it through symlinks, and it self-updates.
-
-Every time you run `/phillip`, it first runs `/phillip-sync`:
-- It looks at the CURRENT repo's recent PRs (last 30 days, capped), reads which review comments were resolved AND acted on, and distills the recurring, generalizable lessons.
-- High-confidence patterns get appended as rows in the `<!-- phillip-sync:auto -->` table, tagged with the date. Weaker one-offs land in the `Candidates` table for you to promote or delete. Declined comment classes land in the `<!-- phillip-sync:auto-donotflag -->` table, which tells the reviewers what NOT to raise.
-- The tables are capped: 40 auto rows, 30 candidate rows. Old rows that stop recurring get retired, so the file does not grow forever.
-- It learns from all reviewers on the repo's merged PRs (capped per PR), not just one person -> the rubric reflects the whole team's bar.
-
-It's cheap and safe: a 24h per-repo cooldown means most runs are an instant no-op ("rubric fresh"), and if `gh` isn't installed/authed or you're offline it prints one warning and reviews on the existing rubric anyway -> it never blocks `/phillip`.
-
-So: just keep running `/phillip`. The rubric grows on its own. If you ever want to force a refresh, run `/phillip-sync` directly. To curate, open `~/.claude/skills/phillip/RUBRIC.md` and promote good candidate rows into the auto table (or delete noise). One prerequisite: `gh auth login` must be done once (Setup Step 5).
-
-## Updating the skills
-
-Because the skills are symlinked from your clone, updating is one step:
+The skills are symlinked from this repository:
 
 ```bash
-cd ~/Git/agent-skills && git pull
+cd ~/Git/agent-skills
+git pull
 ```
-
-That updates every shared skill with no copying. Update gstack separately when you use its Claude
-Code-only skills.
