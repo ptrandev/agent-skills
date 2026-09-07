@@ -20,10 +20,17 @@ Category values (closed set, `phillip-sync` picks from this list): Security, Rac
 failures, Correctness, Performance, Data loss, Comments, Encoding, Docs, Tests, UI,
 Permissions, Firestore.
 
-This file carries no `<!-- phillip-sync:... -->` markers. `phillip-sync` writes against the
-markers in `RUBRIC.private.md`. Hand-edit this file freely.
+`phillip-sync` writes a mined row here when it holds in any codebase, and into
+`RUBRIC.private.md` when it names this repo. Hand-edit the prose around the markers freely.
+**Never** remove a `<!-- phillip-sync:... -->` marker.
+
+Git tracks this file and the repository is public. Every row here is world-readable. Read the
+`phillip-sync` diff before you commit it.
 
 ## Auto-synced rules (what to catch)
+
+<!-- phillip-sync:auto START -->
+<!-- Generic auto-synced rows land here. Append new rows directly above the END marker. -->
 
 | Repo | Category | Trigger -> failure | Rule | Added |
 | --- | --- | --- | --- | --- |
@@ -49,10 +56,15 @@ markers in `RUBRIC.private.md`. Hand-edit this file freely.
 | any | Silent failures | Vendor config (`dependabot.yml`, a CI yaml) gated only by a syntax parse in pre-commit -> the file parses, fails the consuming tool's own schema, and the config silently never takes effect. | Validate against the vendor's schema, not just YAML/JSON syntax. | 2026-08-26 |
 | any | Tests | A test starts a worker with a cancellable context but does not defer the cancel function -> an early failure leaves the worker running and can leak goroutines or make the suite flaky. | Defer cancellation immediately after context creation and treat context cancellation as normal shutdown. | 2026-09-04 |
 
+<!-- phillip-sync:auto END -->
+
 ## Do NOT flag (the inverse: raising these is the finding)
 
 Rows here are declined review-comment classes. Raising one costs credibility, so check this
 table before writing a finding.
+
+<!-- phillip-sync:auto-donotflag START -->
+<!-- Generic negative rules land here. Append new rows directly above the END marker. -->
 
 | Repo | Category | Pattern | Why it is not a finding | Added |
 | --- | --- | --- | --- | --- |
@@ -65,6 +77,8 @@ table before writing a finding.
 | any | Correctness | Proposing a Firestore doc-id sanitization guard (empty / whitespace / contains `/`) on a required, typed id that has already keyed reads and writes on the same doc upstream. | It is a redundant guard on a type-checked param. The path-segment rule targets user-derived or possibly-empty ids. Declined three times. | 2026-08-26 |
 | any | Correctness | Claiming `cross-env NODE_OPTIONS='$NODE_OPTIONS ...'` passes the literal `$NODE_OPTIONS` to Node because cross-env has no variable expansion. | cross-env 7.0.3, the pinned version, does expand it in JS, shell-independent. Verified and declined twice. Check the pinned version's behavior first. | 2026-08-26 |
 | any | Performance | Claiming `defer res.Body.Close()` leaks connections because the enclosing worker is long-running, when the `defer` sits inside a per-message callback that returns on every message. | The defer runs when the closure returns, so the body closes per message. Read which function encloses the line before claiming a leak. | 2026-08-26 |
+
+<!-- phillip-sync:auto-donotflag END -->
 
 ## Categories Phillip reliably catches (language-agnostic core)
 

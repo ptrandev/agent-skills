@@ -75,9 +75,10 @@ For a complete Mac setup for `/phillip`, use
 - The `/phillip` rubric is two files. [`skills/phillip/RUBRIC.md`](skills/phillip/RUBRIC.md)
   holds the shareable core and is tracked. `skills/phillip/RUBRIC.private.md` holds the rows
   tied to a private repo, plus the candidate queue, and is gitignored. `/phillip` and
-  `/review-pr` read both. `phillip-sync` writes only to `RUBRIC.private.md`, which keeps mined
-  private detail out of this public repository. A host without the private file reviews on the
-  core alone.
+  `/review-pr` read both. `phillip-sync` routes each mined row by its Repo column: a lesson that
+  holds anywhere goes to `RUBRIC.md`, and anything naming a repo, path, product, or PR goes to
+  `RUBRIC.private.md`. Review the `RUBRIC.md` diff before you commit it, because this repository
+  is public. A host without the private file, such as a Routine sandbox, reviews on the core alone.
 - UI workflows can use `skills/full-send/dev-credentials.md` and
   `skills/ui-walkthrough/dev-credentials.md`.
   Both are gitignored. Start with

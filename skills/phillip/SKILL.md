@@ -91,10 +91,10 @@ this repo's recent resolved PR-review lessons into the rubric.
 
 - PROCEED REGARDLESS of its outcome. **Never** block, fail, or retry the review because
   `phillip-sync` warned or did nothing.
-- If `phillip-sync` reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read
-  `$PHILLIP_DIR/RUBRIC.private.md` NOW, because the rows you were loaded with predate
-  that edit. `phillip-sync` writes only that file. On a cooldown/empty no-op (the common case)
-  skip the re-Read.
+- If `phillip-sync` reports it ADDED lines (e.g. "+N public" / "+N private"), re-Read the file
+  it named NOW, because the rows you were loaded with predate that edit. It writes generic rows
+  to `RUBRIC.md` and repo-specific rows to `RUBRIC.private.md`. On a cooldown/empty no-op (the
+  common case) skip the re-Read.
 
 ## 1. The review standard
 

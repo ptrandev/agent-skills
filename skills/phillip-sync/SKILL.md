@@ -20,11 +20,41 @@ allowed-tools:
 # phillip-sync -> self-updating review rubric
 
 You keep the `/phillip` rubric current by mining THIS repo's recent, resolved PR-review
-comments and folding the recurring lessons back into the sibling `phillip/RUBRIC.private.md`.
-You run as a pre-step inside `/phillip`.
+comments and folding the recurring lessons back into the sibling `phillip/RUBRIC.md` and
+`phillip/RUBRIC.private.md`. You run as a pre-step inside `/phillip`.
 
-**Write only to `RUBRIC.private.md`. Never write to `RUBRIC.md`.** Git tracks `RUBRIC.md` and
-publishes it. Mined rows quote private repos, so a write there leaks them.
+## Which file a row goes to
+
+Git tracks `RUBRIC.md` and the repository is public. Git never tracks `RUBRIC.private.md`.
+Route every row before you write it:
+
+| Row | File |
+|---|---|
+| REPO is `any` and the row passes the publication test | `RUBRIC.md` |
+| REPO names a repo slug | `RUBRIC.private.md` |
+| REPO is `any` but the row fails the publication test | `RUBRIC.private.md` |
+| Any candidate row | `RUBRIC.private.md` |
+
+Candidates always go private. Their ADDED column carries a source PR by contract, which is
+private provenance.
+
+### Publication test
+
+A row passes only when its Repo, Category, Trigger, Rule, and Added text contain none of:
+
+- the repo slug, the owning organization, or the repository name
+- a file path, a directory name, or a filename specific to this repo
+- a package, module, service, collection, queue, or environment name from this repo
+- a product, feature, or screen name
+- a PR number, a ticket id, or an internal URL
+- a customer name, an account name, or a person's name
+
+When the row fails on an example only, rewrite the example generically and re-test it. Keep the
+rule, lose the internal illustration. When the internal fact IS the rule, retag REPO to the repo
+slug and send it private.
+
+**Unsure means private.** A wrong private call costs one row in the public core. A wrong public
+call publishes private detail permanently.
 
 Be terse. Use `->`, not em dashes. Never print tokens or keys.
 
@@ -42,8 +72,8 @@ Be terse. Use `->`, not em dashes. Never print tokens or keys.
 Locate the directories containing the loaded `phillip` and `phillip-sync` skills. Call them
 `PHILLIP_DIR` and `PHILLIP_SYNC_DIR`. Paths used throughout:
 
-- Write target: `$PHILLIP_DIR/RUBRIC.private.md`
-- Read-only companion: `$PHILLIP_DIR/RUBRIC.md`
+- Public rubric: `$PHILLIP_DIR/RUBRIC.md` (tracked, world-readable)
+- Private rubric: `$PHILLIP_DIR/RUBRIC.private.md` (gitignored)
 - State file: `$PHILLIP_DIR/.sync-state.json`
 - Scripts: `$PHILLIP_SYNC_DIR/scripts/plan.py` and `$PHILLIP_SYNC_DIR/scripts/cursor.py`
 
@@ -70,7 +100,8 @@ echo "phillip-sync: guards passed"
 If the rubric file is missing, warn and stop:
 
 ```bash
-test -f "$PHILLIP_DIR/RUBRIC.private.md" || { echo "phillip-sync: RUBRIC.private.md not found -> skipping. It is untracked, so a fresh host does not have it."; exit 0; }
+test -f "$PHILLIP_DIR/RUBRIC.md" || { echo "phillip-sync: RUBRIC.md not found -> skipping."; exit 0; }
+test -f "$PHILLIP_DIR/RUBRIC.private.md" || echo "phillip-sync: RUBRIC.private.md not found. It is untracked, so a fresh host lacks it. Public rows still sync; private rows are reported, not written."
 ```
 
 ## 2. Detect the current repo (any project, not just Atllas)
@@ -195,6 +226,7 @@ Phrase each survivor as ONE table row in the rubric's column order:
 - REPO: the slug from `/tmp/phillip_sync_slug.txt` when the pattern names identifiers,
   products, or services specific to this repo. `any` when the lesson holds in any codebase.
   **Never** leave it blank, because readers skip rows tagged to a repo other than their own.
+  This column drives the routing table at the top of this skill, so set it before you route.
 - CATEGORY: one value from the closed set at the top of `RUBRIC.md` (Security, Races, Silent
   failures, Correctness, Performance, Data loss, Comments, Encoding, Docs, Tests, UI,
   Permissions, Firestore).
@@ -220,19 +252,26 @@ step 7 (still update the cursor).
 
 ## 6. Write into the anchored blocks (idempotent, provenance-tagged)
 
-`RUBRIC.private.md` contains three stable anchor pairs:
+Both files carry the same anchor names. Each file owns the blocks below:
 
-- Auto block:
-  `<!-- phillip-sync:auto START -->` ... `<!-- phillip-sync:auto END -->`
-- Do-not-flag block:
-  `<!-- phillip-sync:auto-donotflag START -->` ... `<!-- phillip-sync:auto-donotflag END -->`
-- Candidates block:
-  `<!-- phillip-sync:candidates START -->` ... `<!-- phillip-sync:candidates END -->`
+| Block | Markers | `RUBRIC.md` | `RUBRIC.private.md` |
+|---|---|---|---|
+| Auto | `<!-- phillip-sync:auto START -->` ... `END` | Yes | Yes |
+| Do-not-flag | `<!-- phillip-sync:auto-donotflag START -->` ... `END` | Yes | Yes |
+| Candidates | `<!-- phillip-sync:candidates START -->` ... `END` | No | Yes |
 
-If any anchor pair is missing (older rubric), do NOT guess a spot and do NOT insert the block
-yourself. ALWAYS skip the write. Print: "phillip-sync: anchors missing in RUBRIC.private.md ->
-skipping write. Fix: add the missing `<!-- phillip-sync:... START/END -->` marker lines to
-`$PHILLIP_DIR/RUBRIC.private.md`." Then go to step 7.
+Write each row into the block that the routing table at the top of this skill selected. Re-check
+the publication test on every row bound for `RUBRIC.md` immediately before the Edit. **Never**
+write a candidate row to `RUBRIC.md`, which has no candidates block.
+
+If a needed anchor pair is missing (older rubric), do NOT guess a spot and do NOT insert the
+block yourself. ALWAYS skip the write for that file. Print: "phillip-sync: anchors missing in
+<file> -> skipping write. Fix: add the missing `<!-- phillip-sync:... START/END -->` marker
+lines to `$PHILLIP_DIR/<file>`." Then go to step 7.
+
+When `RUBRIC.private.md` is absent, print the private rows under "phillip-sync: private rows
+not written" and continue. Write the public rows normally. **Never** redirect a private row to
+`RUBRIC.md` because the private file is missing.
 
 For each NEW row, APPEND it just before its block's END marker, using the Edit tool anchored
 on that END marker so insertion is deterministic. Get today's date for the Added column with
@@ -284,8 +323,9 @@ python3 "$PHILLIP_SYNC_DIR/scripts/cursor.py" "$CUR" \
 
 ## 8. One-line summary
 
-Print exactly one closing line, e.g.:
-`phillip-sync: +2 rubric, +1 candidate from 7 PRs (Atllas-Inc/codebase). Cursor armed (24h cooldown).`
+Print exactly one closing line. Count the public and the private rows separately, so the reader
+sees what landed in the tracked file:
+`phillip-sync: +2 public, +1 private, +1 candidate from 7 PRs (Atllas-Inc/codebase). Cursor armed (24h cooldown).`
 or, on any guard/cooldown/empty path, the single line that branch already printed. Then
 return success so `/phillip` continues into its review loop.
 
