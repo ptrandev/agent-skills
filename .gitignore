@@ -9,8 +9,9 @@ skills/ui-walkthrough/dev-credentials.md
 # phillip-sync writes its per-repo cooldown cursor here at runtime (via the symlink) — local state, not source
 skills/phillip/.sync-state.json
 
-# Private local review rubric
-skills/phillip/RUBRIC.md
+# Private review rows: repo-specific rules mined from private PRs. The shareable core of the
+# rubric lives in skills/phillip/RUBRIC.md, which IS tracked.
+skills/phillip/RUBRIC.private.md
 
 # Generated repository-local host adapters
 .agents/skills/

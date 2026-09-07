@@ -20,8 +20,11 @@ allowed-tools:
 # phillip-sync -> self-updating review rubric
 
 You keep the `/phillip` rubric current by mining THIS repo's recent, resolved PR-review
-comments and folding the recurring lessons back into the sibling `phillip/RUBRIC.md`.
+comments and folding the recurring lessons back into the sibling `phillip/RUBRIC.private.md`.
 You run as a pre-step inside `/phillip`.
+
+**Write only to `RUBRIC.private.md`. Never write to `RUBRIC.md`.** Git tracks `RUBRIC.md` and
+publishes it. Mined rows quote private repos, so a write there leaks them.
 
 Be terse. Use `->`, not em dashes. Never print tokens or keys.
 
@@ -39,7 +42,8 @@ Be terse. Use `->`, not em dashes. Never print tokens or keys.
 Locate the directories containing the loaded `phillip` and `phillip-sync` skills. Call them
 `PHILLIP_DIR` and `PHILLIP_SYNC_DIR`. Paths used throughout:
 
-- Rubric file: `$PHILLIP_DIR/RUBRIC.md`
+- Write target: `$PHILLIP_DIR/RUBRIC.private.md`
+- Read-only companion: `$PHILLIP_DIR/RUBRIC.md`
 - State file: `$PHILLIP_DIR/.sync-state.json`
 - Scripts: `$PHILLIP_SYNC_DIR/scripts/plan.py` and `$PHILLIP_SYNC_DIR/scripts/cursor.py`
 
@@ -66,7 +70,7 @@ echo "phillip-sync: guards passed"
 If the rubric file is missing, warn and stop:
 
 ```bash
-test -f "$PHILLIP_DIR/RUBRIC.md" || { echo "phillip-sync: RUBRIC.md not found -> skipping."; exit 0; }
+test -f "$PHILLIP_DIR/RUBRIC.private.md" || { echo "phillip-sync: RUBRIC.private.md not found -> skipping. It is untracked, so a fresh host does not have it."; exit 0; }
 ```
 
 ## 2. Detect the current repo (any project, not just Atllas)
@@ -175,8 +179,10 @@ From the kept comments, keep only patterns that are ALL of:
 - (a) RECURRING -> the same class of issue appears in >= 2 distinct threads/PRs.
 - (b) GENERALIZABLE -> a class of bug (e.g. "fetch not checking response.ok"), not a
   one-file detail ("rename `foo` in bar.ts:14").
-- (c) NOVEL -> not already covered by ANY row in `$PHILLIP_DIR/RUBRIC.md`. Read
-  that file and compare meaning, not exact words, against ALL THREE anchored blocks: `auto`,
+- (c) NOVEL -> not already covered by ANY row in `$PHILLIP_DIR/RUBRIC.md` or
+  `$PHILLIP_DIR/RUBRIC.private.md`. Read both files and compare meaning, not exact words. A row
+  in `RUBRIC.md` counts as covered even though this skill never writes there. In
+  `RUBRIC.private.md`, compare against ALL THREE anchored blocks: `auto`,
   `candidates`, AND `auto-donotflag`. A pattern already sitting in `candidates` is NOT novel,
   so it can never be re-mined into `auto` a month later. A pattern matching a `donotflag` row
   is the inverse of a finding -> drop it.
@@ -214,7 +220,7 @@ step 7 (still update the cursor).
 
 ## 6. Write into the anchored blocks (idempotent, provenance-tagged)
 
-`RUBRIC.md` contains three stable anchor pairs:
+`RUBRIC.private.md` contains three stable anchor pairs:
 
 - Auto block:
   `<!-- phillip-sync:auto START -->` ... `<!-- phillip-sync:auto END -->`
@@ -224,10 +230,9 @@ step 7 (still update the cursor).
   `<!-- phillip-sync:candidates START -->` ... `<!-- phillip-sync:candidates END -->`
 
 If any anchor pair is missing (older rubric), do NOT guess a spot and do NOT insert the block
-yourself. ALWAYS skip the write. Print: "phillip-sync: anchors missing in RUBRIC.md ->
-skipping write. Fix: copy the missing `<!-- phillip-sync:... START/END -->` marker lines from
-the repo clone's `skills/phillip/RUBRIC.md` into the installed
-`$PHILLIP_DIR/RUBRIC.md`." Then go to step 7.
+yourself. ALWAYS skip the write. Print: "phillip-sync: anchors missing in RUBRIC.private.md ->
+skipping write. Fix: add the missing `<!-- phillip-sync:... START/END -->` marker lines to
+`$PHILLIP_DIR/RUBRIC.private.md`." Then go to step 7.
 
 For each NEW row, APPEND it just before its block's END marker, using the Edit tool anchored
 on that END marker so insertion is deterministic. Get today's date for the Added column with

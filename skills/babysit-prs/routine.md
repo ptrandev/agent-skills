@@ -55,7 +55,8 @@ for item in babysit-prs shared; do
     rm -rf "$HOME/.claude/skills/$item"
     cp -R "/tmp/agent-skills/skills/$item" "$HOME/.claude/skills/$item"
   else
-    echo "WARN: '$item' is unavailable"
+    echo "FATAL: skill '$item' is missing from the clone. The layout changed, or the clone failed."
+    exit 1
   fi
 done
 
@@ -186,7 +187,8 @@ for item in babysit-prs shared; do
     rm -rf "$HOME/.claude/skills/$item"
     cp -R "/tmp/agent-skills/skills/$item" "$HOME/.claude/skills/$item"
   else
-    echo "WARN: '$item' is unavailable"
+    echo "FATAL: skill '$item' is missing from the clone. The layout changed, or the clone failed."
+    exit 1
   fi
 done
 

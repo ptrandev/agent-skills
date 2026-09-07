@@ -72,6 +72,12 @@ For a complete Mac setup for `/phillip`, use
 - `$claude` needs an authenticated Claude Code CLI.
 - `/phillip-sync` needs an authenticated `gh` CLI. `/phillip` still works from the existing
   rubric when GitHub is unavailable.
+- The `/phillip` rubric is two files. [`skills/phillip/RUBRIC.md`](skills/phillip/RUBRIC.md)
+  holds the shareable core and is tracked. `skills/phillip/RUBRIC.private.md` holds the rows
+  tied to a private repo, plus the candidate queue, and is gitignored. `/phillip` and
+  `/review-pr` read both. `phillip-sync` writes only to `RUBRIC.private.md`, which keeps mined
+  private detail out of this public repository. A host without the private file reviews on the
+  core alone.
 - UI workflows can use `skills/full-send/dev-credentials.md` and
   `skills/ui-walkthrough/dev-credentials.md`.
   Both are gitignored. Start with

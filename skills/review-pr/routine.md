@@ -14,6 +14,15 @@ for current product limits and UI labels.
 2. Confirm Claude Code on the web and Routines are enabled for the account.
 3. Prepare `OPENAI_API_KEY` and `GEMINI_API_KEY` as Routine environment variables. Without
    them, the review uses fewer independent reviewers and cannot approve.
+4. Prepare `PHILLIP_RUBRIC_PRIVATE_B64`, the private rubric rows. Git never tracks them, so the
+   clone cannot carry them. Build the value on your own machine:
+
+   ```bash
+   base64 -i ~/.claude/skills/phillip/RUBRIC.private.md | tr -d '\n' | pbcopy
+   ```
+
+   Paste it as a Routine environment variable. Refresh it after `phillip-sync` adds rows, because
+   the routine reads the pasted copy, never the live file.
 
 Reviews use your connected GitHub identity. The Routine does not need unrestricted branch-push
 permission.
@@ -22,7 +31,8 @@ permission.
 only the skills clone, `gh`, and the two project toolchains. Everything else here, meaning the Node
 24 pin, the `re2` rebuild, the workspace pre-build, Chromium, and the two reviewer CLIs, serves
 this skill alone. The API keys below belong to this environment, and every routine that selects an
-environment can read its variables.
+environment can read its variables. `PHILLIP_RUBRIC_PRIVATE_B64` carries private repo detail under
+that same rule, so keep this environment off any routine that does not need the rubric.
 
 ## Create the Routine
 
@@ -30,7 +40,8 @@ Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `review-pr` and the prompt below.
 2. **Repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
-3. **Environment:** use the default Trusted network, add both API keys, and paste the setup script.
+3. **Environment:** use the default Trusted network, add both API keys and
+   `PHILLIP_RUBRIC_PRIVATE_B64`, and paste the setup script.
 4. **Connectors:** keep the GitHub connector used for review posting. Remove unrelated connectors.
 5. **Permissions:** leave unrestricted branch pushes disabled.
 6. **Trigger:** use the schedule below.
@@ -55,9 +66,20 @@ for item in review-pr phillip phillip-sync gemini full-send ui-walkthrough share
     rm -rf "$HOME/.claude/skills/$item"
     cp -R "/tmp/agent-skills/skills/$item" "$HOME/.claude/skills/$item"
   else
-    echo "WARN: '$item' is unavailable"
+    echo "FATAL: skill '$item' is missing from the clone. The layout changed, or the clone failed."
+    exit 1
   fi
 done
+
+# Private rubric rows. Git never tracks them, so they arrive as a base64 routine variable.
+# Without them the review still runs, on the shareable core in RUBRIC.md alone.
+if [ -n "${PHILLIP_RUBRIC_PRIVATE_B64:-}" ]; then
+  printf '%s' "$PHILLIP_RUBRIC_PRIVATE_B64" | base64 -d \
+    > "$HOME/.claude/skills/phillip/RUBRIC.private.md" ||
+    echo "WARN: PHILLIP_RUBRIC_PRIVATE_B64 did not decode; continuing on RUBRIC.md alone"
+else
+  echo "WARN: PHILLIP_RUBRIC_PRIVATE_B64 is unset; continuing on RUBRIC.md alone"
+fi
 
 if [ ! -x /usr/bin/node ]; then
   { curl -fsSL https://deb.nodesource.com/setup_24.x | bash - &&

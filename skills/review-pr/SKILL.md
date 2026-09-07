@@ -179,10 +179,12 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
 when it ran in the last 24 h). If it reports it ADDED lines, **re-Read** the rubric. **It is a
 no-op under `GH_TRANSPORT=mcp`**: it mines resolved threads through `gh api graphql`, which a cloud
 sandbox blocks, so the rubric there is whatever shipped. Note it and continue, never block on it. Then **Read
-`$PHILLIP_DIR/RUBRIC.md` in full**. It owns the rules this skill reviews against: three
-anchored tables (auto-synced rules, candidates, and a do-not-flag block of negative rules) plus the
-severity taxonomy and the verification discipline. Skip any row whose `Repo` column names a repo
-other than the one under review.
+`$PHILLIP_DIR/RUBRIC.md` and `$PHILLIP_DIR/RUBRIC.private.md` in full**. Together they own the
+rules this skill reviews against: the generic rules, the severity taxonomy, and the verification
+discipline in `RUBRIC.md`, plus the repo-specific rows, the do-not-flag rows, and the candidate
+queue in `RUBRIC.private.md`. Skip any row whose `Repo` column names a repo other than the one
+under review. `RUBRIC.private.md` is untracked, so a host that never received it has only
+`RUBRIC.md`. Note that once and continue, never block.
 
 Print a per-repo readiness summary:
 ```
@@ -316,8 +318,8 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
     `COMMENT` (Tier 2b).
 - A **blind Claude reviewer** launched simultaneously through
   `$CLAUDE_SKILL_DIR/scripts/run-claude`, exactly as `phillip` section 2 specifies it: same role
-  text, same instruction to Read `$PHILLIP_DIR/RUBRIC.md`
-  and apply it, same `SEVERITY | file:line | finding | why-real` output contract. The delta for
+  text, same instruction to Read `$PHILLIP_DIR/RUBRIC.md` and `$PHILLIP_DIR/RUBRIC.private.md`
+  and apply both, same `SEVERITY | file:line | finding | why-real` output contract. The delta for
   cross-review: its diff is the PR diff and it gets `$WORKDIR` to read the real code, and it is
   **never** given the PR description or the author's login.
   - Run the Claude subprocess from `$WORKDIR`. Pass `--rubric "$PHILLIP_DIR/RUBRIC.md"`.
@@ -331,7 +333,7 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
 `/phillip`'s verification gate applies unchanged: the two checks (is the finding real, is the
 proposed fix sound) and the HONESTY RULE that only a finding you traced **this session** counts as
 verified. Both live in `$PHILLIP_DIR/RUBRIC.md`, read in Phase 0. **Do not re-derive
-them.**
+them.** The repo-specific and do-not-flag rows live in `$PHILLIP_DIR/RUBRIC.private.md`.
 
 `postable = verified-real AND high-confidence AND severity ∈ {HIGH, MEDIUM}`
 

@@ -92,14 +92,25 @@ this repo's recent resolved PR-review lessons into the rubric.
 - PROCEED REGARDLESS of its outcome. **Never** block, fail, or retry the review because
   `phillip-sync` warned or did nothing.
 - If `phillip-sync` reports it ADDED lines (e.g. "+N rubric" / "+N candidate"), re-Read
-  `$PHILLIP_DIR/RUBRIC.md` NOW, because the rubric you were loaded with predates
-  that edit. On a cooldown/empty no-op (the common case) skip the re-Read.
+  `$PHILLIP_DIR/RUBRIC.private.md` NOW, because the rows you were loaded with predate
+  that edit. `phillip-sync` writes only that file. On a cooldown/empty no-op (the common case)
+  skip the re-Read.
 
 ## 1. The review standard
 
-**Read `$PHILLIP_DIR/RUBRIC.md` in full before any reviewer runs.** It owns the
-review standard: what to catch, what NOT to flag, the severity taxonomy (HIGH / MEDIUM / low),
-the verification discipline, and the HONESTY RULE that the rest of this file references.
+The rubric is **two files** in `$PHILLIP_DIR`:
+
+| File | Holds | Tracked |
+|---|---|---|
+| `RUBRIC.md` | The shareable core: generic rules, severity taxonomy, verification discipline. | Yes |
+| `RUBRIC.private.md` | Rows tied to a private repo, plus the candidate queue. | No |
+
+**Read both in full before any reviewer runs.** Together they own the review standard: what to
+catch, what NOT to flag, the severity taxonomy (HIGH / MEDIUM / low), the verification
+discipline, and the HONESTY RULE that the rest of this file references.
+
+`RUBRIC.private.md` is absent on a host that never received it. Note it once and continue on
+`RUBRIC.md` alone. **Never** block the review on the missing file.
 
 Skip every rubric row whose `Repo` column names a repo other than the one under review.
 
@@ -135,13 +146,18 @@ in-session pass.
    Gemini's line-anchor misreads and its empty-output-at-exit-0 failures on large diffs.
 
    ALL THREE reviewers review against the rubric, not a generic bar. Add this line to the
-   Codex prompt: "Read `$PHILLIP_DIR/RUBRIC.md` and apply it, skipping any row
-   whose Repo column names a repo other than this one."
+   Codex prompt: "Read `$PHILLIP_DIR/RUBRIC.md` and `$PHILLIP_DIR/RUBRIC.private.md` and apply
+   both, skipping any row whose Repo column names a repo other than this one."
 
-   **Never give Gemini that line. Copy the rubric into its context directory instead**, then
-   point at it by filename: `cp "$PHILLIP_DIR/RUBRIC.md" "$GEMCTX/RUBRIC.md"`, and
-   add to the Gemini prompt: "Read `RUBRIC.md` in the extra directory added to your workspace
-   and apply it, skipping any row whose Repo column names a repo other than this one."
+   **Never give Gemini that line. Copy both rubric files into its context directory instead**,
+   then point at them by filename:
+   ```bash
+   cp "$PHILLIP_DIR/RUBRIC.md" "$GEMCTX/RUBRIC.md"
+   cp "$PHILLIP_DIR/RUBRIC.private.md" "$GEMCTX/RUBRIC.private.md" 2>/dev/null || true
+   ```
+   Add to the Gemini prompt: "Read `RUBRIC.md` and `RUBRIC.private.md` in the extra directory
+   added to your workspace and apply both, skipping any row whose Repo column names a repo
+   other than this one."
    Gemini cannot reach personal skill directories outside its workspace, and the `gemini` skill's
    `FS_BOUNDARY` prompt orders it to ignore that tree anyway. A path instruction pointing INTO
    `~/.claude` silently no-ops, and Gemini reviews against a generic bar (verified
@@ -158,9 +174,9 @@ in-session pass.
      and no knowledge of who wrote it or why -> review only what the diff shows."
    - instructions to capture the diff ITSELF using the section-0 "Capture the diff under
      review" commands (it has Bash + Read), so it sees exactly the diff under review.
-   - instructions to Read `$PHILLIP_DIR/RUBRIC.md` and apply it -> including the
-     severity taxonomy, the verification discipline, and the HONESTY RULE, and to skip any
-     row whose Repo column names a repo other than this one.
+   - instructions to Read `$PHILLIP_DIR/RUBRIC.md` and `$PHILLIP_DIR/RUBRIC.private.md` and
+     apply both -> including the severity taxonomy, the verification discipline, and the
+     HONESTY RULE, and to skip any row whose Repo column names a repo other than this one.
    - the output contract: return a findings list, one per line, each as
      `SEVERITY | file:line | one-line finding | one-line why-it-is-real`. It REVIEWS only; it
      does not edit, fix, or commit anything.
@@ -200,7 +216,8 @@ holding the code under review:
 ```
 
 - `--rubric` is **mandatory**: without it the subprocess cannot Read `RUBRIC.md` and reviews
-  against a generic bar.
+  against a generic bar. It grants the whole `$PHILLIP_DIR`, so the subprocess reaches
+  `RUBRIC.private.md` from the same flag. Pass `RUBRIC.md` here and name both files in the prompt.
 - Omit `--model` when the host does not expose a matching Claude model name. Never choose a
   smaller model to save time.
 - Gate on the **output**, not the exit code: `/tmp/phillip-blind.out` must carry the
