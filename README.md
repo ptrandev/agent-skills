@@ -23,6 +23,7 @@ agents, so a `git pull` updates every linked copy.
 | [`claude`](skills/claude/SKILL.md) | Uses Claude from Codex for an independent review, challenge, or consultation. Codex only. | `$claude review [focus]`<br>`$claude challenge [focus]`<br>`$claude <question>` |
 | [`debrief`](skills/debrief/SKILL.md) | Audits a completed session for unchecked assumptions and remaining risks. | `/debrief [deep] [topic]` |
 | [`merge-master`](skills/merge-master/SKILL.md) | Merges `origin/master` into the current branch, resolves conflicts, and pushes. | `/merge-master` |
+| [`sync-prs`](skills/sync-prs/SKILL.md) | Merges the default branch into every open PR you authored, verifies green, and pushes. Cloud schedule in [`routine.md`](skills/sync-prs/routine.md). | `/sync-prs [PR# ...]`<br>`--repo owner/name`, `--dry-run`, `--ready-only` |
 | [`launch-summary`](skills/launch-summary/SKILL.md) | Summarizes daily or weekly Atllas launches for non-developers. | `/launch-summary [daily\|weekly]` |
 | [`plain-english`](skills/plain-english/SKILL.md) | Extracts claims, caveats, omissions, and implications from dense text. | `/plain-english <text>` |
 | [`copy-edit`](skills/copy-edit/SKILL.md) | Turns a transcript or rough draft into a polished post without adding claims. | `/copy-edit <text\|path>` |
