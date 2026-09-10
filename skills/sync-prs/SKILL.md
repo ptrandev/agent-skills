@@ -2,7 +2,7 @@
 name: sync-prs
 description: >
   Merges the default branch into every open PR you authored, draft and ready, across your
-  repos. Resolves mechanical conflicts, aborts the rest, verifies green before pushing.
+  repos. Resolves the conflicts, verifies green, and pushes without a force.
   Use for "sync my PRs", "merge master into my PRs", or "keep my branches up to date".
 ---
 
@@ -52,8 +52,11 @@ remote matches `$REPO` before you use a hit, because a name can collide.
 4. **Leave the branch as you found it when you stop.** Run `git merge --abort` on a conflict you
    will not resolve. Run `git reset --hard origin/$HEAD_BRANCH` when verification fails after a
    clean merge. Never leave conflict markers or an unpushed merge commit behind.
-5. **Never resolve a conflict that changes behavior.** The safe list in Phase 4 is exhaustive.
-   Everything outside it aborts.
+5. **Resolve a conflict only when you can state both sides' intent.** Write one sentence for each
+   side before you edit. A hunk you cannot describe that way aborts the PR. The stop list in
+   Phase 4 aborts regardless of how well you understand it.
+6. **A resolution keeps both sides' intent.** Merging is not choosing a winner. Drop a side only
+   when the base deleted the code the PR modified, and record that in the report.
 
 ---
 
@@ -130,25 +133,50 @@ merge. Go to Phase 5 when the merge is clean. Go to Phase 4 when it conflicts.
 
 List conflicted files: `git diff --name-only --diff-filter=U`.
 
-**Resolve only a file that matches a row below. Abort the whole PR on anything else.** Abort means
-`git merge --abort`, then record the PR under Needs you with the conflicted paths.
+### 4a: stop list
+
+**Abort the whole PR when any conflicted path matches a row.** Abort means `git merge --abort`,
+then record the PR under Needs you with the path and the matching row.
+
+| Path or content | Why a human decides |
+|---|---|
+| A database migration, or a schema definition it generates | Two migrations that conflict need an ordering decision with production consequences |
+| Authentication, authorization, permission checks, cryptography, or a secret | A wrong merge here is a security hole that verification does not catch |
+| More than ten conflicted files | The branch diverged far enough that a rebuild beats a merge |
+| A hunk whose two sides you cannot each describe in one sentence | You cannot keep an intent you cannot name |
+
+### 4b: mechanical conflicts
+
+Resolve these inline. They need no judgment.
 
 | Conflict | Resolution |
 |---|---|
 | A lockfile (`yarn.lock`, `package-lock.json`, `Cargo.lock`) | Take the base version, then regenerate: `git checkout --theirs <lock> && yarn install --no-immutable`. Abort the PR when the package manager is unavailable or the install fails. |
+| A generated file with a generator in the repo | Take the base version, then re-run the generator. Abort the PR when the generator is unavailable. |
 | Both sides added distinct whole lines to an import block, an export list, or a dependency list | Keep every line from both sides. Preserve the file's existing order. Remove exact duplicates only. |
 | Both sides appended a new entry to an append-only file (`CHANGELOG.md`, a migration index) | Keep both entries. Put the base entry first. |
 
-Three rules bound every resolution:
+### 4c: judgment conflicts
 
-- **Never delete a side.** A resolution that drops one side's line is an abort, not a resolution.
-- **Never resolve a file where either side modified an existing line.** The rows above cover added
-  lines only. Check with `git diff --diff-filter=U -- <file>` before you edit.
-- **Never resolve more than three files in one PR.** More than three means the branch diverged far
-  enough to need a human. Abort and report.
+Everything left is a real conflict: both sides changed the same code. **Delegate it. Read
+[resolver.md](resolver.md) before you spawn the resolver.** That file owns the resolver's model,
+its prompt contract, its return shape, and what the main loop does with each verdict.
+
+One resolver handles one PR. **Never** give a resolver two PRs, and **never** resolve a judgment
+conflict in the main loop, because the main loop's context holds every other PR in the sweep.
+
+### 4d: commit
+
+Confirm no marker survives before you commit:
+
+```bash
+git diff --check
+grep -rn '^<<<<<<<\|^>>>>>>>' $(git diff --name-only --diff-filter=U) 2>/dev/null
+```
 
 Stage each resolved file with `git add <file>`. Commit once, after every conflicted file is
-staged: `git commit --no-edit`.
+staged: `git commit --no-edit`. Append one line per resolved file to the merge message, naming the
+file and the decision.
 
 ## Phase 5: verify
 
@@ -163,7 +191,8 @@ say so per PR in the report.
 
 **Do not push a failing merge.** On failure, run `git reset --hard "origin/$HEAD_BRANCH"` and
 record the PR under Needs you with the first failing output line. A clean merge that fails
-verification is a semantic conflict, and it needs a human.
+verification is a semantic conflict, and it needs a human. A resolved merge that fails
+verification means the resolution was wrong. **Never** send it back for a second attempt.
 
 Verification covers the merge, not the PR. A branch that already failed before the merge fails
 after it too. When the failure looks pre-existing, check out `origin/$HEAD_BRANCH` detached and
@@ -184,10 +213,19 @@ and report it.
 
 **Post no PR comment for a clean merge.** The merge commit is the record.
 
-Post one comment, and only one, when the merge resolved a conflict on a PR that already has a
-review, so the reviewer knows the diff moved:
+Post one comment, and only one, when the merge resolved a conflict, so a reviewer can check the
+resolution. Include one row per resolved file, from the resolver's `files[]`:
 
-> Merged `origin/<base>` into this branch and resolved conflicts in `<paths>`.
+> Merged `origin/<base>` into this branch.
+>
+> | File | Base side wanted | This branch wanted | Resolution |
+> |---|---|---|---|
+> | `apps/api/src/billing.ts` | ... | ... | ... |
+>
+> Verified with `<verification command>`.
+
+Name any dropped code in its own line under the table. **Never** omit a `dropped` value from the
+comment.
 
 ## Phase 8: report
 
@@ -197,11 +235,16 @@ One table for the whole run, ordered by repo, then PR number.
 |---|---|---|---|---|
 | #1768 | codebase | ready | merged and pushed | clean merge, typecheck green |
 | #1765 | codebase | draft | skipped | already up to date |
-| #1749 | codebase | ready | **needs you** | conflict in `apps/api/src/billing.ts` |
+| #1749 | codebase | ready | merged and pushed | resolved `apps/api/src/billing.ts`, typecheck green |
+| #1751 | codebase | draft | **needs you** | aborted, conflict in a migration |
 
 Close with an explicit **Needs you** list. One line per PR: the number, the reason, and the exact
 next command to run. State the transport (`GH_TRANSPORT`) per repo, and name any repo where
 verification was skipped.
+
+List every resolved file separately, with the resolver's two intent sentences and its decision.
+That list is the only place a human sees what a resolution chose, so **never** compress it to a
+count.
 
 ## Idempotency
 

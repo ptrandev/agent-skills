@@ -1,8 +1,8 @@
 # sync-prs: Routine setup
 
 A Claude Code Routine runs this sweep on a schedule in a fresh cloud checkout. It merges the
-default branch into each of your open PR branches, verifies the result, and pushes. It leaves
-every conflict it cannot resolve mechanically for you.
+default branch into each of your open PR branches, resolves the conflicts, verifies the result,
+and pushes. It leaves the stop-list conflicts for you.
 
 Claude's [Routine documentation](https://code.claude.com/docs/en/routines) is the source of truth
 for current product limits and UI labels.
@@ -27,12 +27,16 @@ Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `sync-prs` and the prompt below.
 2. **Repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
-3. **Environment:** use the default Trusted network and the setup script below.
-4. **Permissions:** enable unrestricted branch pushes for both repositories.
-5. **Connectors:** keep the GitHub connector attached. It supplies the MCP transport, which the run
+3. **Model:** select **Fable 5.1** (`claude-fable-5-1`). The run resolves merge conflicts on
+   branches a human already reviewed, which is judgment work with no stated success test. The
+   resolver subagent in [`resolver.md`](resolver.md) runs on Fable too, and a subagent never
+   exceeds the model of the loop that spawned it.
+4. **Environment:** use the default Trusted network and the setup script below.
+5. **Permissions:** enable unrestricted branch pushes for both repositories.
+6. **Connectors:** keep the GitHub connector attached. It supplies the MCP transport, which the run
    needs when `gh` cannot reach the repository API. Remove unrelated connectors.
-6. **Trigger:** use the schedule below.
-7. Create the Routine, then select **Run now** with `--dry-run` in the prompt for validation.
+7. **Trigger:** use the schedule below.
+8. Create the Routine, then select **Run now** with `--dry-run` in the prompt for validation.
 
 ## Setup script
 
@@ -102,9 +106,10 @@ setup-script comment to force a newly published skill revision to load.
 ```text
 Run /sync-prs across my open PRs on Atllas-Inc/codebase and Atllas-Inc/aicc-queues.
 
-Include draft PRs. Merge the default branch into each PR branch that is behind. Resolve only
-lockfile, import-list, and append-only conflicts. Abort every other conflict and leave the branch
-untouched. Verify typecheck green before you push. Never force push and never rebase.
+Include draft PRs. Merge the default branch into each PR branch that is behind. Resolve the
+conflicts: mechanical ones inline, real ones through the Fable resolver subagent, one subagent
+per PR. Abort the whole PR on a stop-list path. Verify typecheck green before you push. Never
+force push and never rebase.
 
 Each checkout starts on the default branch. Fetch and hard-reset each PR head before merging.
 Finish with the report table and an explicit "Needs you" list.
@@ -150,8 +155,11 @@ Open the run transcript. A green status only means the session completed.
    confirm the author is you.
 6. Confirm no branch was force-pushed: `git reflog show origin/<branch>` holds only fast-forwards.
 7. Confirm an aborted PR left its branch at the same SHA it started on.
+8. Read one resolved merge yourself, hunk by hunk, against the PR comment. Confirm the resolution
+   kept both sides. This step does not end: read every resolution the routine makes until you
+   trust it.
 
-Until all seven pass, keep `--dry-run` in the prompt.
+Until all eight pass, keep `--dry-run` in the prompt.
 
 ## Troubleshooting
 
@@ -163,10 +171,13 @@ Until all seven pass, keep `--dry-run` in the prompt.
 | Every GitHub call fails | Confirm the GitHub connector is attached. `gh auth status` passing does not prove repository API access. |
 | Push rejected on every PR | Unrestricted branch pushes are off for that repository. |
 | Old skill behavior appears | Change a setup-script comment to invalidate the cached environment. |
+| A resolution deleted one side | Read [`resolver.md`](resolver.md). Confirm the Routine model is Fable and that the resolver received the PR body. |
 
 ## Current limits
 
 - Scheduled runs have a one-hour minimum cadence and can start a few minutes late.
 - Account and webhook run limits depend on the current Claude plan.
 - Routines are personal and are not shared with teammates.
-- A conflict outside the safe list needs a local `/merge-master` pass on that branch.
+- A stop-list conflict needs a local `/merge-master` pass on that branch.
+- A resolver subagent inherits the Routine's model. A Routine left on a smaller model resolves
+  conflicts on that model, and the run does not warn you.
