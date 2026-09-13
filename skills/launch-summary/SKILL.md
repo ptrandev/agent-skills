@@ -1,6 +1,6 @@
 ---
 name: launch-summary
-version: 2.0.0
+version: 2.1.0
 description: >
   Summarizes what shipped across the Atllas codebase and aicc-queues repos over a daily or
   weekly window, written for non-developers. Counts only PRs merged to master. Use for "what
@@ -26,13 +26,16 @@ If the user specified a different range, a specific day, or a specific week, use
 
 ### Step 2: Fetch merged PRs from both repos
 
-Only PRs merged **into `master`** count. `--base master` excludes PRs merged into release branches and feature branches. `--json files` returns each PR's changed files, which Step 3 uses to tell Mobile PRs apart from App PRs.
+Only PRs merged **into `master`** count. `base:master` excludes PRs merged into release branches and feature branches.
 
-Keep `--search "merged:>=$SINCE"`. `gh pr list --state merged` orders results by creation date, not merge date. `--limit 100` alone can silently drop a PR that was opened long ago and merged inside the window.
+**Never use `gh pr list`.** It calls the GitHub GraphQL API, which Claude Code sessions block with a 403. Use the REST endpoints below.
 
-Run both calls in one Bash invocation so `SINCE` is computed once:
+`search/issues` filters on merge date server-side, so no `--limit` can drop a PR that was opened long ago and merged inside the window. It does not return changed files, so Step 2 calls `pulls/{n}/files` once per `codebase` PR to tell Mobile PRs apart from App PRs.
+
+Run the whole block in one Bash invocation so `SINCE` is computed once:
 
 ```bash
+set -euo pipefail
 WINDOW=daily   # daily | weekly
 
 case "$WINDOW" in
@@ -50,40 +53,35 @@ case "$WINDOW" in
     EMPTY="Nothing shipped this week."
     ;;
 esac
+UNTIL=""
 echo "Window starts: $SINCE"
 echo "Header: $HEADER"
 echo "Empty-result line: $EMPTY"
 
-gh pr list \
-  --repo Atllas-Inc/codebase \
-  --state merged \
-  --base master \
-  --search "merged:>=$SINCE" \
-  --limit 100 \
-  --json number,title,mergedAt,body,labels,files \
-  --jq "[.[] | select(.mergedAt >= \"$SINCE\")] | map({repo: \"codebase\", number: .number, title: .title, mergedAt: .mergedAt, body: .body, labels: [.labels[].name], mobile: ([.files[].path] | any(startswith(\"apps/atllas-app/\")))})"
+search_prs() {
+  gh api -X GET search/issues \
+    -f q="repo:$1 is:pr is:merged base:master merged:>=$SINCE" \
+    -f per_page=100 --paginate \
+    --jq '.items[] | {number, title, mergedAt: .pull_request.merged_at, body, labels: [.labels[].name]}'
+}
 
-gh pr list \
-  --repo Atllas-Inc/aicc-queues \
-  --state merged \
-  --base master \
-  --search "merged:>=$SINCE" \
-  --limit 100 \
-  --json number,title,mergedAt,body,labels \
-  --jq "[.[] | select(.mergedAt >= \"$SINCE\")] | map({repo: \"aicc-queues\", number: .number, title: .title, mergedAt: .mergedAt, body: .body, labels: [.labels[].name], mobile: false})"
+search_prs Atllas-Inc/codebase | while read -r row; do
+  n=$(jq -r .number <<<"$row")
+  if gh api "repos/Atllas-Inc/codebase/pulls/$n/files?per_page=100" --paginate --jq '.[].filename' \
+       | grep -q '^apps/atllas-app/'; then m=true; else m=false; fi
+  jq -c --argjson m "$m" '. + {repo: "codebase", mobile: $m}' <<<"$row"
+done > /tmp/ls_codebase.jsonl
+
+search_prs Atllas-Inc/aicc-queues \
+  | jq -c '. + {repo: "aicc-queues", mobile: false}' > /tmp/ls_queues.jsonl
+
+cat /tmp/ls_codebase.jsonl /tmp/ls_queues.jsonl \
+  | jq -s --arg until "$UNTIL" '[.[] | select($until == "" or .mergedAt < $until)]'
 ```
-
-Note: `gh pr list --jq` does not support jq's `--arg` flag. It errors with "unknown arguments", because `gh` consumes `--arg` as the jq program itself. Interpolate the `$SINCE` value directly into the jq program string, as shown above.
 
 `aicc-queues` has no mobile app, so every PR from it is hardcoded `mobile: false` (App).
 
-**Bounded window.** Both filters above are one-sided, so "what shipped yesterday" also returns everything merged today. To bound the far end, set an `UNTIL` timestamp in the same format and use the two-sided filter in both jq programs:
-
-```
-select(.mergedAt >= "$SINCE" and .mergedAt < "$UNTIL")
-```
-
-`UNTIL` is unset by default. Set it only when the user asks for a window that ends before now.
+**Bounded window.** The search filter is one-sided, so "what shipped yesterday" also returns everything merged today. To bound the far end, set `UNTIL` to a timestamp in the same format. `UNTIL` is empty by default, and an empty value keeps every PR.
 
 ### Step 3: Analyze and categorize
 
