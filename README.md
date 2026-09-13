@@ -69,7 +69,8 @@ For a complete Mac setup for `/phillip`, use
 ### Optional dependencies
 
 - `/gemini` needs the authenticated Gemini CLI. Follow
-  [`skills/gemini/references/setup.md`](skills/gemini/references/setup.md).
+  [`skills/gemini/references/setup.md`](skills/gemini/references/setup.md). No other skill calls
+  it. `/phillip` and `/review-pr` run Codex plus a blind Claude reviewer.
 - `$claude` needs an authenticated Claude Code CLI.
 - `/phillip-sync` needs an authenticated `gh` CLI. `/phillip` still works from the existing
   rubric when GitHub is unavailable.

@@ -20,7 +20,7 @@ gate -> dispatch -> aggregate.
   of this loaded `review-pr/SKILL.md` for **exactly that one PR**,
   reading the rubric itself.
 - **Nesting is expected:** the per-PR agent runs its *own* blind Claude reviewer and its own
-  Codex/Gemini background jobs (Phase 4). **Never give the blind reviewer the PR description or the
+  Codex background job (Phase 4). **Never give the blind reviewer the PR description or the
   author's login**, whatever the per-PR agent knows. Its blind reviewer runs through the
   repository-owned Claude runner (Phase 4).
 - **Concurrency:** agents for **different repos run in parallel** (separate clones). Agents for PRs

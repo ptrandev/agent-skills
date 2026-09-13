@@ -70,7 +70,7 @@ command -v brew && echo "brew OK"
 
 If this fails but the user confirmed the install succeeded, brew is installed but not on the non-interactive PATH -> re-run the append above (confirm `~/.zshenv` now contains the `brew shellenv` line) and re-check. Do NOT ask the user to reinstall Homebrew.
 
-**d. Node + npm.** The Codex and Gemini CLIs are global npm packages, so this is required (bun cannot stand in). You can run this yourself (brew is now on the fresh-shell PATH from c):
+**d. Node + npm.** The Codex CLI is a global npm package, so this is required (bun cannot stand in). You can run this yourself (brew is now on the fresh-shell PATH from c):
 
 ```bash
 brew install node
@@ -126,7 +126,7 @@ If a fresh login is required:
 
 This is gstack's official install flow. You are automating the setup, so run it yourself rather than handing it to the user. Its `./setup` registers each skill into the PARENT of wherever you clone it, so it MUST live at `~/.claude/skills/gstack` for the skills to land in `~/.claude/skills/` where Claude discovers them. Cloning anywhere else breaks discovery.
 
-`/phillip` shells out to `/codex` (one of its three reviewers), and `/codex` is a gstack skill -> gstack is required, not optional.
+`/phillip` shells out to `/codex` (one of its two reviewers), and `/codex` is a gstack skill -> gstack is required, not optional.
 
 **a. Clone and run setup** (run yourself; needs `bun` from Step 0e):
 
@@ -237,9 +237,9 @@ discovers shared skills under `~/.claude/skills/`. Codex discovers them under `~
 
 ---
 
-## Step 4: Install the Gemini CLI and authenticate (API-key only)
+## Step 4 (OPTIONAL): Install the Gemini CLI and authenticate (API-key only)
 
-The `/gemini` skill (symlinked in Step 3) is one of `/phillip`'s three reviewers. It needs the Gemini CLI plus an API key.
+**Skip this step unless the user asks for it.** `/phillip` and `/review-pr` do not use Gemini. They run Codex plus a blind Claude reviewer. The `/gemini` skill (symlinked in Step 3) stays available for a manual large-context consult, and that is the only thing it serves now. Gemini API use is billed per token, so **ask the user before you install or configure anything in this step.**
 
 **a. Install the CLI yourself:**
 
@@ -305,7 +305,7 @@ A clean `OK` means it's ready. If auth fails despite a key, check, in order:
    grep -c 'GEMINI_API_KEY' ~/.gemini/.env 2>/dev/null || echo 0
    ```
    If that prints a non-zero number, there's a stale key line -> tell the user to remove the `GEMINI_API_KEY` line from `~/.gemini/.env` themselves, and to check any project `.env` in the repo you'll review. Do NOT open or print these files yourself, they hold key values.
-Debug and re-test. Do not proceed until the smoke-test prints `OK`.
+Debug and re-test. This step is optional, so a failure here never blocks the rest of the setup.
 
 ---
 
@@ -358,19 +358,19 @@ Two notes worth passing on: typing the literal keyword `ultracode` inside a prom
 Run the full verification yourself:
 
 ```bash
-command -v claude && command -v codex && command -v gemini && echo "All three CLIs on PATH"
+command -v claude && command -v codex && echo "Both reviewer CLIs on PATH"
 cd ~/Git/agent-skills && ./scripts/validate-skills --links
 test -f ~/.claude/skills/phillip/RUBRIC.md && echo "phillip RUBRIC.md OK" || echo "phillip RUBRIC.md MISSING"
 test -f ~/.agents/skills/claude/SKILL.md && echo "Codex claude skill OK" || echo "Codex claude skill MISSING"
 ```
 
-`/codex` comes from gstack (Step 1). The repository's shared skills come from the symlinks created in Step 3. The Gemini headless auth smoke-test already ran in Step 4c; do not repeat it.
+`/codex` comes from gstack (Step 1). The repository's shared skills come from the symlinks created in Step 3. When the user opted into the optional Step 4, its smoke-test already ran; do not repeat it.
 
 Then print a short status to the user:
 
-- **Installed and verified:** which CLIs are on PATH (claude, codex, gemini, gh), which skills resolve (codex, gemini, phillip, phillip-sync), and whether the Step 4c Gemini headless auth smoke-test passed.
+- **Installed and verified:** which CLIs are on PATH (claude, codex, gh), and which skills resolve (codex, phillip, phillip-sync).
 - **Still needs the user (if not already done):** the `/model` and `/effort ultracode` slash commands from Step 6, since those are typed in the Claude Code UI and you can't run them. Also `gh auth login` if it wasn't completed in Step 5.
-- **Any failures:** if a check failed, say exactly which one and what's needed to fix it (e.g. "Gemini auth failed - re-check `selectedType` is `gemini-api-key` and the key is in `~/.zshenv`, and clear any stale key in `~/.gemini/.env`"). Do not report success for anything that didn't pass.
+- **Any failures:** if a check failed, say exactly which one and what's needed to fix it (e.g. "Codex auth failed - run `codex login`, then re-test"). Do not report success for anything that didn't pass.
 - **Staying current:** point the user at the "Updating the skills" section of `docs/phillip-agent-usage.md`. Update gstack (for `/codex`) separately with `/gstack-upgrade`.
 - **Self-updating rubric:** the rubric lives at `~/.claude/skills/phillip/RUBRIC.md` and maintains itself. Point the user at the "Keeping it fresh" section of `docs/phillip-agent-usage.md` for how and how often.
 

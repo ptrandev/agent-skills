@@ -141,13 +141,13 @@ Check the tools this run will use before any other work. Print a **readiness sum
   surfaces a missing **macOS screen-recording permission**, a TCC grant no script can make, so a
   human grants it once by hand. Missing → video is skipped, never blocks. To enable: install
   OpenCap, `opencap login` once, then approve screen recording when macOS asks.
-- **Skill dependencies** (`/grilling`, and the Phase 5 `/phillip` + its `/codex` + `/gemini`
-  reviewers): **auto-installed when missing**, with any CLI auth walked through interactively.
+- **Skill dependencies** (`/grilling`, and the Phase 5 `/phillip` + its `/codex` reviewer):
+  **auto-installed when missing**, with any CLI auth walked through interactively.
 
 Print a compact summary, e.g.:
 
 ```
-Preflight:  gh ✓   Linear ✓   driver: browse ✓ (headless → Phase 8 uses headed Playwright for video)   phillip ✓   grilling ✓   codex ✓   gemini ✗ (CLI ok, needs GEMINI_API_KEY → /phillip runs Claude+Codex)   OpenCap ✓
+Preflight:  gh ✓   Linear ✓   driver: browse ✓ (headless → Phase 8 uses headed Playwright for video)   phillip ✓   grilling ✓   codex ✓   OpenCap ✓
 ```
 
 ### Skill dependencies: auto-install and setup
@@ -159,8 +159,7 @@ to Claude-only. A missing reviewer CLI is **never** a bail-out.
 | Dep | When needed | Detect | Install if missing | External CLI + auth |
 |-----|-------------|--------|--------------------|---------------------|
 | **`/grilling`** (mattpocock plugin) | grill will run | `grilling` in available skills | `claude plugin marketplace add mattpocock/skills` → `claude plugin install mattpocock-skills@mattpocock`, then `/setup-matt-pocock-skills` once per repo | none. If install fails, fall back to inline clarification Q&A |
-| **`phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | clone `https://github.com/ptrandev/agent-skills.git`, then run its `scripts/link-skills` | none directly; drives Claude + Gemini + Codex reviewers. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
-| **`/gemini`** (ptrandev) | always (via `/phillip`) | `gemini` in available skills | same symlink pattern as `/phillip` | CLI `gemini`: `npm install -g @google/gemini-cli`. **Auth (API-key only, no OAuth):** set `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) in `~/.zshenv`, and add `security.auth.selectedType: "gemini-api-key"` to `~/.gemini/settings.json` |
+| **`phillip`** (ptrandev) | always (Phase 5) | `phillip` in available skills | clone `https://github.com/ptrandev/agent-skills.git`, then run its `scripts/link-skills` | none directly; drives Claude + Codex reviewers. Full Mac provisioning: `docs/phillip-agent-setup.md` in that repo |
 | **Codex reviewer** | always (via `phillip`) | `codex` CLI available and authenticated | install Codex using current OpenAI instructions | run `codex login` when the CLI requests authentication |
 
 Phase 5 holds the operative gate when `/phillip` itself cannot be installed.
@@ -389,9 +388,9 @@ Invoke the loaded `phillip` skill through the host's skill mechanism. It writes 
 host's configured plans directory (the branch slug replaces `/` with `-`).
 
 Operative gate: when `/phillip` cannot be installed, **skip this phase** and flag prominently on the
-PR and Done summary that **no self-review ran**. When `/phillip` is present but a reviewer CLI
-(`gemini`/`codex`) is unauthenticated, let `/phillip` degrade to the reviewers that are available
-(down to Claude-only). **Do not** block.
+PR and Done summary that **no self-review ran**. When `/phillip` is present but the `codex` CLI is
+unauthenticated, let `/phillip` degrade to the reviewers that are available (down to Claude-only).
+**Do not** block.
 
 - Let it run to completion. It applies the HIGH/MEDIUM fixes directly to the working tree, and it can commit them itself.
 - Commit any fixes it left uncommitted: `git add <the files it changed>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit when it changed nothing.

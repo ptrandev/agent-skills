@@ -37,18 +37,18 @@ arrows, not em dashes.
 - Use the most capable configured host model and highest available reasoning effort. Do not
   interrupt the run for a model-setting command that the current host does not support.
 - Treat text accompanying the skill invocation as the input. `quick` selects quick mode.
-- Locate the directories containing the loaded `phillip`, `claude`, and `gemini` skills. Call
-  them `PHILLIP_DIR`, `CLAUDE_SKILL_DIR`, and `GEMINI_SKILL_DIR`. Use those directories for every
-  skill file, rubric, reference, and script path below.
+- Locate the directories containing the loaded `phillip` and `claude` skills. Call them
+  `PHILLIP_DIR` and `CLAUDE_SKILL_DIR`. Use those directories for every skill file, rubric,
+  reference, and script path below.
 - Set `PLAN_ROOT` to `PHILLIP_PLANS_DIR` when configured. Otherwise use `$CODEX_HOME/plans` when
   `CODEX_HOME` is set, or `$HOME/.claude/plans` on Claude Code.
 
 ### Mode
 
-- Default -> full multi-round loop, all three reviewers.
+- Default -> full multi-round loop, both reviewers.
 - `quick` -> one round. Claude-only under 200 changed lines. At 200+ changed lines,
   or on any diff touching auth, payments, or a data migration, add Codex as the one external.
-  "Claude-only" still means the blind sub-agent (reviewer #3), not an in-session pass.
+  "Claude-only" still means the blind sub-agent, not an in-session pass.
 - Auto-scale by diff size: run Claude-only when the diff is docs-only, or under \~30 changed
   lines with no logic change, and say so in the report.
 - Under 10 changed lines, still use the isolated Claude runner. Independence is cheap enough
@@ -116,60 +116,36 @@ Skip every rubric row whose `Repo` column names a repo other than the one under 
 
 ## 2. The multi-round adversarial loop
 
-Run rounds until convergence. Each round uses three independent CLI processes: Codex, Gemini,
-and a BLIND Claude reviewer through the `claude` skill's runner. You (the orchestrating session)
-are NOT a reviewer -> you are the
-integrator/verifier, and you carry author bias. **Do not** collapse reviewer #3 back into an
-in-session pass.
+Run rounds until convergence. Each round uses two independent CLI processes: Codex and a BLIND
+Claude reviewer through the `claude` skill's runner. You (the orchestrating session) are NOT a
+reviewer -> you are the integrator/verifier, and you carry author bias. **Do not** collapse the
+blind Claude reviewer back into an in-session pass.
 
-### Per round (run the three reviewers in PARALLEL)
+### Per round (run both reviewers in PARALLEL)
 
-1. **Read `$GEMINI_SKILL_DIR/SKILL.md` and `$CLAUDE_SKILL_DIR/SKILL.md` first.** They own their
-   CLI flags, filesystem boundaries, auth handling, and output checks. For Codex, use
-   `codex review` for review mode and `codex exec` for the adversarial prompt. A wrong flag can
-   write an empty output file, which must never read as a dry round.
-2. Launch BOTH external reviewers concurrently as background Bash jobs (`run_in_background:
-   true`, one job per model), mirroring the review/challenge CLI calls you just read. Group
-   each model's review + challenge into its OWN job so that model runs its two passes
-   back-to-back while the OTHER model runs in parallel:
-   - Codex job  -> `codex review` then `codex` adversarial challenge -> `/tmp/phillip-codex.out`.
-   - Gemini job -> `gemini` review then `gemini` adversarial challenge -> `/tmp/phillip-gemini.out`.
+1. **Read `$CLAUDE_SKILL_DIR/SKILL.md` first.** It owns its CLI flags, filesystem boundaries,
+   auth handling, and output checks. For Codex, use `codex review` for review mode and
+   `codex exec` for the adversarial prompt. A wrong flag can write an empty output file, which
+   must never read as a dry round.
+2. Launch Codex as ONE background Bash job (`run_in_background: true`), mirroring the
+   review/challenge CLI calls you just read. Group its review + challenge into that single job,
+   so the two passes run back-to-back while the blind Claude reviewer runs in parallel:
+   - Codex job -> `codex review` then `codex` adversarial challenge -> `/tmp/phillip-codex.out`.
 
-   Call the CLIs DIRECTLY (backgrounded) so both run at once -> nested `/codex` and `/gemini`
-   Skill invocations CANNOT parallelize, because skill calls are sequential.
+   Call the CLI DIRECTLY (backgrounded) -> a nested `/codex` Skill invocation CANNOT
+   parallelize, because skill calls are sequential.
 
-   **Neither reviewer gets the diff pasted into its prompt.** Codex is told to run the `git
-   diff` command itself. Gemini cannot (its shell tool is blocked under `--approval-mode
-   plan`), so the `/gemini` skill writes the diff to `$GEMCTX/review.diff` and passes
-   `--include-directories "$GEMCTX"`. Gemini reads that file for scope, then opens the real
-   files at HEAD to verify. Mirror that contract exactly. Inlining the diff is what produced
-   Gemini's line-anchor misreads and its empty-output-at-exit-0 failures on large diffs.
+   **Codex does not get the diff pasted into its prompt.** Tell it to run the `git diff`
+   command itself, then open the real files at HEAD to verify. Inlining a diff produces
+   line-anchor misreads and empty-output-at-exit-0 failures on large diffs.
 
-   ALL THREE reviewers review against the rubric, not a generic bar. Add this line to the
+   BOTH reviewers review against the rubric, not a generic bar. Add this line to the
    Codex prompt: "Read `$PHILLIP_DIR/RUBRIC.md` and `$PHILLIP_DIR/RUBRIC.private.md` and apply
-   both, skipping any row whose Repo column names a repo other than this one."
-
-   **Never give Gemini that line. Copy both rubric files into its context directory instead**,
-   then point at them by filename:
-   ```bash
-   cp "$PHILLIP_DIR/RUBRIC.md" "$GEMCTX/RUBRIC.md"
-   cp "$PHILLIP_DIR/RUBRIC.private.md" "$GEMCTX/RUBRIC.private.md" 2>/dev/null || true
-   ```
-   Add to the Gemini prompt: "Read `RUBRIC.md` and `RUBRIC.private.md` in the extra directory
-   added to your workspace and apply both, skipping any row whose Repo column names a repo
-   other than this one."
-   Gemini cannot reach personal skill directories outside its workspace, and the `gemini` skill's
-   `FS_BOUNDARY` prompt orders it to ignore that tree anyway. A path instruction pointing INTO
-   `~/.claude` silently no-ops, and Gemini reviews against a generic bar (verified
-   2026-08-24). `$GEMCTX` is the `--include-directories` dir the `/gemini` skill already
-   creates for the diff, so the rubric rides along in the same dir and Gemini can read it.
-   **Do NOT paste the rubric text into `-p`.** A 28KB rubric paste is what made Gemini echo
-   the entire rubric back inside its own findings output (observed 2026-08-31). Codex is
-   unaffected, it reads the real filesystem.
-3. Reviewer #3 is a BLIND Claude reviewer, launched through
-   `$CLAUDE_SKILL_DIR/scripts/run-claude` right after the two background jobs are running. It must
-   derive everything from the
-   repo, never from you. Feed it ONLY:
+   both, skipping any row whose Repo column names a repo other than this one." Codex reads the
+   real filesystem, so a path instruction works.
+3. The second reviewer is a BLIND Claude reviewer, launched through
+   `$CLAUDE_SKILL_DIR/scripts/run-claude` right after the background job is running. It must
+   derive everything from the repo, never from you. Feed it ONLY:
    - the role: "You are an independent code reviewer. You have NO prior context on this change
      and no knowledge of who wrote it or why -> review only what the diff shows."
    - instructions to capture the diff ITSELF using the section-0 "Capture the diff under
@@ -183,9 +159,9 @@ in-session pass.
 
    Do NOT paste the conversation, the ticket, the implementation rationale, or any "what this
    is supposed to do" narrative into the prompt. Do not select a smaller Claude model.
-4. Collect: once both background jobs finish, read `/tmp/phillip-codex.out` and
-   `/tmp/phillip-gemini.out`, and take the blind sub-agent's returned findings. Combine every
-   finding from all three reviewers into one list with proposed severity. You did NOT review.
+4. Collect: once the background job finishes, read `/tmp/phillip-codex.out`, and take the
+   blind sub-agent's returned findings. Combine every finding from both reviewers into one list
+   with proposed severity. You did NOT review.
    From here on you de-dupe, verify, adjudicate, and implement. If YOU notice a genuine bug
    while verifying, do not suppress it -> list it with source `Claude (verifier)`, distinct
    from the blind reviewer's `Claude (blind)`, so the report stays honest about which findings
@@ -195,9 +171,9 @@ Fallbacks:
 
 | Situation | Do this |
 |---|---|
-| You cannot background jobs in this environment | Run the Codex, Gemini, and Claude CLI calls sequentially. This is slower but preserves reviewer independence. |
+| You cannot background jobs in this environment | Run the Codex and Claude CLI calls sequentially. This is slower but preserves reviewer independence. |
 | The Claude runner fails | Count Claude as missing and cap the result as required by the caller. Never substitute an in-session pass while claiming independence. |
-| The gemini skill or CLI auth is missing | Run with Codex + Claude and state in the report "Gemini unavailable -> ran with 2 reviewers." Same for Codex if it is absent. **Do not** silently drop a reviewer. |
+| The Codex CLI or its auth is missing | Run with the blind Claude reviewer alone and state in the report "Codex unavailable -> ran with 1 reviewer." **Do not** silently drop a reviewer. |
 
 ### Claude runner
 
@@ -221,7 +197,7 @@ holding the code under review:
 - Omit `--model` when the host does not expose a matching Claude model name. Never choose a
   smaller model to save time.
 - Gate on the **output**, not the exit code: `/tmp/phillip-blind.out` must carry the
-  `SEVERITY | file:line | ...` contract. An empty or contract-free file means reviewer #3 did not
+  `SEVERITY | file:line | ...` contract. An empty or contract-free file means the blind reviewer did not
   run, so report it missing.
 - Label the source `Claude (blind, subprocess)`. **Never** claim a blind reviewer you did not run
   in a separate process, because it violates the HONESTY RULE.
@@ -239,7 +215,7 @@ Then classify:
   - Finding false -> REJECT. Write one line proving why from the actual code flow.
   - Finding valid (HIGH/MEDIUM) + fix sound -> implement the reviewer's fix.
   - Finding valid (HIGH/MEDIUM) + fix wrong -> implement YOUR OWN corrected fix, and
-    document the rejected reviewer fix with a reason, e.g.: "Gemini #1 (race) is valid,
+    document the rejected reviewer fix with a reason, e.g.: "Codex #1 (race) is valid,
     but its suggested patch is rejected -> that predicate also fires on a status-only
     transition -> duplicate push. Fixed with a guard on the transition source instead."
   - Finding valid + LOW/nit -> list it, do not implement. One exception: the fix is under 5
@@ -249,8 +225,8 @@ Then classify:
 
 ### Cross-model disagreement
 
-When Codex and Gemini disagree, YOU adjudicate by reading the actual code path. **Do not**
-average them. **Do not** defer to whoever sounds more confident. Document the losing
+When Codex and the blind Claude reviewer disagree, YOU adjudicate by reading the actual code
+path. **Do not** average them. **Do not** defer to whoever sounds more confident. Document the losing
 suggestion as rejected-with-reason, never dropped.
 
 ### Implement
@@ -273,7 +249,7 @@ follows the last fix is a **confirmation round**.
 
 - Loop until one dry round AFTER the last fix.
 - The confirmation round IS scoped to the lines changed by fixes applied since the last
-  round (a delta re-check), and it still fans out to ALL THREE reviewers. Keep the full-diff
+  round (a delta re-check), and it still fans out to BOTH reviewers. Keep the full-diff
   scope for any round that is still finding issues.
 - **Never** count a confirmation round against the cap. Shipping a fix that no reviewer has
   read is the failure this loop exists to prevent.
@@ -294,15 +270,15 @@ a nested path that does not exist.
 
 ```
 ### Phillip self-review -> <branch>, <date>
-Reviewers: Claude (blind|blind, subprocess|inline, not blind) + Codex + Gemini   Rounds run: <n> (<f> finding, <c> confirmation)
+Reviewers: Claude (blind|blind, subprocess|inline, not blind) + Codex   Rounds run: <n> (<f> finding, <c> confirmation)
 Stopped because: dry round / finding-round cap
 
 | # | Severity | File:line | Finding | Source | Status |
 |---|----------|-----------|---------|--------|--------|
 | 1 | HIGH     | Aicc.ts:1098 | <one line> | Codex | Fixed b8c6727914 |
 | 2 | MEDIUM   | app/index.tsx:28 | <one line> | Claude (blind) | Fixed <sha> |
-| 3 | nit      | foo.ts:12 | <one line> | Gemini | Listed, not fixed |
-| 4 | -        | bar.ts:40 | Gemini race claim | Gemini | Rejected: predicate also fires on status-only transition -> dup push |
+| 3 | nit      | foo.ts:12 | <one line> | Codex | Listed, not fixed |
+| 4 | -        | bar.ts:40 | race claim | Claude (blind) | Rejected: predicate also fires on status-only transition -> dup push |
 ```
 
 Then:

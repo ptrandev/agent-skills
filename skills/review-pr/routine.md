@@ -12,8 +12,8 @@ for current product limits and UI labels.
 1. Connect GitHub with `/web-setup`. Install the Claude GitHub App too when using GitHub event
    triggers.
 2. Confirm Claude Code on the web and Routines are enabled for the account.
-3. Prepare `OPENAI_API_KEY` and `GEMINI_API_KEY` as Routine environment variables. Without
-   them, the review uses fewer independent reviewers and cannot approve.
+3. Prepare `OPENAI_API_KEY` as a Routine environment variable. Without it, the review runs with
+   the blind Claude reviewer alone and cannot approve.
 4. Expect the review to run on `skills/phillip/RUBRIC.md` alone. `RUBRIC.private.md` is
    gitignored, so the clone never carries it and this environment never sees the repo-specific
    rows. `phillip-sync` keeps the tracked core current on your own machine.
@@ -23,8 +23,8 @@ permission.
 
 **Keep this environment separate from the `babysit-prs` environment.** The two setup scripts share
 only the skills clone, `gh`, and the two project toolchains. Everything else here, meaning the Node
-24 pin, the `re2` rebuild, the workspace pre-build, Chromium, and the two reviewer CLIs, serves
-this skill alone. The API keys below belong to this environment, and every routine that selects an
+24 pin, the `re2` rebuild, the workspace pre-build, Chromium, and the Codex CLI, serves
+this skill alone. The API key below belongs to this environment, and every routine that selects an
 environment can read its variables.
 
 ## Create the Routine
@@ -33,7 +33,7 @@ Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `review-pr` and the prompt below.
 2. **Repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
-3. **Environment:** use the default Trusted network, add both API keys, and paste the setup script.
+3. **Environment:** use the default Trusted network, add the API key, and paste the setup script.
 4. **Connectors:** keep the GitHub connector used for review posting. Remove unrelated connectors.
 5. **Permissions:** leave unrestricted branch pushes disabled.
 6. **Trigger:** use the schedule below.
@@ -41,7 +41,7 @@ Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 ## Setup script
 
-The setup script installs the skills, the shared reference files, reviewer CLIs, project
+The setup script installs the skills, the shared reference files, the Codex CLI, project
 toolchains, and a headless browser. It logs to `/var/log/review-pr-setup.log`.
 
 The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
@@ -53,7 +53,7 @@ exec > >(tee -a /var/log/review-pr-setup.log) 2>&1
 rm -rf /tmp/agent-skills
 git clone --depth 1 https://github.com/ptrandev/agent-skills.git /tmp/agent-skills
 mkdir -p "$HOME/.claude/skills"
-for item in review-pr phillip phillip-sync gemini full-send ui-walkthrough shared; do
+for item in review-pr phillip phillip-sync full-send ui-walkthrough shared; do
   if [ -d "/tmp/agent-skills/skills/$item" ]; then
     rm -rf "$HOME/.claude/skills/$item"
     cp -R "/tmp/agent-skills/skills/$item" "$HOME/.claude/skills/$item"
@@ -120,7 +120,7 @@ if ! command -v gh >/dev/null; then
 fi
 gh --version || echo "WARN: gh unavailable; GitHub operations require MCP"
 
-npm install -g @openai/codex @google/gemini-cli ||
+npm install -g @openai/codex ||
   echo "WARN: reviewer CLI install failed"
 if [ -n "$OPENAI_API_KEY" ]; then
   printenv OPENAI_API_KEY | codex login --with-api-key ||
@@ -129,7 +129,6 @@ else
   echo "WARN: OPENAI_API_KEY is unset"
 fi
 codex --version || echo "WARN: Codex unavailable"
-gemini --version || echo "WARN: Gemini unavailable"
 
 CHROMIUM_DIR="$(ls -d /opt/pw-browsers/chromium* /root/.cache/ms-playwright/chromium* 2>/dev/null |
   head -1)"
@@ -192,7 +191,7 @@ Run the prompt with `--draft`, then inspect the transcript:
 1. Confirm discovery includes only ready PRs requested of you and excludes your own PRs.
 2. Confirm the report names `GH_TRANSPORT`. In the cloud environment, expect MCP when repository
    API calls through `gh` return 403.
-3. Confirm Codex and Gemini ran or the verdict correctly degraded.
+3. Confirm Codex ran or the verdict correctly degraded.
 4. Confirm each finding was verified against the checked-out head and each inline line is in a diff
    hunk.
 5. Run the draft twice and confirm the result is idempotent.
@@ -208,11 +207,11 @@ Remove `--draft` only after every applicable check passes.
 | Setup or a capability silently degrades | Read `/var/log/review-pr-setup.log`. Setup output is not included in the run transcript. |
 | Old skill behavior appears | Invalidate the cached environment by changing the setup script. |
 | `gh api repos/<owner>/<repo>` returns 403 | Use the GitHub MCP transport. A successful `gh auth status` does not prove repository API access. |
-| Fewer reviewers run | Check both API-key environment variables, CLI versions, and the Codex login line in the setup log. |
+| Fewer reviewers run | Check the `OPENAI_API_KEY` variable, the Codex CLI version, and the Codex login line in the setup log. |
 | UI walkthrough is skipped | Check for Node ABI 137, a Chromium path, successful workspace builds, and a healthy e2e stack. |
 | Screenshot HTML cannot be verified | MCP does not expose the media type needed for the `body_html` read-back. Report that the check was unavailable. |
 
-The exact headless Codex and Gemini invocation contract lives in
+The exact headless Codex invocation contract lives in
 [`SKILL.md`](SKILL.md). Keep trust-gate flags, workspace boundaries, diff delivery, and output
 validation there rather than duplicating them in this setup guide.
 

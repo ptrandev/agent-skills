@@ -70,9 +70,9 @@ This skill posts to **other people's** PRs. Five invariants:
 | nothing verified / clean, **reduced** depth (no clone / compile-only / no dynamic) | `COMMENT` ("no blocking issues; not fully verified"). **Never** auto-APPROVE. |
 | aicc-queues HIGH resting on **runtime behavior** with **compile-only** evidence | downgrade to `COMMENT` + "compile-only evidence, runtime unverified. Please confirm." Never block on a compile alone. |
 
-**Reviewer count gates `APPROVE` too.** A run with fewer than three reviewers caps at `COMMENT`,
+**Reviewer count gates `APPROVE` too.** A run with fewer than two reviewers caps at `COMMENT`,
 whatever the verify depth. That covers `quick` mode (one blind Claude reviewer) and any run where
-`/codex` or `/gemini` was missing (Tier 2b). State which reviewers ran in the review body.
+Codex was missing (Tier 2b). State which reviewers ran in the review body.
 
 ---
 
@@ -118,10 +118,10 @@ preview). Literal `~`/`$` in code stay inside backticks instead.
 
 ## Phase 0: Preflight + capability detection
 
-Locate the directories containing the loaded `review-pr`, `phillip`, `claude`, `gemini`, and
-`ui-walkthrough` skills. Call them `REVIEW_PR_DIR`, `PHILLIP_DIR`, `CLAUDE_SKILL_DIR`,
-`GEMINI_SKILL_DIR`, and `UI_WALKTHROUGH_DIR`. Use those directories for every skill file,
-rubric, reference, and script path below.
+Locate the directories containing the loaded `review-pr`, `phillip`, `claude`, and
+`ui-walkthrough` skills. Call them `REVIEW_PR_DIR`, `PHILLIP_DIR`, `CLAUDE_SKILL_DIR`, and
+`UI_WALKTHROUGH_DIR`. Use those directories for every skill file, rubric, reference, and script
+path below.
 
 ```bash
 # Probe a REPO call. `gh api user` passes while repo calls 403; see ../shared/github-transport.md.
@@ -151,8 +151,8 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
   and the toolchain runs. Probe `node`/`yarn` (codebase -> FULL) and `java`/`./gradlew`
   (aicc-queues -> COMPILE-ONLY). Without it, review from the diff, drop **every finding to reduced
   confidence**, and **post nothing** (report-only, invariant 2).
-- **Tier 2b, external reviewers:** the `codex` and `gemini` CLIs present + authed. **The skills are
-  not required**, because Phase 4 runs the CLIs directly. Missing -> run with fewer reviewers and
+- **Tier 2b, external reviewer:** the `codex` CLI present + authed. **The skill is not required**,
+  because Phase 4 runs the CLI directly. Missing -> run with the blind Claude reviewer alone and
   say so (same fallback as `/phillip`), and the verdict caps at `COMMENT`.
 - **Tier 3, dynamic walkthrough**, two sub-capabilities:
   - `CAN_LIVE_HEADLESS`: can stand up the agents-portal stack + drive a **headless browser**.
@@ -188,7 +188,7 @@ under review. `RUBRIC.private.md` is untracked, so a host that never received it
 
 Print a per-repo readiness summary:
 ```
-Preflight:  gh ✓ (ptrandev)   reviewers: codex ✓ gemini ✓   dynamic: headless ✓
+Preflight:  gh ✓ (ptrandev)   reviewers: codex ✓   dynamic: headless ✓
   Atllas-Inc/codebase     clone ✓ clean ✓   verify FULL
   Atllas-Inc/aicc-queues  clone ✓ clean ✓   verify COMPILE-ONLY
 ```
@@ -283,21 +283,20 @@ report-only). Remove the worktree in Phase 9.
 
 Run the same fan-out as `/phillip` section 2, with the scope set to the **PR diff** and the action
 set to "post comments", not "fix". Read that section for the parallelism rules. **Launch the Codex
-and Gemini CLIs directly as concurrent background Bash jobs.** Nested `/codex` and `/gemini`
-**skill** invocations cannot parallelize (skill calls are sequential), so they run the two models
-back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
+CLI directly as a background Bash job.** A nested `/codex` **skill** invocation cannot parallelize
+with the blind Claude reviewer, because skill calls are sequential. **Do not invoke the `/codex`
+skill for this pass.**
 
-- **Codex** + **Gemini** as concurrent background Bash jobs. **Run them from `$WORKDIR` against the
-  PR's true diff**: point them at the freshly-fetched base so they never review the stale-master
-  garbage (`git diff "origin/$BASE...$HEAD_SHA"`, or feed them `/tmp/review-pr-$NAME-$PR.diff`
-  directly). Outputs to `/tmp/review-pr-codex-$NAME-$PR.out` / `-gemini-$NAME-$PR.out`. (All temp
+- **Codex** as a background Bash job. **Run it from `$WORKDIR` against the
+  PR's true diff**: point it at the freshly-fetched base so it never reviews the stale-master
+  garbage (`git diff "origin/$BASE...$HEAD_SHA"`, or feed it `/tmp/review-pr-$NAME-$PR.diff`
+  directly). Output to `/tmp/review-pr-codex-$NAME-$PR.out`. (All temp
   paths include `$NAME`: PR numbers repeat across repos, and parallel per-repo agents writing
   `/tmp/review-pr-$PR-*` clobber each other.)
-  - **Headless/sandbox invocation gotchas** (API-key `codex exec` instead of `codex review`, the
-    two trust-gate flags, the `< /dev/null` redirect, Gemini's inline-`-p` limitation, its
-    `RESOURCE_EXHAUSTED` degradation): [routine.md](routine.md) section 8. **`RUBRIC.md` sits
-    outside Gemini's workspace, so "Read the rubric" silently no-ops there.** Section 8 owns the
-    fix. Apply it on every run, local included. Codex is unaffected.
+  - **Headless/sandbox invocation gotchas:** use `codex exec` with an API key instead of
+    `codex review`, keep the read-only sandbox flag, and redirect `< /dev/null` so the CLI never
+    waits on stdin. The `/codex` skill owns the exact flag spellings. Apply all three gotchas on
+    every run, local included.
   - **Materialize the Codex credential here, not in setup.** A routine's setup step runs in a
     build phase, and `~/.codex/auth.json` written there does **not** survive into the run container
     (verified 2026-08-14: absent at session start with `OPENAI_API_KEY` set). Check for the file
@@ -306,11 +305,10 @@ back to back. **Do not invoke the `/codex` or `/gemini` skills for this pass.**
     [ -f "$HOME/.codex/auth.json" ] || printenv OPENAI_API_KEY | codex login --with-api-key
     ```
     Skip it when `OPENAI_API_KEY` is unset, and count Codex as missing.
-  - **Model selection:** honor `$CODEX_MODEL` / `$GEMINI_MODEL` when set, otherwise take the CLIs'
-    own defaults. **Never hardcode a version in this file.** The `/codex` and `/gemini` skills own
-    the defaults.
+  - **Model selection:** honor `$CODEX_MODEL` when set, otherwise take the CLI's own default.
+    **Never hardcode a version in this file.** The `/codex` skill owns the default.
   - **A reviewer that refused is not a reviewer that found nothing. Never gate on exit status
-    alone.** Gemini's trust-gate refusal exits **0** with no findings (verified 2026-08-14), so an
+    alone.** A trust-gate refusal or a wrong flag exits **0** with no findings, so an
     exit-status check records a reviewer that never ran as a clean pass, and a clean pass is an
     input to `APPROVE`. Gate on the **output**: a reviewer counted as having run must have a
     non-empty output file that contains its findings contract. An empty file, a refusal, or a quota
@@ -432,7 +430,7 @@ Write `${REVIEW_PR_PLANS_DIR:-${CODEX_HOME:-$HOME/.claude}/plans}/review-pr-<own
 
 ```
 ### /review-pr -> Atllas-Inc/codebase#1773, <date>
-Reviewers: Claude(blind|blind,subprocess|inline,not blind) + Codex + Gemini   Verify: FULL   Dynamic: yes/skipped(reason)   Head: <sha>
+Reviewers: Claude(blind|blind,subprocess|inline,not blind) + Codex   Verify: FULL   Dynamic: yes/skipped(reason)   Head: <sha>
 Verdict: <event>   Mode: <post|draft>
 
 | # | Sev | File:line | Finding | Source | Verified | Posted |
@@ -490,7 +488,7 @@ Two homes:
 
 - **Cloud Routine (primary): read [routine.md](routine.md) before creating the routine.** It owns
   the sandbox setup script, the routine prompt, the triggers, first-run validation, and the headless
-  Codex/Gemini invocation. Managed 16 GB sandbox, hourly schedule. Runs the full loop including the
+  Codex invocation. Managed 16 GB sandbox, hourly schedule. Runs the full loop including the
   **Tier-3 dynamic walkthrough** via headless Playwright (trial-verify once).
 - **Local Mac:** `/loop 2h /review-pr` or `claude -p "/review-pr"`. Same loop, plus the OpenCap
   video and sub-hourly cadence.
