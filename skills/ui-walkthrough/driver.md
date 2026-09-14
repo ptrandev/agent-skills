@@ -7,13 +7,16 @@ exists for it to scope to.
 
 **Driver** (in preference order, first available wins):
 
-| | Local Mac | Headless routine |
-|---|---|---|
-| Browser | `browse` binary (`$ROOT/.claude/skills/gstack/browse/dist/browse`, else `~/.claude/skills/gstack/browse/dist/browse`) | headless Playwright/Chromium |
-| Viewport | `browse viewport WxH` | `page.setViewportSize` |
-| Screenshot | `browse prettyscreenshot`, else `browse screenshot` | `page.screenshot({fullPage:true})` |
-| Video | OpenCap **scoped to the browser window**, either role, needs a HEADED browser | none (skip, never block) |
-| Credentials | `dev-credentials.md` | **env vars only** (the file is gitignored, so it is absent) |
+| | Local Mac | Local Windows | Headless routine |
+|---|---|---|---|
+| Browser | `browse` binary (`$ROOT/.claude/skills/gstack/browse/dist/browse`, else `~/.claude/skills/gstack/browse/dist/browse`) | WSL2 Playwright/Chromium | headless Playwright/Chromium |
+| Viewport | `browse viewport WxH` | `page.setViewportSize` | `page.setViewportSize` |
+| Screenshot | `browse prettyscreenshot`, else `browse screenshot` | `page.screenshot({fullPage:true})` | `page.screenshot({fullPage:true})` |
+| Video | OpenCap **scoped to the browser window**, either role, needs a HEADED browser | none | none (skip, never block) |
+| Credentials | `dev-credentials.md` | seeded E2E credentials | **env vars only** (the file is gitignored, so it is absent) |
+
+When `HOST_PLATFORM=windows`, use headless Playwright from the WSL2 worktree. Skip the `browse` probe
+and omit `recordVideo`.
 
 **Every `browse` call that touches the daemon carries `$B_ENV`**, the lane's
 `BROWSE_STATE_FILE` + `BROWSE_PORT` prefix from [concurrency.md](concurrency.md). Without it two
@@ -49,7 +52,8 @@ const context = await browser.newContext({
   `ERR_MODULE_NOT_FOUND: Cannot find package '@playwright/test'`. Write it next to the app
   (`apps/agents-portal/uiw-drive.mjs`), untracked, and delete it in teardown with the hold spec.
   Phase 9's `git status --porcelain` check catches a forgotten one.
-- **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Verified in `/review-pr`
+- **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Windows does not use this
+  argument. Verified in `/review-pr`
   Phase 6: a TLS-terminating middlebox on the cloud egress path resets Chromium's TLS 1.3
   ClientHello, so every HTTPS request fails `net::ERR_CONNECTION_RESET` and the app hangs on its
   splash (`_app` cannot load `js.stripe.com`, so the login form never mounts). TLS 1.2 shrinks the

@@ -4,6 +4,9 @@ How `/ui-walkthrough` gets the PR's code running and healthy before Phase 5 driv
 the start of Phase 4, after [concurrency.md](concurrency.md) has set the lane. `SKILL.md` keeps only
 the two target rules and the pointer here.
 
+When `HOST_PLATFORM=windows`, use the loaded Windows adapter for checkout, boot, background process,
+and teardown commands. Keep the target and evidence rules in this file.
+
 Every port below is written at its lane-0 value. **Use the lane's value**, from
 [concurrency.md](concurrency.md)'s port map, in every command you actually run.
 

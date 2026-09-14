@@ -136,12 +136,23 @@ Locate the directories containing the loaded `ui-walkthrough`, `full-send`, `rev
 `DESIGN_REVIEW_DIR`. Use those directories for every skill file, credential file, reference, and
 script path below.
 
+Run `node -p "process.platform"` before any shell-specific command. Set `HOST_PLATFORM` from this
+table:
+
+| Result | `HOST_PLATFORM` | Environment |
+|---|---|---|
+| `darwin` | `macos` | local |
+| `win32` | `windows` | local |
+| `linux` | `linux` | routine |
+
+**On Windows, read [windows.md](windows.md) before any checkout, lane, stack, driver, or teardown
+command.** It owns the WSL2 adapter and every Windows command override.
+
 Probe, record booleans, branch later. **Never assume a driver.**
 
 ```bash
 # Probe a REPO call. `gh api user` passes while repo calls 403; see ../shared/github-transport.md.
 if gh api "repos/$OWNER/$NAME" --jq .id >/dev/null 2>&1; then GH_TRANSPORT=cli; else GH_TRANSPORT=mcp; fi
-SCRATCH=/private/tmp/ui-walkthrough; mkdir -p "$SCRATCH"     # NOT $TMPDIR, see below
 ```
 
 `$SCRATCH` narrows to `$SCRATCH/lane-$LANE` once *Lane selection* has run. Do that before the first
@@ -154,7 +165,7 @@ skill then exits only after booting a stack and capturing a full matrix. Two con
 the evidence-ref push uses **git** and survives a blocked API (Phase 7), and the `body_html`
 read-back cannot run under `mcp`, so report it as unverified rather than as passed.
 
-**`$SCRATCH` must be under `/private/tmp`.** `browse` sandboxes screenshot output and rejects
+Outside Windows, **`$SCRATCH` must be under `/private/tmp`.** `browse` sandboxes screenshot output and rejects
 anything outside `/private/tmp` or the repo root with
 `Path must be within: /private/tmp, /Users/...`. macOS `$TMPDIR` is `/var/folders/…`, so a
 `$TMPDIR`-based scratch dir fails **every capture**, one per screenshot, and the run looks healthy
@@ -188,7 +199,11 @@ port lane of its own ([concurrency.md](concurrency.md)), and leaves the operator
 server alone. A `dev` walkthrough occupies the machine the operator is working on.
 
 ```bash
-case "$(uname)" in Darwin) ENVIRONMENT=local;; *) ENVIRONMENT=routine;; esac
+if [ "${UIW_HOST_PLATFORM:-}" = windows ] || [ "$(uname)" = Darwin ]; then
+  ENVIRONMENT=local
+else
+  ENVIRONMENT=routine
+fi
 
 # Attended probe. `[ -t 0 ]` is NOT usable: Claude Code's Bash tool gives every command a non-TTY
 # stdin, so a TTY test marks an attended local session unattended.
@@ -457,7 +472,7 @@ owns that procedure.
 
 ## Running unattended
 
-Runtime-agnostic by design (Phase 0 capability detection). Two homes, same skill:
+Phase 0 selects one of three platform paths:
 
 - **Cloud routine**: piggyback on `/review-pr`'s routine (`review-pr/routine.md`), which installs the
   skills, the toolchains, and headless Chromium. **Nothing to configure:** the target is forced to
@@ -470,6 +485,8 @@ Runtime-agnostic by design (Phase 0 capability detection). Two homes, same skill
   dev server needs. Adds the OpenCap video. A `/loop` or `/schedule` run must export
   `UIW_UNATTENDED=1`, which sets `ATTENDED=0` and refuses `--target=dev` (Phase 0). Recording does
   **not** make a run attended, and does not occupy the machine: see [opencap.md](opencap.md).
+- **Local Windows**: run the sealed stack and headless Playwright through WSL2. Use PowerShell for
+  GitHub access and evidence publication. Skip OpenCap. The Windows adapter supports `e2e` only.
 
 The Phase 2 marker makes repeated runs safe: each picks up only PRs not yet walked at their current
 head, and Phase 8's re-check closes the window where two overlapping runs both pass the gate.

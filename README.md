@@ -18,7 +18,7 @@ agents, so a `git pull` updates every linked copy.
 | [`babysit-prs`](skills/babysit-prs/SKILL.md) | Handles safe review feedback on open PRs you authored and leaves ambiguous threads open. | `/babysit-prs [PR# ...] [--repo owner/name]` |
 | [`review-pr`](skills/review-pr/SKILL.md) | Reviews PRs awaiting your review, posts inline findings, and manages the verdict. | `/review-pr [PR#\|URL] [quick]`<br>`--repo owner/name`<br>`--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots` |
 | [`mockup`](skills/mockup/SKILL.md) | Builds a self-contained interactive HTML mockup before implementation. | `/mockup [ticket\|plan.md\|description]`<br>`--variants=N`, `--out=path`, `--publish` |
-| [`ui-walkthrough`](skills/ui-walkthrough/SKILL.md) | Tests a PR's UI at several widths and posts screenshot evidence to GitHub. | `/ui-walkthrough [PR#\|URL]`<br>`--author\|--reviewer`, `--target=e2e\|dev`, `--no-post` |
+| [`ui-walkthrough`](skills/ui-walkthrough/SKILL.md) | Tests a PR's UI at several widths and posts screenshot evidence to GitHub. Windows uses [WSL2](skills/ui-walkthrough/windows.md). | `/ui-walkthrough [PR#\|URL]`<br>`--author\|--reviewer`, `--target=e2e\|dev`, `--no-post` |
 | [`gemini`](skills/gemini/SKILL.md) | Uses Gemini for an independent review, challenge, or large-context consultation. | `/gemini review [focus]`<br>`/gemini challenge [focus]`<br>`/gemini <question> [--flash]` |
 | [`claude`](skills/claude/SKILL.md) | Uses Claude from Codex for an independent review, challenge, or consultation. Codex only. | `$claude review [focus]`<br>`$claude challenge [focus]`<br>`$claude <question>` |
 | [`debrief`](skills/debrief/SKILL.md) | Audits a completed session for unchecked assumptions and remaining risks. | `/debrief [deep] [topic]` |

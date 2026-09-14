@@ -4,6 +4,9 @@ Owns lane allocation, the port map, the per-lane lock, `browse` daemon scoping, 
 capability probe, and lane teardown. Read it at the end of Phase 0, before [stack.md](stack.md).
 Carry `$LANE`, `$LOCK`, `$SCRATCH`, `$BASE_URL`, `$WORKDIR`, and `$B_ENV` out of it.
 
+When `HOST_PLATFORM=windows`, use the values from the loaded Windows adapter. Skip every Bash block
+in this file. The Windows adapter owns lane allocation, locks, scratch paths, and teardown.
+
 A lane is one complete, non-overlapping set of resources: TCP ports, a lock, a `browse` daemon, and
 a scratch dir. One run holds one lane for its whole life. Lane 0 is the legacy fixed set, so
 `/review-pr` (which knows nothing about lanes) and a lane-0 walkthrough still collide correctly on
