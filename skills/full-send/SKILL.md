@@ -17,8 +17,10 @@ describing the work. Parse them in this order:
    - `interactive` / `ask` / `careful` → **interactive mode** (front-load a grill, see Phase 0.5).
    - `auto` → explicit **autonomous mode** (the default).
    - No keyword → **autonomous mode**.
-   - `loop` (orthogonal, combines with any of the above) → force the Phase 3B Ralph loop
-     regardless of size. Without it, the implement path is size-gated in Phase 3.0.
+   - `loop` (orthogonal, combines with any of the above) → force the Phase 3B serial loop
+     regardless of size.
+   - `fan` (orthogonal, combines with any of the above) → force the Phase 3C parallel waves
+     regardless of size. Without either keyword, the implement path is gated in Phase 3.0.
 2. **Remaining invocation input:**
    - A ticket ID (e.g. `AP-1234`) → fetch it (Phase 0).
    - Free-text with no ticket ID → treat as a **raw idea/spec** and synthesize a ticket (Phase 0).
@@ -194,8 +196,9 @@ Apply these skip rules:
 - **Bot threads already resolved / commits already pushed** → **do not** duplicate replies or
   commits.
 - **A `fix_plan.md` exists under `/tmp/full-send-$TICKET_ID/`** → the implement step took the
-  Phase 3B loop path. Resume it by re-reading `fix_plan.md` + `notes.md` and continuing from the
-  first unchecked task. **Do not** restart the decomposition or redo checked tasks.
+  Phase 3B or 3C path. Resume it by re-reading `fix_plan.md` + `notes.md`, then continuing from
+  the first unchecked task, in the mode `path.md` records. **Do not** restart the decomposition or
+  redo checked tasks.
 
 Every phase checks "is this already true?" and becomes a no-op when it is. Read current state
 (`git`, `gh`, Linear) instead of assuming a fresh run.
@@ -293,29 +296,34 @@ Check for an existing plan file in `~/.claude/plans/` referencing this ticket ID
 
 ### Phase 3.0: Size assessment (pick the path)
 
-Judge the scope from the Phase 2 plan:
+Pick **single-pass (3A)** when the change is small enough to hold in one focused context without
+rot: roughly ≤ 3-4 files, a single layer, or one cohesive acceptance criterion.
 
-- **Loop (3B)** when the change spans multiple layers (types → sdk → api → frontend → ui) or many
-  files, or the ticket has several independent acceptance criteria.
-- **Single-pass (3A)** when the change is small enough to hold in one focused context without rot:
-  roughly ≤ 3-4 files, a single layer, or one cohesive acceptance criterion.
+Otherwise the change is decomposed, and the choice is 3B or 3C. Measure it, do not guess it.
+Decompose the plan and build the waves per `implement-loop.md`, then read the widest wave:
 
-Precedence: any 3B condition wins. Pick 3A only when no 3B condition holds.
+| Widest wave | Path | Why |
+|---|---|---|
+| 1 task | **3B, serial** | The ticket is a dependency chain. Parallel work buys nothing. |
+| 2 tasks | **3B, serial** | One saved wave does not pay for the integration risk. |
+| 3+ tasks | **3C, fan** | Real parallelism exists. |
 
-`/full-send loop <TICKET-ID>` forces 3B regardless of size. Record the chosen path in
-`/tmp/full-send-$TICKET_ID/path.md` (one line, `3A` or `3B`, plus the reason).
+`/full-send loop <TICKET-ID>` forces 3B and `/full-send fan <TICKET-ID>` forces 3C, both
+regardless of the measurement. Record the chosen path in `/tmp/full-send-$TICKET_ID/path.md` (one
+line, `3A`, `3B`, or `3C`, plus the reason).
 
-**Read [ralph-loop.md](ralph-loop.md) and follow it before starting 3B.** It owns the
-decomposition, the on-disk run state, and the loop. Return to Phase 4 when it finishes.
+**Read [implement-loop.md](implement-loop.md) and follow it before measuring, and before starting
+3B or 3C.** It owns the decomposition, the on-disk run state, both execution modes, and recovery.
+Return to Phase 4 when it finishes.
 
-### Standing rules (both paths)
+### Standing rules (every path)
 
-Every implementation task, a 3A single pass or one 3B loop iteration, follows these. Follow all
+Every implementation task, a 3A single pass or one decomposed task, follows these. Follow all
 conventions in the repo's `CLAUDE.md` and `CLAUDE.local.md`. A headless run never loads either
 file, so when one is absent, follow the conventions the surrounding code already shows.
 
 - **Never `git add .`.** Stage the specific files the task touched, at every commit site in this
-  skill (Phase 3B, Phase 4, Phase 5, Phase 7c).
+  skill (Phase 3B, Phase 3C, Phase 4, Phase 5, Phase 7c).
 - Read every file before editing it.
 - **Search before assuming something is not implemented.** Ripgrep silence is not absence.
 - Full implementations, **no placeholders or TODOs.**
@@ -371,13 +379,13 @@ If typecheck, lint, or tests **cannot be made green** and the failure is caused 
 **bail out** (see Bail-out, Modes) rather than pushing broken code toward a PR.
 
 Commit any remaining uncommitted work. **Single-pass (3A):** this is where the change is committed,
-as `feat(<scope>): <ticket title>`. **Loop (3B):** the units were already committed per-task during
-the loop, so only commit stragglers from this final sweep (e.g. a test fix the full-suite run
-surfaced). **Do not** squash the per-task history.
+as `feat(<scope>): <ticket title>`. **Decomposed (3B or 3C):** the units were already committed
+per-task, so only commit stragglers from this final sweep (for example, a test fix the full-suite
+run surfaced). **Do not** squash the per-task history.
 
 ```bash
 git add <the specific files this phase touched>
-git commit -m "feat(<scope>): <ticket title>"   # 3A; or fix(<scope>): <what the sweep fixed> for 3B stragglers
+git commit -m "feat(<scope>): <ticket title>"   # 3A; or fix(<scope>): <what the sweep fixed> for 3B/3C stragglers
 ```
 
 ---

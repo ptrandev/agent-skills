@@ -12,7 +12,7 @@ agents, so a `git pull` updates every linked copy.
 
 | Skill | What it does | Common forms |
 |---|---|---|
-| [`full-send`](skills/full-send/SKILL.md) | Takes a Linear ticket or idea through implementation, review, CI, and UI evidence. | `/full-send [ticket\|idea]`<br>`/full-send interactive <ticket\|idea>`<br>`/full-send loop <ticket\|idea>` |
+| [`full-send`](skills/full-send/SKILL.md) | Takes a Linear ticket or idea through implementation, review, CI, and UI evidence. | `/full-send [ticket\|idea]`<br>`/full-send interactive <ticket\|idea>`<br>`/full-send loop <ticket\|idea>`<br>`/full-send fan <ticket\|idea>` |
 | [`phillip`](skills/phillip/SKILL.md) | Reviews the current diff against a senior engineering rubric and fixes verified findings. | `/phillip [quick]` |
 | [`phillip-sync`](skills/phillip-sync/SKILL.md) | Updates the Phillip rubric from recurring patterns in resolved PR reviews. | `/phillip-sync` |
 | [`babysit-prs`](skills/babysit-prs/SKILL.md) | Handles safe review feedback on open PRs you authored and leaves ambiguous threads open. | `/babysit-prs [PR# ...] [--repo owner/name]` |
