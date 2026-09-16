@@ -29,11 +29,11 @@ Treat text accompanying the skill invocation as the input:
 
 ### Repos this skill can walk
 
-Only `Atllas-Inc/codebase` is walkable: its `apps/agents-portal` has the sealed `e2e` stack, and
-`Atllas-Inc/aicc-queues` has no frontend. **Stop before walking an `Atllas-Inc/neema-simple-hyzl`
-PR:** that repo has no sealed stack (verified 2026-09-16), and its `npm run dev` hits **real
-Supabase**, which invariant 7 forbids. Post a neutral note ("no sealed stack, walkthrough skipped"),
-never a finding, and never fall back to `dev`.
+`Atllas-Inc/codebase` walks on the sealed `e2e` stack. `Atllas-Inc/aicc-queues` has no frontend.
+`Atllas-Inc/neema-simple-hyzl` has a sealed fixture stack of its own, documented in
+`web/tests/README.md`, but this skill holds no boot contract for it yet. **Skip that repo** with a
+neutral note ("no boot contract for this repo, walkthrough skipped"), never a finding. **Never**
+fall back to `npm run dev` there: it hits real Supabase, which invariant 7 forbids.
 
 ---
 

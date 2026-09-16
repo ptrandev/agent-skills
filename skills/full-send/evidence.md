@@ -19,10 +19,9 @@ This phase produces two parts:
 The video is **best-effort**. Capture screenshots only when OpenCap is not installed, is not logged
 in, or lacks the screen-recording permission. **Never** block the PR on the video.
 
-**`neema-simple-hyzl` has no walkable stack.** Its frontend source lives under `web/app/` and
-`web/components/`, but the repo carries no sealed `e2e` target, so `/ui-walkthrough` refuses it
-(its Repos table owns that rule). Skip this phase there, and say in the Phase 9 report that the
-repo has no stack to capture on.
+**`neema-simple-hyzl` frontend source lives under `web/app/` and `web/components/`.** The repo has a
+sealed fixture stack, but `/ui-walkthrough` holds no boot contract for it yet, so it skips that repo
+(its Repos section owns that rule). Skip this phase there, and say so in the Phase 9 report.
 
 **Delegate the capture to `/ui-walkthrough`.** **Do not** hand-roll it here. That skill owns surface
 discovery, the three-viewport matrix, the deterministic detectors, and publishing images to GitHub
