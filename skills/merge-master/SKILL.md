@@ -1,8 +1,8 @@
 ---
 name: merge-master
 description: >
-  Merges origin/master into the current branch, resolves any conflicts, then commits and
-  pushes. Use for "merge master", "sync with master", or "update my branch".
+  Merges the repo's default branch into the current branch, resolves any conflicts, then
+  commits and pushes. Use for "merge master", "sync with master", or "update my branch".
 ---
 
 # merge-master
@@ -14,9 +14,21 @@ description: >
    Stashing is the user's job before re-invoking this skill. **Do not** stash for
    them. **Do not** run `git stash pop` afterwards. Capture the current branch:
    `git rev-parse --abbrev-ref HEAD`. **Stop and tell the user** when the branch
-   is `master` or `main`.
-2. **Fetch.** `git fetch origin master`.
-3. **Merge.** `git merge origin/master`. Skip to step 6 when it merges cleanly.
+   is the default branch resolved in step 2.
+2. **Resolve the default branch.** **Never assume `master`.** `Atllas-Inc/codebase`
+   and `Atllas-Inc/aicc-queues` use `master`, `Atllas-Inc/neema-simple-hyzl` uses
+   `main`, and `git fetch origin master` in a `main` repo fails with
+   `couldn't find remote ref master`.
+   ```bash
+   DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
+   [ -z "$DEFAULT" ] && DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)
+   [ -z "$DEFAULT" ] && for b in main master; do
+     git rev-parse --verify --quiet "origin/$b" >/dev/null && DEFAULT=$b && break
+   done
+   [ -n "$DEFAULT" ] || { echo "Cannot resolve the default branch. Stopping."; exit 1; }
+   ```
+3. **Fetch and merge.** `git fetch origin "$DEFAULT"`, then
+   `git merge "origin/$DEFAULT"`. Skip to step 6 when it merges cleanly.
 4. **Resolve conflicts.** For each conflicted file (`git diff --name-only
    --diff-filter=U`):
    - Read the file. Understand both sides. Keep the intent of *both* changes.

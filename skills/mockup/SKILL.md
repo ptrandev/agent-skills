@@ -64,8 +64,18 @@ When a reference is named but missing, stop and say which. Otherwise the product
 
 ## Phase 2: ground it in the real product
 
-**Read [references/grounding.md](references/grounding.md) before writing any CSS.** It owns token
-extraction, component geometry, and when to measure a running app instead of reading the theme.
+A cached product skips this phase's reads. **Read the one file this table names, and nothing
+else.** Each cache owns its app's tokens, type, component rules, breakpoints and shell facts.
+
+| The surface lives in | Read |
+|---|---|
+| `codebase/apps/agents-portal` | [references/atllas-agents-portal.md](references/atllas-agents-portal.md) |
+| `neema-simple-hyzl/web` | [references/neema-simple-hyzl.md](references/neema-simple-hyzl.md) |
+| anything else | [references/grounding.md](references/grounding.md) |
+
+**Read [references/grounding.md](references/grounding.md) before writing any CSS for an uncached
+product.** It owns token extraction, component geometry, and when to measure a running app instead
+of reading the theme.
 
 ## Phase 3: storyboard the states
 
@@ -106,6 +116,10 @@ Set `MOCKUP_DIR` to the resolved directory containing this `SKILL.md`, then run:
 cp "$MOCKUP_DIR/references/shell.html" "$OUT"
 ```
 
+**Never write the whole file at once.** Fill each `FILL:` block with one edit, and fix every
+Phase 5 finding with one edit. Rewriting the file costs the whole file again in output tokens,
+and a mockup is thousands of lines.
+
 ## Phase 5: check it
 
 Run all four. A failure here is cheaper than a failure in the reader's browser.
@@ -128,10 +142,23 @@ grep -o '<button[^>]*>' "$OUT" | grep -v 'data-go\|data-act\|data-inert\|data-ab
 grep -in 'lorem\|example\.com\|John Doe\|Item [0-9]\|TODO\|FIXME' "$OUT"
 ```
 
-4. **Open the file and walk it.** Click every chip and every button in every state, at every
-   device preset. A blank frame means the script threw before it rendered. A state that throws in
-   the console is a state the reader will hit. Use `browse` (see the `browse` skill) or
-   `open "$OUT"`, and screenshot at least the entry state and one terminal state.
+4. **Sweep it with [references/sweep.js](references/sweep.js).** Open the file with `browse`
+   and evaluate that script once. It visits every state at every device preset and every variant,
+   fires every control, and returns the defects. Read the file for what each key means.
+
+```bash
+# one page load, one eval, no screenshots
+B="$HOME/.claude/skills/gstack/browse/dist/browse"
+"$B" goto "file://$OUT"
+"$B" js "$(cat "$MOCKUP_DIR/references/sweep.js")"
+```
+
+**Do not walk the file by hand.** Clicking each control is one agent turn per control, and the
+sweep covers the same ground in one.
+
+An empty `fail` array is a pass. Fix everything in `fail`, `dead`, `overflow`, `clipped` and
+`blank` before delivery. `unreachableByClick` is advisory: a state reached only by chip is a
+choice, and a state reached by neither is the defect.
 
 Then read the storyboard from Phase 3 back against the file. A state on that list with no chip is a
 state you dropped.

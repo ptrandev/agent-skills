@@ -3,6 +3,13 @@
 Owns token extraction and component geometry. `SKILL.md` Phase 2 points here. Nothing in the
 mockup gets a colour, size, weight, radius, spacing or shadow that did not come out of this phase.
 
+## Route 0: the cache
+
+Two products are already transcribed. **Stop reading this file and read the cache when the surface
+is one of them:** [atllas-agents-portal.md](atllas-agents-portal.md) for
+`codebase/apps/agents-portal`, [neema-simple-hyzl.md](neema-simple-hyzl.md) for
+`neema-simple-hyzl/web`. Route A and Route B are for every other product.
+
 ## Route A: read the theme (default)
 
 Most products keep their tokens in one place. Find it, then transcribe it into the
@@ -13,10 +20,10 @@ find . -maxdepth 4 \( -iname "*theme*" -o -name "tailwind.config.*" -o -name "gl
   -o -iname "*tokens*" -o -iname "*palette*" \) -not -path "*/node_modules/*" | head
 ```
 
-For the Atllas `agents-portal`, the theme is [apps/agents-portal/src/theme/](../../../codebase/apps/agents-portal/src/theme/):
-`palette.ts` (colour, including the sanctioned raw-hex block), `typography.ts` (the ramp, with the
-px value in a comment on every variant), `shape.ts` (radius), `shadows.ts` (elevation),
-`components.tsx` (the MUI overrides that decide what a Card or Button actually looks like).
+**Fan the reads out.** The token files, the component override file and the layout component are
+independent, so dispatch one `haiku` subagent per file in a single message. Each one returns the
+values verbatim with its source file named. Reading them one after another is the slowest part of
+this phase.
 
 Transcribe, do not summarise. Keep the product's own names so a reviewer can diff them:
 
@@ -54,12 +61,6 @@ chrome**, and take these five facts out of it by reading, never by assuming:
 3. The header: whether one exists at all in each mode, its height, and what it contains.
 4. The exact offsets the shell imposes on content: the rail's width, the header's spacer.
 5. How the drawer opens and closes, including the backdrop and what dismisses it.
-
-For the Atllas `agents-portal` that file is
-[components/dashboard/DashboardLayout.tsx](../../../codebase/apps/agents-portal/src/components/dashboard/DashboardLayout.tsx),
-with the rail in `dashboardSidebar/Sidebar.tsx` and the mobile bar in `dashboardSidebar/../NavbarTopMobile.tsx`.
-It pins the rail at **lg (1200)**, not at the `md` its grids use, and below 1200 it renders a 64px
-top bar whose only job is the drawer toggle.
 
 **Wire the drawer.** A mockup whose hamburger does nothing is a dead button, and on a narrow width
 the nav is most of what there is to judge.
