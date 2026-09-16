@@ -28,6 +28,17 @@ script failed throws a `ReferenceError` that kills the whole script, and the rea
 page instead of a mockup. Inline the SVGs you need, most often under a dozen. When you do use
 a CDN library, guard every call: `if (typeof lucide !== 'undefined') lucide.createIcons()`.
 
+## The bar
+
+Two rows, never three: one row of controls, one line of narration. The bar is scaffolding, and
+every pixel it takes is a pixel of the mockup the reader cannot see.
+
+- The step chips scroll sideways and never wrap, whatever the step count.
+- **Put every control this mockup adds inside `.mk-ctl`**, beside Back and Next. A scenario
+  picker, a price switch or a flag toggle goes there, or inside the frame.
+- The narration clamps to two lines. Write a line that fits on one at 1280px.
+- Hide and the `h` key drop the chips and the narration, for a state taller than the viewport.
+
 ## The frame
 
 One `.frame`, fixed to the real viewport width, centred on a neutral page background. Inside it,

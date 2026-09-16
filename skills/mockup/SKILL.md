@@ -41,6 +41,8 @@ One HTML file. Product-real tokens. Every state reachable by clicking. Opens fro
 - **Never style the walkthrough chrome with product tokens.** The scaffolding must read as
   scaffolding at a glance.
 - **Never ship a state the reader cannot reach.** Chip, button, or both.
+- **Never add a row to the walkthrough bar.** Two rows is the budget. New controls join the
+  existing control row or move inside the frame.
 
 ## Phase 1: scope the change
 

@@ -16,31 +16,44 @@
 /* Walkthrough chrome. NEVER product tokens: this must read as scaffolding. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: #EFEEEB; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+/* Two rows, never more. The bar is scaffolding: every pixel it takes is a pixel of the mockup
+   the reader cannot see. Chips scroll sideways, the narration clamps, and nothing wraps. */
 .mk-bar { position: sticky; top: 0; z-index: 60; background: #14161d; color: #fff;
-  padding: 12px 24px; display: flex; flex-direction: column; gap: 8px;
+  padding: 8px 16px; display: flex; flex-direction: column; gap: 6px;
   box-shadow: 0 2px 12px rgba(0,0,0,.25); }
-.mk-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mk-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .mk-tag { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-  color: #8b8fa3; }
-.mk-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.mk-chip { font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px;
-  border: 1px solid #33364a; background: transparent; color: #b9bcc9; cursor: pointer; }
+  color: #8b8fa3; flex: 0 0 auto; }
+.mk-chips { display: flex; gap: 6px; flex: 1 1 auto; min-width: 140px; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none; }
+.mk-chips::-webkit-scrollbar { display: none; }
+/* The scrollbar is hidden, so a fade is the only sign that more steps sit off the right edge. */
+.mk-chips.mk-scroll { mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%); }
+.mk-chip { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid #33364a; background: transparent; color: #b9bcc9; cursor: pointer;
+  white-space: nowrap; flex: 0 0 auto; }
 .mk-chip:hover { border-color: #565b78; color: #fff; }
 .mk-chip[aria-current="true"] { background: #4b6bff; border-color: #4b6bff; color: #fff; }
 .mk-chip.alt { border-style: dashed; }
-.mk-btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 13px; border-radius: 7px;
-  border: 1px solid #33364a; background: #22242f; color: #fff; cursor: pointer; }
+.mk-btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 11px; border-radius: 7px;
+  border: 1px solid #33364a; background: #22242f; color: #fff; cursor: pointer; white-space: nowrap; }
 .mk-btn:hover { background: #2c2f3d; }
 .mk-btn[disabled] { opacity: .35; cursor: default; }
-.mk-seg { display: flex; border: 1px solid #33364a; border-radius: 7px; overflow: hidden; }
-.mk-seg button { font: inherit; font-size: 12.5px; font-weight: 600; padding: 5px 12px;
+.mk-seg { display: flex; border: 1px solid #33364a; border-radius: 7px; overflow: hidden;
+  flex: 0 0 auto; }
+.mk-seg button { font: inherit; font-size: 12.5px; font-weight: 600; padding: 4px 10px;
+  white-space: nowrap;
   background: #22242f; color: #b9bcc9; border: 0; border-right: 1px solid #33364a; cursor: pointer; }
 .mk-seg button:last-child { border-right: 0; }
 .mk-seg button.on { background: #4b6bff; color: #fff; }
-.mk-grow { flex: 1; }
-.mk-note { font-size: 13px; line-height: 1.5; color: #d9dbe4; max-width: 100ch; }
+/* Every control the mockup adds goes in here, on the one row. Never open a second row. */
+.mk-ctl { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.mk-note { font-size: 12.5px; line-height: 1.4; color: #d9dbe4; max-width: 110ch;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .mk-note strong { color: #fff; }
-.mk-stage { display: flex; justify-content: center; padding: 32px 24px 96px; overflow-x: auto; }
+/* Hide toggle, for reading a tall state. Keeps Next, Back, Reset and the presets. */
+body.mk-min .mk-chips, body.mk-min .mk-note { display: none; }
+.mk-stage { display: flex; justify-content: center; padding: 20px 16px 72px; overflow-x: auto; }
 .mk-frame-wrap { position: relative; flex: 0 0 auto; }
 .mk-grip { position: absolute; top: 0; bottom: 0; right: -14px; width: 14px; cursor: ew-resize;
   display: flex; align-items: center; justify-content: center; touch-action: none; }
@@ -87,16 +100,19 @@ body { background: #EFEEEB; font-family: ui-sans-serif, system-ui, -apple-system
   <div class="mk-row">
     <span class="mk-tag">Mockup</span>
     <nav class="mk-chips" id="mk-chips"></nav>
-    <span class="mk-grow"></span>
-    <div class="mk-seg" id="mk-ab" hidden>
-      <button data-ab="before">Before</button><button data-ab="after" class="on">After</button>
+    <div class="mk-ctl">
+      <!-- FILL: extra controls this mockup needs go here, beside these. Never add a second row. -->
+      <div class="mk-seg" id="mk-ab" hidden>
+        <button data-ab="before">Before</button><button data-ab="after" class="on">After</button>
+      </div>
+      <div class="mk-seg" id="mk-var" hidden></div>
+      <div class="mk-seg" id="mk-dev"></div>
+      <span class="mk-w-read" id="mk-w-read"></span>
+      <button class="mk-btn" id="mk-back">&larr; Back</button>
+      <button class="mk-btn" id="mk-next">Next &rarr;</button>
+      <button class="mk-btn" id="mk-reset">Reset</button>
+      <button class="mk-btn" id="mk-min" title="Hide the steps and the narration (h)">Hide</button>
     </div>
-    <div class="mk-seg" id="mk-var" hidden></div>
-    <div class="mk-seg" id="mk-dev"></div>
-    <span class="mk-w-read" id="mk-w-read"></span>
-    <button class="mk-btn" id="mk-back">&larr; Back</button>
-    <button class="mk-btn" id="mk-next">Next &rarr;</button>
-    <button class="mk-btn" id="mk-reset">Reset</button>
   </div>
   <p class="mk-note" id="mk-note"></p>
 </header>
@@ -213,6 +229,11 @@ function render() {
   $('mk-chips').innerHTML = STATES.map((x) =>
     `<button class="mk-chip${x.main ? '' : ' alt'}" data-chip="${x.id}"` +
     ` aria-current="${x.id === state}">${x.chip}</button>`).join('');
+  // The strip scrolls sideways instead of wrapping, so the current chip must be brought to it.
+  const cur = $('mk-chips').querySelector('[aria-current="true"]');
+  if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  const strip = $('mk-chips');
+  strip.classList.toggle('mk-scroll', strip.scrollWidth > strip.clientWidth + 1);
 
   $('mk-ab').hidden = !s.ab;
   [...$('mk-ab').children].forEach((b) => b.classList.toggle('on', b.dataset.ab === ab));
@@ -262,6 +283,13 @@ $('mk-reset').onclick = () => {
   Object.assign(UI, JSON.parse(JSON.stringify(UI0)));
   setState(STATES[0].id);
 };
+
+/* Hide the steps and the narration, for a state taller than the viewport. */
+function setMin(on) {
+  document.body.classList.toggle('mk-min', on);
+  $('mk-min').textContent = on ? 'Steps' : 'Hide';
+}
+$('mk-min').onclick = () => setMin(!document.body.classList.contains('mk-min'));
 
 /* The band the frame currently sits in. Product CSS branches on this, never on a device name. */
 function bandOf(px) {
@@ -315,6 +343,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowRight') step(1);
   else if (e.key === 'ArrowLeft') step(-1);
   else if (e.key === 'Escape') setState(STATES[0].id);
+  else if (e.key === 'h') setMin(!document.body.classList.contains('mk-min'));
 });
 
 render();
