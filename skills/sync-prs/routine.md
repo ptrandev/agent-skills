@@ -93,7 +93,7 @@ HYZL_DIR="${HYZL_DIR:-./neema-simple-hyzl}"
 
 if [ -f "$HYZL_DIR/deno.json" ]; then
   if ! command -v deno >/dev/null; then
-    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y ||
+    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y --no-modify-path ||
       echo "WARN: deno install failed"
   fi
   ( cd "$HYZL_DIR/web" && npm ci ) ||

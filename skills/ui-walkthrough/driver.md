@@ -50,7 +50,11 @@ const context = await browser.newContext({
 - **The driver script must live INSIDE the workspace.** Node resolves ESM `node_modules` from the
   *script's own path*, not cwd, so a driver written to `$SCRATCH` throws
   `ERR_MODULE_NOT_FOUND: Cannot find package '@playwright/test'`. Write it next to the app
-  (`apps/agents-portal/uiw-drive.mjs`), untracked, and delete it in teardown with the hold spec.
+  (`apps/agents-portal/uiw-drive.mjs`, or `web/uiw-drive.mjs` in `neema-simple-hyzl`), untracked,
+  and delete it in teardown with the hold spec.
+- **`neema-simple-hyzl` passes no `storageState`.** It has no `.auth/*.json` and no login form: the
+  persona is the `auth` and `admin` query parameters ([hyzl-stack.md](hyzl-stack.md)). It also ships
+  no Playwright, so the fallback installs its own. Prefer the `browse` path there.
   Phase 9's `git status --porcelain` check catches a forgotten one.
 - **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Windows does not use this
   argument. Verified in `/review-pr`

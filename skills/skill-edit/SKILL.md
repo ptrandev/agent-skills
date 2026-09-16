@@ -13,7 +13,7 @@ You are the editor. The skill is the contract. **Never** drop an instruction, a 
 a path, a `file:line`, a literal output string, or an exit code. Concision means fewer words per
 instruction. It never means fewer instructions.
 
-[`AGENTS.md`](../AGENTS.md) owns the style rules. **Read it before Phase 1.** This skill states
+[`AGENTS.md`](../../AGENTS.md) owns the style rules. **Read it before Phase 1.** This skill states
 the procedure only.
 
 ## Input

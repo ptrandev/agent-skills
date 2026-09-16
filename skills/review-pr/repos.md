@@ -46,6 +46,11 @@ cd voice-control && npm ci && npm run typecheck        # only if the diff touche
 Use the repo's own Deno tasks, because a bare `deno check` loses the glob in bash. A fresh clone has
 no `node_modules`, so `npm ci` comes first.
 
+`npm run build` needs `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` at build time.
+Without them it still exits 0 and prints no warning, but every page in the export renders
+"Couldn't load this page". Export the URL from `web/.env.example` and any placeholder key, because
+nothing reaches that origin. `npm run typecheck` and `npm test` do not need them.
+
 A Hyzl finding that rests on a deployed edge function, a Supabase migration, or the Grok model is
 unverifiable here. Carry the same downgrade as the `aicc-queues` row.
 

@@ -351,6 +351,9 @@ cd apps/agents-portal && yarn lint 2>&1 | tail -30
 # Always run the three root tasks. They need no service and no secret.
 deno task check && deno task lint && deno task test
 # Add these only when the diff touches that directory. A fresh clone has no node_modules.
+# npm run build needs NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY exported, or it
+# exits 0 and silently exports pages that all render "Couldn't load this page". Take the URL from
+# web/.env.example and use any placeholder key: nothing reaches that origin.
 cd web && npm ci && npm run typecheck && npm run build && npm test
 cd voice-control && npm ci && npm run typecheck
 ```

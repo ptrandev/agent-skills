@@ -51,5 +51,10 @@ cd web && npm ci && npm run typecheck && npm run build && npm test
 cd voice-control && npm ci && npm run typecheck
 ```
 
+`npm run build` needs `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` at build time.
+Without them it still exits 0 and prints no warning, but every page in the export renders
+"Couldn't load this page". Export the URL from `web/.env.example` and any placeholder key, because
+nothing reaches that origin. `npm run typecheck` and `npm test` do not need them.
+
 Migrations and edge-function deploys are out of reach from a check. Record any acceptance criterion
 that rests on deployed behavior as unverified in the Phase 9 report.

@@ -158,6 +158,9 @@ that never booted blocks the next one.
 Ports are not the only shared resource. Two runs in the **same directory** collide on the checked
 out branch, `apps/agents-portal/.next`, `apps/agents-portal/e2e/.auth/*.json`, the injected
 `uiw-hold.spec.ts`, and the `uiw-drive.mjs` driver. Separate ports do not separate any of those.
+In `neema-simple-hyzl` the colliding paths are `web/out` and `web/.next`, and `web/out` is the more
+dangerous one: it is what the fixture host serves, so a second run's build silently replaces the
+pages the first run is screenshotting.
 
 **Lane 0 uses the checkout-strategy table in [stack.md](stack.md). Every lane above 0 uses a
 worktree**, whatever that table says:

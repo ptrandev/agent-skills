@@ -122,8 +122,11 @@ grep -E '^web/(app|components)/' "$SCRATCH/files-$NAME-$PR.txt"
 - **`web/app/**/page.tsx` -> route directly.** `web/app/home/page.tsx` -> `/home/`.
   `web/app/page.tsx` -> `/`. **Keep the trailing slash**: `next.config.ts` sets
   `trailingSlash: true`, and the host serves `out/<route>/index.html`.
-- **`web/app/layout.tsx` -> global.** Walk the three highest-traffic routes: `/home/`, `/inbox/`,
-  `/settings/`.
+- **A `layout.tsx` covers every route beneath its own directory.** `web/app/signin/layout.tsx`
+  reaches `/signin/` alone. The root `web/app/layout.tsx` reaches everything, so walk three
+  authenticated shell surfaces for it: `/home/`, `/inbox/`, `/settings/`. Those two are the only
+  layouts in the repo as of 2026-09-16, so **list the layouts before applying this rule** rather
+  than trusting the count.
 - **`web/components/**` -> walk importers transitively up to `web/app/`**, the same procedure
   Phase 3 already describes.
 - **`web/app/test/` is a developer page.** Walk it only when the diff touches it.
@@ -145,6 +148,20 @@ surface. Add a second state only when the diff reaches that code path:
 | an admin-only surface | `admin-empty` with `admin=1` |
 
 Navigate as `$BASE_URL/<route>/?scenario=<state>&auth=on&admin=<0|1>`.
+
+## Overrides in the shared phase files
+
+These files are written for `codebase`. Apply the override, then follow the rest of the file.
+
+| File | Override |
+|---|---|
+| [coverage.md](coverage.md) | Ledger rows come from `web/app/` and `web/components/`. |
+| [driver.md](driver.md) | No `storageState`: the persona is a query parameter. The Playwright script goes at `web/uiw-drive.mjs`. The repo ships no Playwright, so prefer `browse`. |
+| [concurrency.md](concurrency.md) | Skip the `LANE_CAPABLE` probe. A lane above 0 needs a worktree, because `web/out` is what the host serves. |
+| [stack.md](stack.md) | Not read at all. This file replaces it. |
+
+The teardown is `kill $HYZL_PID` plus the lane teardown. There is no hold spec, no emulator, no
+injected test file, and no branch-restore beyond the one the checkout-strategy table already does.
 
 ## What this evidence proves
 
