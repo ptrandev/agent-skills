@@ -122,7 +122,7 @@ and a mockup is thousands of lines.
 
 ## Phase 5: check it
 
-Run all four. A failure here is cheaper than a failure in the reader's browser.
+Run all five. A failure here is cheaper than a failure in the reader's browser.
 
 ```bash
 # 0. The script parses. One syntax error kills every state at once.
@@ -140,9 +140,12 @@ grep -o '<button[^>]*>' "$OUT" | grep -v 'data-go\|data-act\|data-inert\|data-ab
 
 # 3. Placeholder content.
 grep -in 'lorem\|example\.com\|John Doe\|Item [0-9]\|TODO\|FIXME' "$OUT"
+
+# 4. A responsive surface must branch on the band. Zero hits means one layout at every preset.
+grep -c 'data-bp=' "$OUT"
 ```
 
-4. **Sweep it with [references/sweep.js](references/sweep.js).** Open the file with `browse`
+5. **Sweep it with [references/sweep.js](references/sweep.js).** Open the file with `browse`
    and evaluate that script once. It visits every state at every device preset and every variant,
    fires every control, and returns the defects. Read the file for what each key means.
 
