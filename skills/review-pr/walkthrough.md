@@ -13,6 +13,7 @@ Run when `CAN_LIVE_HEADLESS` **AND** the PR is UI-touching **AND** not `--no-liv
 | `codebase` | `apps/agents-portal/src/pages/`, `apps/agents-portal/src/components/` |
 | `neema-simple-hyzl` | `web/app/`, `web/components/` |
 | `aicc-queues` | none. It has no frontend, so its PRs never reach this phase. |
+| `pointsgpt` | none. It has a frontend, but no sealed stack to walk it on, so its PRs never reach this phase either. |
 
 A `neema-simple-hyzl` walkthrough runs on that repo's fixture stack, and its evidence carries the
 `contract fixtures` label. `/ui-walkthrough` owns both in `hyzl-stack.md`.

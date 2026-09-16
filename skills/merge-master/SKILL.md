@@ -16,9 +16,9 @@ description: >
    `git rev-parse --abbrev-ref HEAD`. **Stop and tell the user** when the branch
    is the default branch resolved in step 2.
 2. **Resolve the default branch.** **Never assume `master`.** `Atllas-Inc/codebase`
-   and `Atllas-Inc/aicc-queues` use `master`, `Atllas-Inc/neema-simple-hyzl` uses
-   `main`, and `git fetch origin master` in a `main` repo fails with
-   `couldn't find remote ref master`.
+   and `Atllas-Inc/aicc-queues` use `master`. `Atllas-Inc/neema-simple-hyzl` and
+   `Atllas-Inc/pointsgpt` use `main`, and `git fetch origin master` in a `main`
+   repo fails with `couldn't find remote ref master`.
    ```bash
    DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
    [ -z "$DEFAULT" ] && DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)

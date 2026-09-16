@@ -32,8 +32,8 @@ environment can read its variables.
 Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `review-pr` and the prompt below.
-2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and
-   `Atllas-Inc/neema-simple-hyzl`.
+2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`,
+   `Atllas-Inc/neema-simple-hyzl`, and `Atllas-Inc/pointsgpt`.
 3. **Environment:** use the default Trusted network, add the API key, and paste the setup script.
 4. **Connectors:** keep the GitHub connector used for review posting. Remove unrelated connectors.
 5. **Permissions:** leave unrestricted branch pushes disabled.
@@ -129,6 +129,18 @@ else
   echo "WARN: neema-simple-hyzl clone not found; the run skips that repo"
 fi
 
+PGPT_DIR="${PGPT_DIR:-./pointsgpt}"
+
+if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
+  # No package.json and no install step: deno and node are the whole toolchain.
+  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
+    echo "WARN: pointsgpt deno check failed; review degrades to diff-only"
+  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
+    echo "WARN: pointsgpt admin-site check failed; review degrades to diff-only"
+else
+  echo "WARN: pointsgpt clone not found; the run skips that repo"
+fi
+
 if ! command -v gh >/dev/null; then
   { ( type -p curl >/dev/null || apt-get install -y curl ) &&
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /usr/share/keyrings/githubcli-archive-keyring.gpg &&
@@ -159,7 +171,7 @@ fi
 ```
 
 The runner stops on an unhandled non-zero command. Keep optional steps guarded when changing the
-script. The three repository paths must match the directories created by the Routine.
+script. The four repository paths must match the directories created by the Routine.
 
 The environment caches setup for several days. Change a harmless setup-script comment when a newly
 published skill revision must be loaded immediately.
@@ -170,7 +182,7 @@ published skill revision must be loaded immediately.
 Use maximum reasoning effort and run /review-pr autonomously.
 
 Review every open, ready, non-draft PR in Atllas-Inc/codebase, Atllas-Inc/aicc-queues, and
-Atllas-Inc/neema-simple-hyzl where I am
+Atllas-Inc/neema-simple-hyzl, and Atllas-Inc/pointsgpt where I am
 the requested reviewer and not the author. Post inline findings and the skill's verdict to GitHub.
 Apply the skill's state labels and bot-thread rules.
 

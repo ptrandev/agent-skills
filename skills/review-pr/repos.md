@@ -12,6 +12,7 @@ Review these unless `--repo` narrows the run.
 | `Atllas-Inc/codebase` | `/Users/phillip/Git/codebase` | `master` | FULL |
 | `Atllas-Inc/aicc-queues` | `/Users/phillip/Git/aicc-queues` | `master` | COMPILE-ONLY |
 | `Atllas-Inc/neema-simple-hyzl` | `/Users/phillip/Git/neema-simple-hyzl` | `main` | FULL |
+| `Atllas-Inc/pointsgpt` | `/Users/phillip/Git/pointsgpt` | `main` | FULL, base-compared |
 
 **Never assume `master`.** Read the PR's own base ref, as Phase 2 already does.
 
@@ -53,6 +54,33 @@ nothing reaches that origin. `npm run typecheck` and `npm test` do not need them
 
 A Hyzl finding that rests on a deployed edge function, a Supabase migration, or the Grok model is
 unverifiable here. Carry the same downgrade as the `aicc-queues` row.
+
+### `Atllas-Inc/pointsgpt` (FULL, base-compared)
+
+Chat-first award flight search: a Cloudflare Worker site, an admin Worker, Supabase edge functions,
+and an iOS app. There is **no `package.json`, no lockfile, and no install step**. Every test is a
+file you run directly. Verified 2026-09-16 in the clone.
+
+```bash
+deno test -A supabase/functions              # 57 files, ~28 s. Edge function behavior.
+node site/<name>_test.mjs                     # one file per surface; run the ones the diff touches
+node site/tests/previous-evidence_test.mjs
+deno run -A admin-site/turn_scores_test.ts    # Deno, NOT node: it imports npm: specifiers
+cd admin-site && node check.js                # must run from admin-site/, it opens ./worker.js
+```
+
+**`main` is not green, and no CI runs these.** `.github/workflows/deploy.yml` only deploys.
+Verified red on `main` at `a018da5`: `supabase/functions/account/index_test.ts`,
+`ask/first-search-flow_test.ts`, `ask/intake-flow_test.ts`, `ask/paid-followup_test.ts`, and
+`site/fare_landing_test.mjs`.
+
+**Never call a failure the PR's fault until you have re-run the same command on the PR's base
+commit.** Same failure at base, record it as a pre-existing note and move on. New failure, it is the
+PR's. Without that comparison every review in this repo opens with somebody else's bug.
+
+`node` parses a file with no `package.json` as CommonJS, which is why `admin-site/check.js` exists
+and why `node --check worker.js` is not a substitute for it. Read the comment at the top of
+`check.js` before trusting any other syntax check there.
 
 ### Another repo
 

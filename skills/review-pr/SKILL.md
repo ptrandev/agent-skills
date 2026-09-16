@@ -147,7 +147,7 @@ Resolve the **target repo set** (`--repo` override, else every Targets row). For
   working MCP with a dead `gh`. Neither -> stop.
 - **Tier 2, verify against real code (`CAN_VERIFY_<repo>`):** the repo's clone exists, is clean,
   and the toolchain runs. Probe `node`/`yarn` (codebase), `java`/`./gradlew` (aicc-queues), and
-  `deno` (neema-simple-hyzl). Without it, review from the diff, drop **every finding to reduced
+  `deno` (neema-simple-hyzl, pointsgpt). Without it, review from the diff, drop **every finding to reduced
   confidence**, and **post nothing** (report-only, invariant 2).
 - **Tier 2b, external reviewer:** the `codex` CLI present + authed. **The skill is not required**,
   because Phase 4 runs the CLI directly. Missing -> run with the blind Claude reviewer alone and
@@ -190,6 +190,7 @@ Preflight:  gh ✓ (ptrandev)   reviewers: codex ✓   dynamic: headless ✓
   Atllas-Inc/codebase           clone ✓ clean ✓   verify FULL
   Atllas-Inc/aicc-queues        clone ✓ clean ✓   verify COMPILE-ONLY
   Atllas-Inc/neema-simple-hyzl  clone ✓ clean ✓   verify FULL
+  Atllas-Inc/pointsgpt          clone ✓ clean ✓   verify FULL (base-compared)
 ```
 
 ---

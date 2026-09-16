@@ -31,8 +31,8 @@ radius, because this routine is the one that pushes commits.
 Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `babysit-prs` and the prompt below.
-2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and
-   `Atllas-Inc/neema-simple-hyzl`.
+2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`,
+   `Atllas-Inc/neema-simple-hyzl`, and `Atllas-Inc/pointsgpt`.
 3. **Environment:** use the default Trusted network and the setup script below.
 4. **Permissions:** enable unrestricted branch pushes for every repository.
 5. **Connectors:** keep the GitHub connector attached. It supplies the MCP transport, which the
@@ -103,13 +103,25 @@ if [ -f "$HYZL_DIR/deno.json" ]; then
 else
   echo "WARN: neema-simple-hyzl clone not found; fixes degrade to triage-only"
 fi
+
+PGPT_DIR="${PGPT_DIR:-./pointsgpt}"
+
+if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
+  # No package.json and no install step: deno and node are the whole toolchain.
+  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
+    echo "WARN: pointsgpt deno check failed; fixes degrade to triage-only"
+  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
+    echo "WARN: pointsgpt admin-site check failed; fixes degrade to triage-only"
+else
+  echo "WARN: pointsgpt clone not found; fixes degrade to triage-only"
+fi
 ```
 
 The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
 `../shared/github-transport.md`, which resolves next to the installed skill.
 
 The runner stops on an unhandled non-zero command. Keep every optional step guarded when you change
-the script. Replace the three clone paths when the Routine uses different directories. Add Gradle or
+the script. Replace the four clone paths when the Routine uses different directories. Add Gradle or
 Maven hosts to the Trusted network allowlist when dependency downloads fail.
 
 The environment caches setup for several days, so the first run is slower. Change a harmless
@@ -119,7 +131,7 @@ setup-script comment to force a newly published skill revision to load.
 
 ```text
 Run /babysit-prs across my open PRs on Atllas-Inc/codebase, Atllas-Inc/aicc-queues, and
-Atllas-Inc/neema-simple-hyzl.
+Atllas-Inc/neema-simple-hyzl, and Atllas-Inc/pointsgpt.
 
 Address unresolved bot and teammate threads. Fix only safe, mechanical, test-covered findings.
 Reply to every handled thread. Resolve only threads you fixed and verified green. Leave questions,
@@ -211,7 +223,7 @@ Until all seven pass, treat the Routine as triage-only.
 | Symptom | Check |
 |---|---|
 | Setup degrades silently | Read `/var/log/babysit-prs-setup.log`. Setup output is absent from the run transcript. |
-| The run reports no clone and fixes nothing | Confirm the Routine checkout directory names match `./codebase`, `./aicc-queues`, and `./neema-simple-hyzl`. |
+| The run reports no clone and fixes nothing | Confirm the Routine checkout directory names match `./codebase`, `./aicc-queues`, `./neema-simple-hyzl`, and `./pointsgpt`. |
 | Every GitHub call fails | Confirm the GitHub connector is attached. `gh auth status` passing does not prove repository API access. |
 | Thread listing or resolve fails while other calls work | GraphQL can be blocked while REST works. Expect the MCP fallback, per [../shared/github-transport.md](../shared/github-transport.md). |
 | Old skill behavior appears | Change a setup-script comment to invalidate the cached environment. |

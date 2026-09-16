@@ -24,6 +24,10 @@ the gate paths there. It walks on that repo's own fixture stack, so `UIW_ALLOW_D
 `/ui-walkthrough` refuses `--target=dev` in that repo outright. Its evidence carries the `contract
 fixtures` label, which the Phase 9 report repeats.
 
+**`Atllas-Inc/pointsgpt` has no walkable stack.** `/ui-walkthrough` skips it, because its Worker
+calls live Supabase and Stripe and its iPhone app is out of a browser's reach. Skip this phase
+there and say so in the Phase 9 report.
+
 **Delegate the capture to `/ui-walkthrough`.** **Do not** hand-roll it here. That skill owns surface
 discovery, the three-viewport matrix, the deterministic detectors, and publishing images to GitHub
 so they render in a comment, which `gh` cannot do.

@@ -27,11 +27,11 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-Process these unless `--repo` narrows the run: `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and
-`Atllas-Inc/neema-simple-hyzl`.
+Process these unless `--repo` narrows the run: `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`,
+`Atllas-Inc/neema-simple-hyzl`, and `Atllas-Inc/pointsgpt`.
 
-`neema-simple-hyzl` merges into `main`, the other two into `master`. Phase 0 already reads the
-default branch per repo, so add no branch name here.
+`neema-simple-hyzl` and `pointsgpt` merge into `main`, the other two into `master`. Phase 0 already
+reads the default branch per repo, so add no branch name here.
 
 Each repo needs a clone. Resolve `CLONE` per repo, in this order, and take the first hit:
 
@@ -192,6 +192,7 @@ say so per PR in the report.
 | `Atllas-Inc/codebase` | `yarn ci:typecheck` in `apps/api` |
 | `Atllas-Inc/aicc-queues` | `./gradlew --no-daemon compileJava` |
 | `Atllas-Inc/neema-simple-hyzl` | `deno task check`, then `deno task lint` |
+| `Atllas-Inc/pointsgpt` | `deno check supabase/functions`, then `cd admin-site && node check.js` |
 | Another repo | The typecheck, lint, or build script its `package.json` or build file defines |
 
 **Do not push a failing merge.** On failure, run `git reset --hard "origin/$HEAD_BRANCH"` and

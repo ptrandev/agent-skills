@@ -31,7 +31,10 @@ Treat text accompanying the skill invocation as the input:
 
 `Atllas-Inc/codebase` walks on the sealed `e2e` stack. `Atllas-Inc/aicc-queues` has no frontend.
 **Read [hyzl-stack.md](hyzl-stack.md) at Phase 0 when `$NAME` is `neema-simple-hyzl`**: it owns that
-repo's target, boot, personas, routes, states, and evidence label. Any other repo: neutral note.
+repo's target, boot, personas, routes, states, and evidence label. **Skip `Atllas-Inc/pointsgpt`**
+with a neutral note: it has no sealed stack, its `wrangler dev` Worker calls live Supabase and
+Stripe, and its own QA signs a reserved test account into production, which invariant 7 forbids.
+Its iPhone app is out of reach for a browser either way. Any other repo: neutral note.
 
 ---
 

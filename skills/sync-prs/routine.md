@@ -26,8 +26,8 @@ PR at once. A separate environment keeps one broken edit from stopping both.
 Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `sync-prs` and the prompt below.
-2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and
-   `Atllas-Inc/neema-simple-hyzl`.
+2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`,
+   `Atllas-Inc/neema-simple-hyzl`, and `Atllas-Inc/pointsgpt`.
 3. **Model:** select **Fable 5.1** (`claude-fable-5-1`). The run resolves merge conflicts on
    branches a human already reviewed, which is judgment work with no stated success test. The
    resolver subagent in [`resolver.md`](resolver.md) runs on Fable too, and a subagent never
@@ -105,6 +105,18 @@ if [ -f "$HYZL_DIR/deno.json" ]; then
 else
   echo "WARN: neema-simple-hyzl clone not found; the run skips that repo"
 fi
+
+PGPT_DIR="${PGPT_DIR:-./pointsgpt}"
+
+if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
+  # No package.json and no install step: deno and node are the whole toolchain.
+  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
+    echo "WARN: pointsgpt deno check failed; verification degrades"
+  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
+    echo "WARN: pointsgpt admin-site check failed; verification degrades"
+else
+  echo "WARN: pointsgpt clone not found; the run skips that repo"
+fi
 ```
 
 The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
@@ -114,7 +126,7 @@ The `git config` lines matter here. A merge commit needs an author, and an uncon
 fails `git commit` with `Please tell me who you are`.
 
 The runner stops on an unhandled non-zero command. Keep every optional step guarded when you
-change the script. Replace the three clone paths when the Routine uses different directories.
+change the script. Replace the four clone paths when the Routine uses different directories.
 
 The environment caches setup for several days, so the first run is slower. Change a harmless
 setup-script comment to force a newly published skill revision to load.
@@ -123,7 +135,7 @@ setup-script comment to force a newly published skill revision to load.
 
 ```text
 Run /sync-prs across my open PRs on Atllas-Inc/codebase, Atllas-Inc/aicc-queues, and
-Atllas-Inc/neema-simple-hyzl.
+Atllas-Inc/neema-simple-hyzl, and Atllas-Inc/pointsgpt.
 
 Include draft PRs. Merge the default branch into each PR branch that is behind. Resolve the
 conflicts: mechanical ones inline, real ones through the Fable resolver subagent, one subagent
@@ -186,7 +198,7 @@ Until all eight pass, keep `--dry-run` in the prompt.
 |---|---|
 | Setup degrades silently | Read `/var/log/sync-prs-setup.log`. Setup output is absent from the run transcript. |
 | `Please tell me who you are` on commit | The `git config --global` lines are missing from the setup script. |
-| The run reports no clone and merges nothing | Confirm the Routine checkout directory names match `./codebase`, `./aicc-queues`, and `./neema-simple-hyzl`. |
+| The run reports no clone and merges nothing | Confirm the Routine checkout directory names match `./codebase`, `./aicc-queues`, `./neema-simple-hyzl`, and `./pointsgpt`. |
 | Every GitHub call fails | Confirm the GitHub connector is attached. `gh auth status` passing does not prove repository API access. |
 | Push rejected on every PR | Unrestricted branch pushes are off for that repository. |
 | Old skill behavior appears | Change a setup-script comment to invalidate the cached environment. |

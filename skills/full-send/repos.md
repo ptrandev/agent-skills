@@ -15,6 +15,7 @@ wrong place with no error, so resolve the route before the first fetch or create
 |---|---|
 | `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues` | Linear MCP. Issue prefix `AP`. |
 | `Atllas-Inc/neema-simple-hyzl` | Workspace `hyzlsimple`, team `HyzlSimple`, issue prefix `HYZ`. **The Linear MCP cannot reach it.** Call `https://api.linear.app/graphql` with `LINEAR_API_KEY` from the repo-root `.env` in the `Authorization` header, no `Bearer` prefix. The same key is in Supabase Vault as `Linear_api_key`. **Never** print the key, and never put it in a prompt, a commit, or a log line. |
+| `Atllas-Inc/pointsgpt` | Workspace `pointsgpt`, team `PointsGPT`, issue prefix `POI`. **The Linear MCP cannot reach it**, and that board belongs to a different company. Same GraphQL call and the same `.env` key rule as the row above. **Never** print the key. |
 
 **Stop and ask** when a repo names a tracker with no route here. **Do not** file the ticket on the
 nearest board.
@@ -58,3 +59,22 @@ nothing reaches that origin. `npm run typecheck` and `npm test` do not need them
 
 Migrations and edge-function deploys are out of reach from a check. Record any acceptance criterion
 that rests on deployed behavior as unverified in the Phase 9 report.
+
+### `Atllas-Inc/pointsgpt`
+
+No `package.json`, no lockfile, no install step. Every test is a file you run directly.
+
+```bash
+deno test -A supabase/functions               # edge functions, 57 files
+node site/<name>_test.mjs                     # the surfaces the diff touches
+deno run -A admin-site/turn_scores_test.ts    # Deno, not node: it imports npm: specifiers
+cd admin-site && node check.js                # from admin-site/, it opens ./worker.js
+```
+
+**`main` is not green and no CI runs these**, so re-run any failing command on the PR's base commit
+before treating it as this change's fault. Same failure at base is pre-existing: note it, never fix
+it, and never let it block the PR.
+
+**Never upload an iOS build.** `AGENTS.md` there sets three conditions, and one of them is a test
+the author did by hand on a device. This skill cannot satisfy that, so it stops short of a build and
+says so in the Phase 9 report.

@@ -1,6 +1,6 @@
 ---
 name: launch-summary
-version: 2.2.0
+version: 2.3.0
 description: >
   Summarizes what shipped across the Atllas repos over a daily or weekly window, written for
   non-developers. Counts only PRs merged to each repo's default branch. Use for "what
@@ -13,7 +13,7 @@ allowed-tools:
 
 ## Instructions
 
-Generate a **non-developer-friendly launch summary** from merged pull requests across three GitHub repos: `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and `Atllas-Inc/neema-simple-hyzl`.
+Generate a **non-developer-friendly launch summary** from merged pull requests across four GitHub repos: `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, `Atllas-Inc/neema-simple-hyzl`, and `Atllas-Inc/pointsgpt`.
 
 The skill takes one argument, the window: `daily` or `weekly`. **If the user gives no argument, use `daily`.** The window sets the timeframe and nothing else. Every later step is shared.
 
@@ -28,11 +28,13 @@ If the user specified a different range, a specific day, or a specific week, use
 
 Only PRs merged **into the repo's default branch** count. The `base:` filter excludes PRs merged into release branches and feature branches.
 
-**Never hardcode `base:master`.** The default branch differs per repo: `codebase` and `aicc-queues` use `master`, `neema-simple-hyzl` uses `main`. Read it from `repos/<repo>` so a repo added later needs no edit here.
+**Never hardcode `base:master`.** The default branch differs per repo: `codebase` and `aicc-queues` use `master`, `neema-simple-hyzl` and `pointsgpt` use `main`. Read it from `repos/<repo>` so a repo added later needs no edit here.
 
 **Never use `gh pr list`.** It calls the GitHub GraphQL API, which Claude Code sessions block with a 403. Use the REST endpoints below.
 
-`search/issues` filters on merge date server-side, so no `--limit` can drop a PR that was opened long ago and merged inside the window. It does not return changed files, so Step 2 calls `pulls/{n}/files` once per `codebase` PR to tell Mobile PRs apart from App PRs.
+`search/issues` filters on merge date server-side, so no `--limit` can drop a PR that was opened long ago and merged inside the window. It does not return changed files. Step 2 therefore calls `pulls/{n}/files` for each repo that ships a phone app, to tell Mobile PRs from App PRs.
+
+Two repos ship one: `codebase` under `apps/atllas-app/`, and `pointsgpt` under `ios/`. The `mobile_prefix` function below holds the prefix per repo. An empty value means no phone app.
 
 Add a repo by appending it to `REPOS`.
 
@@ -62,7 +64,15 @@ echo "Window starts: $SINCE"
 echo "Header: $HEADER"
 echo "Empty-result line: $EMPTY"
 
-REPOS="Atllas-Inc/codebase Atllas-Inc/aicc-queues Atllas-Inc/neema-simple-hyzl"
+REPOS="Atllas-Inc/codebase Atllas-Inc/aicc-queues Atllas-Inc/neema-simple-hyzl Atllas-Inc/pointsgpt"
+
+mobile_prefix() {
+  case "$1" in
+    codebase) echo '^apps/atllas-app/' ;;
+    pointsgpt) echo '^ios/' ;;
+    *) echo '' ;;
+  esac
+}
 
 search_prs() {
   gh api -X GET search/issues \
@@ -79,9 +89,10 @@ for REPO in $REPOS; do
   search_prs "$REPO" "$BASE" | while read -r row; do
     n=$(jq -r .number <<<"$row")
     m=false
-    if [ "$NAME" = "codebase" ]; then
+    PREFIX=$(mobile_prefix "$NAME")
+    if [ -n "$PREFIX" ]; then
       if gh api "repos/$REPO/pulls/$n/files?per_page=100" --paginate --jq '.[].filename' \
-           | grep -q '^apps/atllas-app/'; then m=true; fi
+           | grep -q "$PREFIX"; then m=true; fi
     fi
     jq -c --arg repo "$NAME" --argjson m "$m" '. + {repo: $repo, mobile: $m}' <<<"$row"
   done >> /tmp/ls_prs.jsonl
@@ -90,7 +101,7 @@ done
 jq -s --arg until "$UNTIL" '[.[] | select($until == "" or .mergedAt < $until)]' /tmp/ls_prs.jsonl
 ```
 
-Only `codebase` holds a mobile app, so every PR from another repo is `mobile: false` (App).
+A repo with no `mobile_prefix` row gets `mobile: false` on every PR (App).
 
 **Bounded window.** The search filter is one-sided, so "what shipped yesterday" also returns everything merged today. To bound the far end, set `UNTIL` to a timestamp in the same format. `UNTIL` is empty by default, and an empty value keeps every PR.
 
@@ -108,10 +119,10 @@ For each PR, read the **title** and the **Description** and **Changes** sections
 
 **Split every included PR into one of two sections, in this order:**
 
-1. **Mobile**: PRs where `mobile: true` (touched `apps/atllas-app/`, the React Native/Expo app)
-2. **App**: everything else. That is `agents-portal`, `admin`, `api`, and the other `codebase` apps. It also covers all of `aicc-queues`, and all of `neema-simple-hyzl` (the Hyzl paywall-recovery product)
+1. **Mobile**: PRs where `mobile: true`. That is `apps/atllas-app/` in `codebase` (the React Native/Expo app) and `ios/` in `pointsgpt` (the iPhone app)
+2. **App**: everything else. That is `agents-portal`, `admin`, `api`, and the other `codebase` apps. It covers all of `aicc-queues` and all of `neema-simple-hyzl` (the Hyzl paywall-recovery product). It also covers the non-`ios/` parts of `pointsgpt` (the award flight search website, admin site, and server)
 
-A PR that touches both `apps/atllas-app/` and backend paths gets `mobile: true`, so it goes under Mobile only. If its backend half has user impact of its own, add a second bullet for that impact under App.
+A PR that touches both its repo's phone-app prefix and backend paths gets `mobile: true`, so it goes under Mobile only. If its backend half has user impact of its own, add a second bullet for that impact under App.
 
 **Within each section, use these categories** (only include a category if it has items):
 
