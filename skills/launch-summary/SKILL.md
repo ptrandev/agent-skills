@@ -1,9 +1,9 @@
 ---
 name: launch-summary
-version: 2.1.0
+version: 2.2.0
 description: >
-  Summarizes what shipped across the Atllas codebase and aicc-queues repos over a daily or
-  weekly window, written for non-developers. Counts only PRs merged to master. Use for "what
+  Summarizes what shipped across the Atllas repos over a daily or weekly window, written for
+  non-developers. Counts only PRs merged to each repo's default branch. Use for "what
   did we launch today", "weekly summary", or "launch recap".
 allowed-tools:
   - Bash
@@ -13,7 +13,7 @@ allowed-tools:
 
 ## Instructions
 
-Generate a **non-developer-friendly launch summary** from merged pull requests across two GitHub repos: `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
+Generate a **non-developer-friendly launch summary** from merged pull requests across three GitHub repos: `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and `Atllas-Inc/neema-simple-hyzl`.
 
 The skill takes one argument, the window: `daily` or `weekly`. **If the user gives no argument, use `daily`.** The window sets the timeframe and nothing else. Every later step is shared.
 
@@ -24,13 +24,17 @@ The skill takes one argument, the window: `daily` or `weekly`. **If the user giv
 
 If the user specified a different range, a specific day, or a specific week, use that instead.
 
-### Step 2: Fetch merged PRs from both repos
+### Step 2: Fetch merged PRs from every repo
 
-Only PRs merged **into `master`** count. `base:master` excludes PRs merged into release branches and feature branches.
+Only PRs merged **into the repo's default branch** count. The `base:` filter excludes PRs merged into release branches and feature branches.
+
+**Never hardcode `base:master`.** The default branch differs per repo: `codebase` and `aicc-queues` use `master`, `neema-simple-hyzl` uses `main`. Read it from `repos/<repo>` so a repo added later needs no edit here.
 
 **Never use `gh pr list`.** It calls the GitHub GraphQL API, which Claude Code sessions block with a 403. Use the REST endpoints below.
 
 `search/issues` filters on merge date server-side, so no `--limit` can drop a PR that was opened long ago and merged inside the window. It does not return changed files, so Step 2 calls `pulls/{n}/files` once per `codebase` PR to tell Mobile PRs apart from App PRs.
+
+Add a repo by appending it to `REPOS`.
 
 Run the whole block in one Bash invocation so `SINCE` is computed once:
 
@@ -58,28 +62,35 @@ echo "Window starts: $SINCE"
 echo "Header: $HEADER"
 echo "Empty-result line: $EMPTY"
 
+REPOS="Atllas-Inc/codebase Atllas-Inc/aicc-queues Atllas-Inc/neema-simple-hyzl"
+
 search_prs() {
   gh api -X GET search/issues \
-    -f q="repo:$1 is:pr is:merged base:master merged:>=$SINCE" \
+    -f q="repo:$1 is:pr is:merged base:$2 merged:>=$SINCE" \
     -f per_page=100 --paginate \
     --jq '.items[] | {number, title, mergedAt: .pull_request.merged_at, body, labels: [.labels[].name]}'
 }
 
-search_prs Atllas-Inc/codebase | while read -r row; do
-  n=$(jq -r .number <<<"$row")
-  if gh api "repos/Atllas-Inc/codebase/pulls/$n/files?per_page=100" --paginate --jq '.[].filename' \
-       | grep -q '^apps/atllas-app/'; then m=true; else m=false; fi
-  jq -c --argjson m "$m" '. + {repo: "codebase", mobile: $m}' <<<"$row"
-done > /tmp/ls_codebase.jsonl
+: > /tmp/ls_prs.jsonl
+for REPO in $REPOS; do
+  NAME="${REPO#*/}"
+  BASE=$(gh api "repos/$REPO" --jq .default_branch)
+  echo "$REPO: base $BASE"
+  search_prs "$REPO" "$BASE" | while read -r row; do
+    n=$(jq -r .number <<<"$row")
+    m=false
+    if [ "$NAME" = "codebase" ]; then
+      if gh api "repos/$REPO/pulls/$n/files?per_page=100" --paginate --jq '.[].filename' \
+           | grep -q '^apps/atllas-app/'; then m=true; fi
+    fi
+    jq -c --arg repo "$NAME" --argjson m "$m" '. + {repo: $repo, mobile: $m}' <<<"$row"
+  done >> /tmp/ls_prs.jsonl
+done
 
-search_prs Atllas-Inc/aicc-queues \
-  | jq -c '. + {repo: "aicc-queues", mobile: false}' > /tmp/ls_queues.jsonl
-
-cat /tmp/ls_codebase.jsonl /tmp/ls_queues.jsonl \
-  | jq -s --arg until "$UNTIL" '[.[] | select($until == "" or .mergedAt < $until)]'
+jq -s --arg until "$UNTIL" '[.[] | select($until == "" or .mergedAt < $until)]' /tmp/ls_prs.jsonl
 ```
 
-`aicc-queues` has no mobile app, so every PR from it is hardcoded `mobile: false` (App).
+Only `codebase` holds a mobile app, so every PR from another repo is `mobile: false` (App).
 
 **Bounded window.** The search filter is one-sided, so "what shipped yesterday" also returns everything merged today. To bound the far end, set `UNTIL` to a timestamp in the same format. `UNTIL` is empty by default, and an empty value keeps every PR.
 
@@ -98,7 +109,7 @@ For each PR, read the **title** and the **Description** and **Changes** sections
 **Split every included PR into one of two sections, in this order:**
 
 1. **Mobile**: PRs where `mobile: true` (touched `apps/atllas-app/`, the React Native/Expo app)
-2. **App**: everything else: `agents-portal`, `admin`, `api`, other `codebase` apps, and all of `aicc-queues`
+2. **App**: everything else. That is `agents-portal`, `admin`, `api`, and the other `codebase` apps. It also covers all of `aicc-queues`, and all of `neema-simple-hyzl` (the Hyzl paywall-recovery product)
 
 A PR that touches both `apps/atllas-app/` and backend paths gets `mobile: true`, so it goes under Mobile only. If its backend half has user impact of its own, add a second bullet for that impact under App.
 
@@ -131,7 +142,7 @@ The first line is the `HEADER` string from Step 2, printed verbatim. All dates i
 - **[Short name]**: [Half a sentence max. What got more stable?]
 
 ---
-_[N] pull requests merged into master_
+_[N] pull requests merged_
 ```
 
 Repeat the same four category blocks under `### 💻 App`, between the Mobile section and the footer.
@@ -145,7 +156,7 @@ If no PRs merged in the window, print the `EMPTY` string from Step 2 and nothing
 - No filler words: drop "now", "previously", "instead", "in order to". Just the fact.
 - "AI calling" not "AICC", "contacts" not "recipients", "dashboard" not "portal"
 - **Never** use a technical term: no Firestore, Redis, UUID, cron, CSV (say "spreadsheet"), API, etc.
-- Group closely related PRs into a single bullet, including PRs from both repos. **Never** merge a Mobile PR and an App PR into one bullet.
+- Group closely related PRs into a single bullet, including PRs from different repos. **Never** merge a Mobile PR and an App PR into one bullet.
 - Keep the bold name to 1 to 3 words maximum
 
 Print the formatted summary to the user. **Do not** save it to a file unless the user asks.

@@ -12,11 +12,11 @@ agents, so a `git pull` updates every linked copy.
 
 | Skill | What it does | Common forms |
 |---|---|---|
-| [`full-send`](skills/full-send/SKILL.md) | Takes a Linear ticket or idea through implementation, review, CI, and UI evidence. | `/full-send [ticket\|idea]`<br>`/full-send interactive <ticket\|idea>`<br>`/full-send loop <ticket\|idea>`<br>`/full-send fan <ticket\|idea>` |
+| [`full-send`](skills/full-send/SKILL.md) | Takes a Linear ticket or idea through implementation, review, CI, and UI evidence. Per-repo tracker routes and verify commands in [`repos.md`](skills/full-send/repos.md). | `/full-send [ticket\|idea]`<br>`/full-send interactive <ticket\|idea>`<br>`/full-send loop <ticket\|idea>`<br>`/full-send fan <ticket\|idea>` |
 | [`phillip`](skills/phillip/SKILL.md) | Reviews the current diff against a senior engineering rubric and fixes verified findings. | `/phillip [quick]` |
 | [`phillip-sync`](skills/phillip-sync/SKILL.md) | Updates the Phillip rubric from recurring patterns in resolved PR reviews. | `/phillip-sync` |
 | [`babysit-prs`](skills/babysit-prs/SKILL.md) | Handles safe review feedback on open PRs you authored and leaves ambiguous threads open. | `/babysit-prs [PR# ...] [--repo owner/name]` |
-| [`review-pr`](skills/review-pr/SKILL.md) | Reviews PRs awaiting your review, posts inline findings, and manages the verdict. | `/review-pr [PR#\|URL] [quick]`<br>`--repo owner/name`<br>`--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots` |
+| [`review-pr`](skills/review-pr/SKILL.md) | Reviews PRs awaiting your review, posts inline findings, and manages the verdict. Target repos and verify commands in [`repos.md`](skills/review-pr/repos.md). | `/review-pr [PR#\|URL] [quick]`<br>`--repo owner/name`<br>`--draft`, `--no-approve`, `--no-live`, `--no-resolve-bots` |
 | [`mockup`](skills/mockup/SKILL.md) | Builds a self-contained interactive HTML mockup before implementation. | `/mockup [ticket\|plan.md\|description]`<br>`--variants=N`, `--out=path`, `--publish` |
 | [`ui-walkthrough`](skills/ui-walkthrough/SKILL.md) | Tests a PR's UI at several widths and posts screenshot evidence to GitHub. Windows uses [WSL2](skills/ui-walkthrough/windows.md). | `/ui-walkthrough [PR#\|URL]`<br>`--author\|--reviewer`, `--target=e2e\|dev`, `--no-post` |
 | [`gemini`](skills/gemini/SKILL.md) | Uses Gemini for an independent review, challenge, or large-context consultation. | `/gemini review [focus]`<br>`/gemini challenge [focus]`<br>`/gemini <question> [--flash]` |
@@ -24,7 +24,7 @@ agents, so a `git pull` updates every linked copy.
 | [`debrief`](skills/debrief/SKILL.md) | Audits a completed session for unchecked assumptions and remaining risks. | `/debrief [deep] [topic]` |
 | [`merge-master`](skills/merge-master/SKILL.md) | Merges `origin/master` into the current branch, resolves conflicts, and pushes. | `/merge-master` |
 | [`sync-prs`](skills/sync-prs/SKILL.md) | Merges the default branch into every open PR you authored, resolves conflicts, and pushes. Conflict contract in [`resolver.md`](skills/sync-prs/resolver.md), cloud schedule in [`routine.md`](skills/sync-prs/routine.md). | `/sync-prs [PR# ...]`<br>`--repo owner/name`, `--dry-run`, `--ready-only` |
-| [`launch-summary`](skills/launch-summary/SKILL.md) | Summarizes daily or weekly Atllas launches for non-developers. | `/launch-summary [daily\|weekly]` |
+| [`launch-summary`](skills/launch-summary/SKILL.md) | Summarizes daily or weekly Atllas launches for non-developers, across every default repo. | `/launch-summary [daily\|weekly]` |
 | [`plain-english`](skills/plain-english/SKILL.md) | Extracts claims, caveats, omissions, and implications from dense text. | `/plain-english <text>` |
 | [`copy-edit`](skills/copy-edit/SKILL.md) | Turns a transcript or rough draft into a polished post without adding claims. | `/copy-edit <text\|path>` |
 | [`skill-edit`](skills/skill-edit/SKILL.md) | Rewrites one skill to match this repository's house style. | `/skill-edit [skill\|path]` |

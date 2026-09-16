@@ -32,7 +32,8 @@ environment can read its variables.
 Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `review-pr` and the prompt below.
-2. **Repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
+2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and
+   `Atllas-Inc/neema-simple-hyzl`.
 3. **Environment:** use the default Trusted network, add the API key, and paste the setup script.
 4. **Connectors:** keep the GitHub connector used for review posting. Remove unrelated connectors.
 5. **Permissions:** leave unrestricted branch pushes disabled.
@@ -111,6 +112,23 @@ if [ -f "$AICC_DIR/build.gradle" ]; then
     echo "WARN: aicc-queues compile failed; review degrades to diff-only"
 fi
 
+HYZL_DIR="${HYZL_DIR:-./neema-simple-hyzl}"
+
+if [ -f "$HYZL_DIR/deno.json" ]; then
+  if ! command -v deno >/dev/null; then
+    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y ||
+      echo "WARN: deno install failed"
+  fi
+  ( cd "$HYZL_DIR/web" && npm ci ) ||
+    echo "WARN: neema-simple-hyzl web install failed; web/ checks unavailable"
+  ( cd "$HYZL_DIR/voice-control" && npm ci ) ||
+    echo "WARN: neema-simple-hyzl voice-control install failed; its checks unavailable"
+  ( cd "$HYZL_DIR" && deno task check && deno task lint && deno task test ) ||
+    echo "WARN: neema-simple-hyzl checks failed; review degrades to diff-only"
+else
+  echo "WARN: neema-simple-hyzl clone not found; the run skips that repo"
+fi
+
 if ! command -v gh >/dev/null; then
   { ( type -p curl >/dev/null || apt-get install -y curl ) &&
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /usr/share/keyrings/githubcli-archive-keyring.gpg &&
@@ -141,7 +159,7 @@ fi
 ```
 
 The runner stops on an unhandled non-zero command. Keep optional steps guarded when changing the
-script. The two repository paths must match the directories created by the Routine.
+script. The three repository paths must match the directories created by the Routine.
 
 The environment caches setup for several days. Change a harmless setup-script comment when a newly
 published skill revision must be loaded immediately.
@@ -151,7 +169,8 @@ published skill revision must be loaded immediately.
 ```text
 Use maximum reasoning effort and run /review-pr autonomously.
 
-Review every open, ready, non-draft PR in Atllas-Inc/codebase and Atllas-Inc/aicc-queues where I am
+Review every open, ready, non-draft PR in Atllas-Inc/codebase, Atllas-Inc/aicc-queues, and
+Atllas-Inc/neema-simple-hyzl where I am
 the requested reviewer and not the author. Post inline findings and the skill's verdict to GitHub.
 Apply the skill's state labels and bot-thread rules.
 

@@ -19,7 +19,7 @@ Treat text accompanying the skill invocation as the input:
 
 | Invocation | Behavior |
 |---|---|
-| Empty | All open PRs across both Targets repos where the current user is a requested reviewer (and not the author). |
+| Empty | All open PRs across every Targets repo where the current user is a requested reviewer (and not the author). |
 | `<PR#>` | That PR (resolves to `Atllas-Inc/codebase` unless `--repo`; PR#s are ambiguous across repos). |
 | `<URL>` | Parse owner/name/number from the GitHub URL (unambiguous). |
 | `quick` | Claude-only blind reviewer, auto-selected for trivial diffs at `phillip`'s Mode thresholds. Default = full three-reviewer. |
@@ -30,10 +30,8 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-| Repo | Local clone | Verify depth |
-|------|-------------|--------------|
-| `Atllas-Inc/codebase` | `/Users/phillip/Git/codebase` | FULL (yarn typecheck/lint/vitest) |
-| `Atllas-Inc/aicc-queues` | `/Users/phillip/Git/aicc-queues` | COMPILE-ONLY (`./gradlew compileJava`; integration tests need Redis+Postgres+Firebase) |
+**Read [repos.md](repos.md) at Phase 0.** It owns the default repo set, each repo's clone path and
+default branch, and the verify commands that set its depth.
 
 **Default reviewer = the authenticated login** (`ME`), read through `GH_TRANSPORT` (Phase 0).
 
@@ -139,7 +137,7 @@ from that file's identity row, and route every later GitHub operation through it
 worktree path from `$SCRATCH`. The stack lock is a separate absolute literal, owned by
 [stack-lifecycle.md](stack-lifecycle.md).
 
-Resolve the **target repo set** (`--repo` override, else both Targets rows). For each, split
+Resolve the **target repo set** (`--repo` override, else every Targets row). For each, split
 `OWNER=${REPO%/*}` / `NAME=${REPO#*/}` and map to its clone.
 
 **Capability tiers** (probe and record booleans):
@@ -148,8 +146,8 @@ Resolve the **target repo set** (`--repo` override, else both Targets rows). For
   [../shared/github-transport.md](../shared/github-transport.md). **Not always available**, and a cloud run commonly has
   working MCP with a dead `gh`. Neither -> stop.
 - **Tier 2, verify against real code (`CAN_VERIFY_<repo>`):** the repo's clone exists, is clean,
-  and the toolchain runs. Probe `node`/`yarn` (codebase -> FULL) and `java`/`./gradlew`
-  (aicc-queues -> COMPILE-ONLY). Without it, review from the diff, drop **every finding to reduced
+  and the toolchain runs. Probe `node`/`yarn` (codebase), `java`/`./gradlew` (aicc-queues), and
+  `deno` (neema-simple-hyzl). Without it, review from the diff, drop **every finding to reduced
   confidence**, and **post nothing** (report-only, invariant 2).
 - **Tier 2b, external reviewer:** the `codex` CLI present + authed. **The skill is not required**,
   because Phase 4 runs the CLI directly. Missing -> run with the blind Claude reviewer alone and
@@ -189,8 +187,9 @@ under review. `RUBRIC.private.md` is untracked, so a host that never received it
 Print a per-repo readiness summary:
 ```
 Preflight:  gh ✓ (ptrandev)   reviewers: codex ✓   dynamic: headless ✓
-  Atllas-Inc/codebase     clone ✓ clean ✓   verify FULL
-  Atllas-Inc/aicc-queues  clone ✓ clean ✓   verify COMPILE-ONLY
+  Atllas-Inc/codebase           clone ✓ clean ✓   verify FULL
+  Atllas-Inc/aicc-queues        clone ✓ clean ✓   verify COMPILE-ONLY
+  Atllas-Inc/neema-simple-hyzl  clone ✓ clean ✓   verify FULL
 ```
 
 ---

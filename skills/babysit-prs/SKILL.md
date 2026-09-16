@@ -23,7 +23,15 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-Process these unless `--repo` narrows the run: `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
+Process these unless `--repo` narrows the run:
+
+| Repo | Default branch | Stack |
+|---|---|---|
+| `Atllas-Inc/codebase` | `master` | Yarn 3 + Turbo monorepo |
+| `Atllas-Inc/aicc-queues` | `master` | Gradle/JVM |
+| `Atllas-Inc/neema-simple-hyzl` | `main` | Deno edge functions, plus `web/` and `voice-control/` npm packages |
+
+**Never assume `master`.** Read the PR's own base ref.
 
 Each repo needs a clone to make fixes in. Resolve `CLONE` per repo, in this order, and take the
 first hit:
@@ -141,6 +149,8 @@ can do and degrade per tier instead of failing:**
     && jq -e '.scripts["ci:typecheck"]' "$CLONE/apps/api/package.json" >/dev/null
   # aicc-queues
   test -x "$CLONE/gradlew"
+  # neema-simple-hyzl
+  command -v deno && test -f "$CLONE/deno.json"
   ```
   A failing probe makes that repo **triage-only** for this run: reply/resolve where no code change
   is required. Route fix-needed threads to the Needs-you queue.
@@ -156,8 +166,9 @@ phases branch on the value for the repo they are acting in.
 Print a one-line readiness summary per repo + the capability line, e.g.:
 ```
 Preflight:  github ✓ (ptrandev, GH_TRANSPORT=mcp)   visual ✗ (sandbox: UI-proof → Needs-you)
-  Atllas-Inc/codebase     clone ~/Git/codebase ✓     tree clean ✓   fix ✓
-  Atllas-Inc/aicc-queues  clone ~/Git/aicc-queues ✓  tree dirty ✗   fix ✗ (triage-only)
+  Atllas-Inc/codebase           clone ~/Git/codebase ✓            tree clean ✓   fix ✓
+  Atllas-Inc/aicc-queues        clone ~/Git/aicc-queues ✓         tree dirty ✗   fix ✗ (triage-only)
+  Atllas-Inc/neema-simple-hyzl  clone ~/Git/neema-simple-hyzl ✓   tree clean ✓   fix ✓
 ```
 
 ---
@@ -320,8 +331,8 @@ nothing more. Stay in scope. **Never make an opportunistic refactor.** Keep a ma
 `thread.id → {fixed, commitSha, note}` as you go.
 
 **codebase only:** when modifying a shared package (`sdk`, `privs`, `common`, `ui`), rebuild it
-(`cd packages/<name> && yarn build`) per repo convention. aicc-queues is Gradle and has no
-`packages/` directory.
+(`cd packages/<name> && yarn build`) per repo convention. aicc-queues is Gradle and
+neema-simple-hyzl is Deno, so neither has a `packages/` directory.
 
 After all fixes for this PR, **verify**. Run only what the changed files touch, using **the verify
 commands of that repo's stack**. **Never run the whole monorepo.**
@@ -335,6 +346,13 @@ cd apps/agents-portal && yarn lint 2>&1 | tail -30
 # aicc-queues: Gradle/JVM. Compile-only in the cloud, per the verification depth table below.
 ./gradlew --no-daemon compileJava
 ./gradlew --no-daemon :<module>:test     # local only, when Redis+Postgres are up
+
+# neema-simple-hyzl: Deno at the root, npm inside web/ and voice-control/.
+# Always run the three root tasks. They need no service and no secret.
+deno task check && deno task lint && deno task test
+# Add these only when the diff touches that directory. A fresh clone has no node_modules.
+cd web && npm ci && npm run typecheck && npm run build && npm test
+cd voice-control && npm ci && npm run typecheck
 ```
 
 **Verification depth per repo sets the auto-resolve bar.**
@@ -343,6 +361,7 @@ cd apps/agents-portal && yarn lint 2>&1 | tail -30
 |---|---|---|
 | `codebase` | Full Tier 2: per-workspace `yarn ci:typecheck`, `turbo run lint`, `vitest`. Some vitest suites need Firebase emulators; typecheck and lint always work. | Green typecheck, lint, and the nearest test target. |
 | `aicc-queues` (cloud sandbox) | **Compile-only**, because its integration tests need Redis and Postgres, absent there. "Verified" means *compiles*, not *tests pass*. | Auto-resolve genuinely mechanical fixes only. Route anything whose correctness depends on runtime behavior to the Needs-you queue instead of resolving it on a compile alone. |
+| `neema-simple-hyzl` | Full Tier 2: `deno task check`, `deno task lint`, `deno task test`, plus the npm checks of a touched package. The Deno tasks need no service and no secret. `npm ci` needs the npm registry, so a `web/` fix drops to triage-only when the registry is unreachable. | Green root tasks, and the npm checks of every package the fix touched. A fix whose correctness depends on a deployed edge function, a Supabase migration, or the Grok model goes to the Needs-you queue: none of those is reachable from a check. |
 
 - **Green** → commit the batch and push:
   ```bash

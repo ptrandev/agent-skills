@@ -114,7 +114,7 @@ top of that call:
 
 | Variable | Assigned in | Value |
 |----------|-------------|-------|
-| `$TICKET_ID` | Phase 0 | The Linear identifier, original casing (e.g. `AP-1234`) |
+| `$TICKET_ID` | Phase 0 | The Linear identifier, original casing (`AP-1234` in `codebase`, `HYZ-12` in `neema-simple-hyzl`) |
 | `$TICKET_TITLE` | Phase 0 | The Linear ticket title, verbatim |
 | `$BASE` | Phase 1 | `git remote show origin \| sed -n 's/.*HEAD branch: //p'` |
 | `$REPO` | Resume | `gh repo view --json nameWithOwner --jq '.nameWithOwner'` |
@@ -128,7 +128,7 @@ Check the tools this run will use before any other work. Print a **readiness sum
 
 **Required** (**stop** and say so clearly when any is missing):
 - `gh` CLI, authenticated (`gh auth status`), needed for the PR and bot review.
-- Linear MCP available, needed to fetch/create/update the ticket.
+- A route to the repo's tracker, needed to fetch, create, and update the ticket ([repos.md](repos.md)).
 - **`/ui-walkthrough`** (Phase 8), required only when the change touches UI. It owns the capture and
   its own driver detection. Without it, Phase 8 degrades to no visual evidence and says so.
 
@@ -207,9 +207,12 @@ Every phase checks "is this already true?" and becomes a no-op when it is. Read 
 
 ## Phase 0: Ticket / Spec
 
+**Read [repos.md](repos.md) before the first ticket call.** It owns the tracker route per repo, and
+the Linear MCP reaches only one workspace.
+
 **If a ticket ID was supplied:**
 
-1. Fetch the ticket from Linear using the Linear MCP.
+1. Fetch the ticket from Linear over the repo's route in `repos.md`.
 2. Extract: title, description, acceptance criteria.
 3. Assign the ticket to the current user and set status to **In Progress**.
 
@@ -218,7 +221,7 @@ as if it had been fetched:
 
 1. Derive a concise **title**, a **description**, and an explicit **acceptance-criteria** list
    from the idea.
-2. Create the Linear issue via the same Linear MCP used for fetch/update (the create-issue tool).
+2. Create the Linear issue over the same route used for fetch and update.
 3. Assign it to the current user and set status to **In Progress**.
 4. Handling of the derived acceptance criteria depends on whether the grill (Phase 0.5) will run
    (see the Modes table):
@@ -244,7 +247,7 @@ Run this phase only when the Modes table says the grill runs. Run it before writ
    confident you understand exactly what to build. (When Preflight failed to install `/grilling` in
    Preflight, run the inline clarification Q&A fallback instead: same goal, no skill.)
 2. Fold the answers back into the Linear ticket: update the description and acceptance criteria
-   (Linear MCP update tool) so the ticket reflects the clarified spec.
+   over the repo's route, so the ticket reflects the clarified spec.
 3. State the resulting implementation plan inline (same numbered-list format as Phase 2) and get
    a single explicit go-ahead.
 
@@ -351,18 +354,11 @@ sub-steps. Mark each sub-step complete as you finish it. Continue to Phase 4.
 
 Detect the affected workspace(s) from the changed files (`git diff --name-only "origin/$BASE"...HEAD`)
 and run that workspace's own scripts. Read its `package.json` `scripts` for the real names. Skip a
-step with a note when the package defines no such script. The commands below are the Atllas repo's
-defaults, not universal.
+step with a note when the package defines no such script.
 
 Run typechecks and lint, then the test suite. Fix all errors before continuing.
 
-```bash
-# Atllas defaults
-cd apps/api && yarn ci:typecheck 2>&1 | tail -30
-cd apps/agents-portal && yarn lint 2>&1 | tail -30
-cd apps/api && yarn test 2>&1 | tail -30
-cd apps/agents-portal && yarn test 2>&1 | tail -30
-```
+**Read [repos.md](repos.md) for the commands.** It owns them per repo.
 
 Note a typecheck error that is pre-existing and unrelated to this ticket. **Do not** fix it. Treat
 test failures the same way. **Fix** the ones caused by this change. **Note and skip** pre-existing
@@ -477,7 +473,7 @@ change, the capture, and the PR comment. Continue to Phase 9 when it finishes.
 ## Phase 9: Done
 
 Close the Linear loop:
-- Move the ticket to **In Review** (Linear MCP update).
+- Move the ticket to **In Review** over the repo's route.
 - Post a comment on the Linear issue with the PR URL (and the OpenCap share link when there is one).
 
 Report:

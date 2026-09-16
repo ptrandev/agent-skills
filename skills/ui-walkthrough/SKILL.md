@@ -27,6 +27,20 @@ Treat text accompanying the skill invocation as the input:
 | `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
 | `--embedded` | Called by another skill: return findings, **post nothing**. See [embedded.md](embedded.md). |
 
+### Repos this skill can walk
+
+| Repo | Walkable |
+|---|---|
+| `Atllas-Inc/codebase` | Yes. `apps/agents-portal` on the sealed `e2e` stack. |
+| `Atllas-Inc/aicc-queues` | No. It has no frontend. |
+| `Atllas-Inc/neema-simple-hyzl` | No. See below. |
+
+**Stop before walking a `neema-simple-hyzl` PR.** Its `web/` Next.js dashboard has no sealed stack:
+the repo carries no Playwright install, no emulator, and no seeded persona (verified 2026-09-16 in
+the clone). `npm run dev` there talks to **real Supabase**, which invariant 7 forbids. Post a
+neutral note ("no sealed stack in this repo, walkthrough skipped"), never a finding, and never fall
+back to `dev`. Remove this row once the repo grows an `e2e` target.
+
 ---
 
 ## Core invariants (do not weaken)

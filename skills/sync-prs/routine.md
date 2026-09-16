@@ -26,13 +26,14 @@ PR at once. A separate environment keeps one broken edit from stopping both.
 Open **claude.ai/code/routines**, choose **New routine**, and configure:
 
 1. **Name and prompt:** use `sync-prs` and the prompt below.
-2. **Repositories:** add `Atllas-Inc/codebase` and `Atllas-Inc/aicc-queues`.
+2. **Repositories:** add `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`, and
+   `Atllas-Inc/neema-simple-hyzl`.
 3. **Model:** select **Fable 5.1** (`claude-fable-5-1`). The run resolves merge conflicts on
    branches a human already reviewed, which is judgment work with no stated success test. The
    resolver subagent in [`resolver.md`](resolver.md) runs on Fable too, and a subagent never
    exceeds the model of the loop that spawned it.
 4. **Environment:** use the default Trusted network and the setup script below.
-5. **Permissions:** enable unrestricted branch pushes for both repositories.
+5. **Permissions:** enable unrestricted branch pushes for every repository.
 6. **Connectors:** keep the GitHub connector attached. It supplies the MCP transport, which the run
    needs when `gh` cannot reach the repository API. Remove unrelated connectors.
 7. **Trigger:** use the schedule below.
@@ -87,6 +88,23 @@ if [ -f "$AICC_DIR/build.gradle" ]; then
 else
   echo "WARN: aicc-queues clone not found; the run skips that repo"
 fi
+
+HYZL_DIR="${HYZL_DIR:-./neema-simple-hyzl}"
+
+if [ -f "$HYZL_DIR/deno.json" ]; then
+  if ! command -v deno >/dev/null; then
+    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y ||
+      echo "WARN: deno install failed"
+  fi
+  ( cd "$HYZL_DIR/web" && npm ci ) ||
+    echo "WARN: neema-simple-hyzl web install failed; web/ checks unavailable"
+  ( cd "$HYZL_DIR/voice-control" && npm ci ) ||
+    echo "WARN: neema-simple-hyzl voice-control install failed; its checks unavailable"
+  ( cd "$HYZL_DIR" && deno task check && deno task lint && deno task test ) ||
+    echo "WARN: neema-simple-hyzl checks failed; verification degrades"
+else
+  echo "WARN: neema-simple-hyzl clone not found; the run skips that repo"
+fi
 ```
 
 The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
@@ -96,7 +114,7 @@ The `git config` lines matter here. A merge commit needs an author, and an uncon
 fails `git commit` with `Please tell me who you are`.
 
 The runner stops on an unhandled non-zero command. Keep every optional step guarded when you
-change the script. Replace the two clone paths when the Routine uses different directories.
+change the script. Replace the three clone paths when the Routine uses different directories.
 
 The environment caches setup for several days, so the first run is slower. Change a harmless
 setup-script comment to force a newly published skill revision to load.
@@ -104,7 +122,8 @@ setup-script comment to force a newly published skill revision to load.
 ## Prompt
 
 ```text
-Run /sync-prs across my open PRs on Atllas-Inc/codebase and Atllas-Inc/aicc-queues.
+Run /sync-prs across my open PRs on Atllas-Inc/codebase, Atllas-Inc/aicc-queues, and
+Atllas-Inc/neema-simple-hyzl.
 
 Include draft PRs. Merge the default branch into each PR branch that is behind. Resolve the
 conflicts: mechanical ones inline, real ones through the Fable resolver subagent, one subagent
@@ -167,7 +186,7 @@ Until all eight pass, keep `--dry-run` in the prompt.
 |---|---|
 | Setup degrades silently | Read `/var/log/sync-prs-setup.log`. Setup output is absent from the run transcript. |
 | `Please tell me who you are` on commit | The `git config --global` lines are missing from the setup script. |
-| The run reports no clone and merges nothing | Confirm the Routine checkout directory names match `./codebase` and `./aicc-queues`. |
+| The run reports no clone and merges nothing | Confirm the Routine checkout directory names match `./codebase`, `./aicc-queues`, and `./neema-simple-hyzl`. |
 | Every GitHub call fails | Confirm the GitHub connector is attached. `gh auth status` passing does not prove repository API access. |
 | Push rejected on every PR | Unrestricted branch pushes are off for that repository. |
 | Old skill behavior appears | Change a setup-script comment to invalidate the cached environment. |
