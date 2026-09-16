@@ -5,12 +5,17 @@ test, the delegation contract with `/ui-walkthrough --embedded`, and the one rul
 
 Run when `CAN_LIVE_HEADLESS` **AND** the PR is UI-touching **AND** not `--no-live`.
 
-**UI-touching** = at least one `filename` in `/tmp/review-pr-$NAME-$PR-files.json` starts with
-`apps/agents-portal/src/pages/` or `apps/agents-portal/src/components/`. It is a prefix test against
-the PR's file list, not a shell glob. `aicc-queues` has no frontend, so its PRs are never UI PRs and
-never reach this phase. `neema-simple-hyzl` has a frontend and a sealed fixture stack, but
-`/ui-walkthrough` holds no boot contract for it yet, so its PRs do not reach this phase either.
-`/ui-walkthrough` owns that rule in its Repos section.
+**UI-touching** is a prefix test against the PR's file list in
+`/tmp/review-pr-$NAME-$PR-files.json`, not a shell glob. The prefixes differ per repo:
+
+| Repo | UI-touching prefixes |
+|---|---|
+| `codebase` | `apps/agents-portal/src/pages/`, `apps/agents-portal/src/components/` |
+| `neema-simple-hyzl` | `web/app/`, `web/components/` |
+| `aicc-queues` | none. It has no frontend, so its PRs never reach this phase. |
+
+A `neema-simple-hyzl` walkthrough runs on that repo's fixture stack, and its evidence carries the
+`contract fixtures` label. `/ui-walkthrough` owns both in `hyzl-stack.md`.
 
 Otherwise **skip, and if it is a UI PR add a NEEDS-DYNAMIC-RUN note** to the report ("UI PR: run
 /review-pr <n> on a ≥8 GB runtime (cloud Routine or local) for the dynamic walkthrough"). `--no-live`

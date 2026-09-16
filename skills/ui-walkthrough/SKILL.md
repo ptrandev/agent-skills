@@ -20,7 +20,7 @@ Treat text accompanying the skill invocation as the input:
 | `--author` / `--reviewer` | Force the role. Default: inferred from `author == ME` (see Phase 1). |
 | `--viewports=desktop,tablet,mobile` | Default all three. Any subset. |
 | `--personas=premium[,free,admin]` | Default `premium`. Each extra persona is one extra login, not a second stack boot. |
-| `--target=e2e\|dev` | Which stack to walk. **Always defaults to `e2e`**, in every role and environment. `dev` runs only when this flag is typed, see *Target selection*. |
+| `--target=e2e\|dev` | Which stack to walk. **Always defaults to `e2e`**, in every role and environment. `dev` runs only when this flag is typed, see [target-selection.md](target-selection.md). |
 | `--lane=N` | Which port lane to boot on. Default: the first free lane. See [concurrency.md](concurrency.md). |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
 | `--no-post` | Assemble the report + print the exact payload, **post nothing**. |
@@ -30,10 +30,8 @@ Treat text accompanying the skill invocation as the input:
 ### Repos this skill can walk
 
 `Atllas-Inc/codebase` walks on the sealed `e2e` stack. `Atllas-Inc/aicc-queues` has no frontend.
-`Atllas-Inc/neema-simple-hyzl` has a sealed fixture stack of its own, documented in
-`web/tests/README.md`, but this skill holds no boot contract for it yet. **Skip that repo** with a
-neutral note ("no boot contract for this repo, walkthrough skipped"), never a finding. **Never**
-fall back to `npm run dev` there: it hits real Supabase, which invariant 7 forbids.
+**Read [hyzl-stack.md](hyzl-stack.md) at Phase 0 when `$NAME` is `neema-simple-hyzl`**: it owns that
+repo's target, boot, personas, routes, states, and evidence label. Any other repo: neutral note.
 
 ---
 
@@ -197,53 +195,9 @@ and **always** best-effort. **Never** let an `opencap` call block, fail, or slow
 
 ### Target selection
 
-**The target is `e2e`.** Every role, every environment, attended or not. Nothing derives it and
-nothing falls back to it. `dev` runs only when the invocation carries `--target=dev`, or the session
-exports `UIW_TARGET=dev`, or `/full-send` sets `UIW_ALLOW_DEV=1` under its own escape hatch
-(`full-send/evidence.md`).
-
-The asymmetry that used to justify a `dev` default is gone: `e2e` seeds its own personas, holds a
-port lane of its own ([concurrency.md](concurrency.md)), and leaves the operator's `:3000` dev
-server alone. A `dev` walkthrough occupies the machine the operator is working on.
-
-```bash
-if [ "${UIW_HOST_PLATFORM:-}" = windows ] || [ "$(uname)" = Darwin ]; then
-  ENVIRONMENT=local
-else
-  ENVIRONMENT=routine
-fi
-
-# Attended probe. `[ -t 0 ]` is NOT usable: Claude Code's Bash tool gives every command a non-TTY
-# stdin, so a TTY test marks an attended local session unattended.
-# Every caller running with no operator MUST export UIW_UNATTENDED=1: /loop, /schedule,
-# `claude -p`, and the /review-pr routine all set it.
-ATTENDED=1
-if [ "${UIW_UNATTENDED:-0}" = 1 ] || [ -n "${CI:-}" ] || [ "$ENVIRONMENT" = routine ]; then ATTENDED=0; fi
-
-TARGET=e2e                                  # the only default, in every role and environment
-if [ "${UIW_TARGET:-}" = dev ]; then TARGET=dev; fi   # session-wide operator opt-in
-if [ "${ARG_TARGET:-}" = dev ]; then TARGET=dev; fi   # --target=dev typed on this invocation
-
-if [ "$ROLE" = reviewer ] && [ "$TARGET" = dev ]; then
-  echo "REFUSING --target=dev in reviewer mode (invariant 7). Using e2e."; TARGET=e2e
-fi
-
-if [ "$ENVIRONMENT" = routine ] && [ "$TARGET" = dev ]; then
-  echo "REFUSING --target=dev off a local Mac (invariant 7). Using e2e."; TARGET=e2e
-fi
-
-# Unattended dev is refused outright, in EITHER role, and never downgraded to e2e:
-# silently swapping environments would mislabel the evidence. UIW_ALLOW_DEV=1 is the single
-# exception, set only by /full-send, which owns the conditions in full-send/evidence.md.
-if [ "$ATTENDED" = 0 ] && [ "$TARGET" = dev ] && [ "${UIW_ALLOW_DEV:-0}" != 1 ]; then
-  echo "SKIP: --target=dev in an unattended run fires real Stripe/Vapi/Twilio calls with nobody watching."
-  exit 0
-fi
-```
-
-**The posted comment always names the target**, so a reader can weigh the evidence:
-`Stack: e2e (emulators, stubbed, seeded)` or
-`Stack: local dev (real atllas-dev data, not reproducible)`.
+**Read [target-selection.md](target-selection.md) at Phase 0.** It owns the environment and
+attended probes, target resolution, every `dev` refusal, and the `Stack:` line the comment carries.
+The rule it enforces: **the target is `e2e`**, and `dev` runs only when a human typed it.
 
 ### Lane selection
 
@@ -356,6 +310,9 @@ gh pr diff "$PR" --repo "$REPO" --name-only > "$SCRATCH/files-$NAME-$PR.txt"
 grep -E '^apps/agents-portal/src/(pages|components)/' "$SCRATCH/files-$NAME-$PR.txt"
 ```
 
+**`neema-simple-hyzl` uses a different filter and route map**, in [hyzl-stack.md](hyzl-stack.md).
+Every rule below still holds.
+
 - **No matching files -> exit early with a neutral note.** Not a UI PR, so nothing to walk.
 - **`pages/**` -> route directly.** `pages/foo/bar.tsx` -> `/foo/bar`. `index.tsx` -> the directory
   root. `_app`/`_document` -> treat as *global* (walk the app's 3 highest-traffic routes instead,
@@ -380,7 +337,8 @@ derivation. Carry the ledger to Phase 5a and Phase 9.
 
 ## Phase 4: boot the PR's code (evidence integrity)
 
-**Read [stack.md](stack.md) before booting the stack.** It owns both boot procedures, the hold
+**Read [stack.md](stack.md) before booting the stack**, or [hyzl-stack.md](hyzl-stack.md) for
+`neema-simple-hyzl`. `stack.md` owns both agents-portal boot procedures, the hold
 spec, the host-environment scrub, backgrounding, pre-warm, login, the checkout-strategy
 table, and the deference to `/review-pr`'s stack lifecycle. The two rules that decide everything else:
 

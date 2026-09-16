@@ -1,6 +1,7 @@
 # Stack boot and lifecycle
 
-How `/ui-walkthrough` gets the PR's code running and healthy before Phase 5 drives it. Read this at
+How `/ui-walkthrough` gets `Atllas-Inc/codebase` running and healthy before Phase 5 drives it.
+`neema-simple-hyzl` boots differently: [hyzl-stack.md](hyzl-stack.md) owns it. Read this at
 the start of Phase 4, after [concurrency.md](concurrency.md) has set the lane. `SKILL.md` keeps only
 the two target rules and the pointer here.
 
@@ -14,7 +15,7 @@ Every port below is written at its lane-0 value. **Use the lane's value**, from
 
 Reached only when a human typed `--target=dev` or exported `UIW_TARGET=dev`, or `/full-send` set
 `UIW_ALLOW_DEV=1` under its own escape hatch. **Nothing derives this target** (invariant 7). Read
-*Target selection* in `SKILL.md` before booting it.
+[target-selection.md](target-selection.md) before booting it.
 
 `yarn agents-portal` (`npm run set-dev` + `turbo run dev --filter=agents-portal --filter=api
 --filter=ui`) against **real atllas-dev**. Dev-mode Next, no `next build`, no emulator boot, no
