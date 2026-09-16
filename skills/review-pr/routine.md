@@ -45,8 +45,10 @@ Open **claude.ai/code/routines**, choose **New routine**, and configure:
 The setup script installs the skills, the shared reference files, the Codex CLI, project
 toolchains, and a headless browser. It logs to `/var/log/review-pr-setup.log`.
 
-The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
-`../shared/github-transport.md`, which resolves next to the installed skill.
+The `shared` copy is mandatory. The skill reads the transport contract at
+`../shared/github-transport.md`, the repo set and verify commands at `../shared/repos.md`, and the
+default-branch ladder at `../shared/default-branch.md`. All three resolve next to the installed
+skill.
 
 ```bash
 exec > >(tee -a /var/log/review-pr-setup.log) 2>&1
@@ -91,12 +93,11 @@ else
   echo "FATAL: expected Node 24 ABI 137; dynamic walkthrough unavailable"
 fi
 
-CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
-AICC_DIR="${AICC_DIR:-./aicc-queues}"
+DEGRADE="review degrades to diff-only"
+# >>> Paste the per-repo preflight block from ../shared/routine-preflight.md here. <<<
 
+# review-pr only: the dynamic walkthrough needs a loadable re2 and pre-built workspaces.
 if [ -f "$CODEBASE_DIR/package.json" ]; then
-  ( cd "$CODEBASE_DIR" && corepack enable && yarn install --immutable ) ||
-    echo "WARN: codebase install failed; review degrades to diff-only"
   ( cd "$CODEBASE_DIR" && yarn rebuild re2 ) ||
     echo "WARN: re2 rebuild failed"
   ( cd "$CODEBASE_DIR" && node -e "require('re2')" ) ||
@@ -105,40 +106,6 @@ if [ -f "$CODEBASE_DIR/package.json" ]; then
     ( cd "$CODEBASE_DIR" && yarn turbo run build --filter='./packages/*' ) ||
       echo "WARN: workspace pre-build failed; dynamic walkthrough unavailable"
   fi
-fi
-
-if [ -f "$AICC_DIR/build.gradle" ]; then
-  ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) ||
-    echo "WARN: aicc-queues compile failed; review degrades to diff-only"
-fi
-
-HYZL_DIR="${HYZL_DIR:-./neema-simple-hyzl}"
-
-if [ -f "$HYZL_DIR/deno.json" ]; then
-  if ! command -v deno >/dev/null; then
-    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y --no-modify-path ||
-      echo "WARN: deno install failed"
-  fi
-  ( cd "$HYZL_DIR/web" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl web install failed; web/ checks unavailable"
-  ( cd "$HYZL_DIR/voice-control" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl voice-control install failed; its checks unavailable"
-  ( cd "$HYZL_DIR" && deno task check && deno task lint && deno task test ) ||
-    echo "WARN: neema-simple-hyzl checks failed; review degrades to diff-only"
-else
-  echo "WARN: neema-simple-hyzl clone not found; the run skips that repo"
-fi
-
-PGPT_DIR="${PGPT_DIR:-./pointsgpt}"
-
-if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
-  # No package.json and no install step: deno and node are the whole toolchain.
-  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
-    echo "WARN: pointsgpt deno check failed; review degrades to diff-only"
-  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
-    echo "WARN: pointsgpt admin-site check failed; review degrades to diff-only"
-else
-  echo "WARN: pointsgpt clone not found; the run skips that repo"
 fi
 
 if ! command -v gh >/dev/null; then
@@ -170,8 +137,8 @@ else
 fi
 ```
 
-The runner stops on an unhandled non-zero command. Keep optional steps guarded when changing the
-script. The four repository paths must match the directories created by the Routine.
+The runner stops on an unhandled non-zero command, so keep every optional step guarded.
+[../shared/routine-preflight.md](../shared/routine-preflight.md) owns the clone-path rule.
 
 The environment caches setup for several days. Change a harmless setup-script comment when a newly
 published skill revision must be loaded immediately.

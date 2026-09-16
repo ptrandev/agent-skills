@@ -149,15 +149,12 @@ _REPO_ROOT=$(git rev-parse --show-toplevel) || { echo "ERROR: not in a git repo"
 cd "$_REPO_ROOT"
 
 # --- Base branch (resolved once, for ALL modes) ---------------------------
+# The PR's OWN base first: that is the branch this diff is measured against, and it is not
+# always the repo default. No PR -> fall back to the repo default.
 BASE_BRANCH=$(gh pr view --json baseRefName -q .baseRefName 2>/dev/null || true)
-if [ -z "$BASE_BRANCH" ]; then
-  for _b in main master; do
-    if git show-ref --verify --quiet "refs/remotes/origin/$_b" \
-       || git show-ref --verify --quiet "refs/heads/$_b"; then
-      BASE_BRANCH="$_b"; break
-    fi
-  done
-fi
+# >>> Paste the DEFAULT ladder from ../shared/default-branch.md here. <<<
+# This skill only reads, so an unresolved default falls back to main rather than stopping.
+BASE_BRANCH="${BASE_BRANCH:-${DEFAULT:-}}"
 BASE_BRANCH="${BASE_BRANCH:-main}"
 
 # --- Model resolution -----------------------------------------------------

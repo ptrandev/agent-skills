@@ -70,59 +70,18 @@ if ! command -v gh >/dev/null; then
 fi
 gh --version || echo "WARN: gh unavailable; the run needs the GitHub MCP transport"
 
-CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
-AICC_DIR="${AICC_DIR:-./aicc-queues}"
-
-if [ -f "$CODEBASE_DIR/package.json" ]; then
-  ( cd "$CODEBASE_DIR" && corepack enable && yarn install --immutable ) ||
-    echo "WARN: codebase install failed; fixes degrade to triage-only"
-else
-  echo "WARN: codebase clone not found; fixes degrade to triage-only"
-fi
-
-if [ -f "$AICC_DIR/build.gradle" ]; then
-  ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) ||
-    echo "WARN: aicc-queues compile failed; fixes degrade to triage-only"
-else
-  echo "WARN: aicc-queues clone not found; fixes degrade to triage-only"
-fi
-
-HYZL_DIR="${HYZL_DIR:-./neema-simple-hyzl}"
-
-if [ -f "$HYZL_DIR/deno.json" ]; then
-  if ! command -v deno >/dev/null; then
-    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y --no-modify-path ||
-      echo "WARN: deno install failed"
-  fi
-  ( cd "$HYZL_DIR/web" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl web install failed; web/ checks unavailable"
-  ( cd "$HYZL_DIR/voice-control" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl voice-control install failed; its checks unavailable"
-  ( cd "$HYZL_DIR" && deno task check && deno task lint && deno task test ) ||
-    echo "WARN: neema-simple-hyzl checks failed; fixes degrade to triage-only"
-else
-  echo "WARN: neema-simple-hyzl clone not found; fixes degrade to triage-only"
-fi
-
-PGPT_DIR="${PGPT_DIR:-./pointsgpt}"
-
-if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
-  # No package.json and no install step: deno and node are the whole toolchain.
-  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
-    echo "WARN: pointsgpt deno check failed; fixes degrade to triage-only"
-  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
-    echo "WARN: pointsgpt admin-site check failed; fixes degrade to triage-only"
-else
-  echo "WARN: pointsgpt clone not found; fixes degrade to triage-only"
-fi
+DEGRADE="fixes degrade to triage-only"
+# >>> Paste the per-repo preflight block from ../shared/routine-preflight.md here. <<<
 ```
 
-The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
-`../shared/github-transport.md`, which resolves next to the installed skill.
+The `shared` copy is mandatory. The skill reads the transport contract at
+`../shared/github-transport.md`, the repo set and verify commands at `../shared/repos.md`, and the
+default-branch ladder at `../shared/default-branch.md`. All three resolve next to the installed
+skill.
 
-The runner stops on an unhandled non-zero command. Keep every optional step guarded when you change
-the script. Replace the four clone paths when the Routine uses different directories. Add Gradle or
-Maven hosts to the Trusted network allowlist when dependency downloads fail.
+The runner stops on an unhandled non-zero command, so keep every optional step guarded.
+[../shared/routine-preflight.md](../shared/routine-preflight.md) owns the clone-path rule. Add
+Gradle or Maven hosts to the Trusted network allowlist when dependency downloads fail.
 
 The environment caches setup for several days, so the first run is slower. Change a harmless
 setup-script comment to force a newly published skill revision to load.

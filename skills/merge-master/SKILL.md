@@ -15,18 +15,10 @@ description: >
    them. **Do not** run `git stash pop` afterwards. Capture the current branch:
    `git rev-parse --abbrev-ref HEAD`. **Stop and tell the user** when the branch
    is the default branch resolved in step 2.
-2. **Resolve the default branch.** **Never assume `master`.** `Atllas-Inc/codebase`
-   and `Atllas-Inc/aicc-queues` use `master`. `Atllas-Inc/neema-simple-hyzl` and
-   `Atllas-Inc/pointsgpt` use `main`, and `git fetch origin master` in a `main`
-   repo fails with `couldn't find remote ref master`.
-   ```bash
-   DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##')
-   [ -z "$DEFAULT" ] && DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null)
-   [ -z "$DEFAULT" ] && for b in main master; do
-     git rev-parse --verify --quiet "origin/$b" >/dev/null && DEFAULT=$b && break
-   done
-   [ -n "$DEFAULT" ] || { echo "Cannot resolve the default branch. Stopping."; exit 1; }
-   ```
+2. **Resolve the default branch.** **Read
+   [../shared/default-branch.md](../shared/default-branch.md) and run its ladder.**
+   It owns the resolution. **Stop and tell the user** when it comes back empty:
+   merging the wrong branch rewrites their work.
 3. **Fetch and merge.** `git fetch origin "$DEFAULT"`, then
    `git merge "origin/$DEFAULT"`. Skip to step 6 when it merges cleanly.
 4. **Resolve conflicts.** For each conflicted file (`git diff --name-only

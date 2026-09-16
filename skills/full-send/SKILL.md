@@ -261,14 +261,15 @@ like the default flow, with no further per-phase checkpoints.
 Always branch from an **up-to-date base**. Detect the base branch (`master`/`main`), fetch it, and
 branch from the fresh ref:
 
+**Read [../shared/default-branch.md](../shared/default-branch.md) and run its ladder** to set
+`BASE`. It owns the resolution.
+
 ```bash
-BASE=$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')   # usually master
-# An unreachable remote, or a fork with no upstream HEAD, leaves BASE empty. Probe main then
-# master instead: an empty BASE poisons every downstream diff and the `gh pr create` base.
-[ -z "$BASE" ] && for b in main master; do
-  git rev-parse --verify --quiet "origin/$b" >/dev/null && BASE=$b && break
-done
-[ -z "$BASE" ] && { echo "FATAL: no default branch (origin/HEAD, origin/main, origin/master all unresolved)" >&2; exit 1; }
+# >>> Paste the DEFAULT ladder from ../shared/default-branch.md here. <<<
+BASE="${DEFAULT:-}"
+# This skill's policy on empty: stop. An empty BASE poisons every later diff and the
+# `gh pr create` base.
+[ -z "$BASE" ] && { echo "FATAL: cannot resolve the default branch" >&2; exit 1; }
 git fetch origin "$BASE"
 ```
 

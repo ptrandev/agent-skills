@@ -30,8 +30,9 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-**Read [repos.md](repos.md) at Phase 0.** It owns the default repo set, each repo's clone path and
-default branch, and the verify commands that set its depth.
+**Read [../shared/repos.md](../shared/repos.md) at Phase 0** for the repo set, the clone paths, the
+default branches, and the verify commands. **Read [repos.md](repos.md)** for what each depth means
+for the verdict.
 
 **Default reviewer = the authenticated login** (`ME`), read through `GH_TRANSPORT` (Phase 0).
 

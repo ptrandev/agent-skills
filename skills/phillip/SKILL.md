@@ -56,18 +56,16 @@ arrows, not em dashes.
 
 ### Capture the diff under review
 
-Detect the default branch instead of assuming `master` -> many repos use `main`.
+**Read [../shared/default-branch.md](../shared/default-branch.md) before this block.** It owns the
+ladder that sets `DEFAULT`.
 Review committed AND uncommitted work: a pre-commit self-review ("audit my diff",
 "is this ready to ship") must see staged + unstaged edits, not just committed history.
 
 ```bash
 git fetch origin --quiet 2>/dev/null
-DEFAULT=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@')
-DEFAULT=${DEFAULT:-$(git remote show origin 2>/dev/null | sed -n 's/.*HEAD branch: //p')}
-# origin/HEAD unresolvable (offline / local-only / fork) -> pick whichever of main/master
-# actually exists rather than blindly assuming master (which breaks main-only repos).
-[ -z "$DEFAULT" ] && for b in main master; do git rev-parse --verify --quiet "origin/$b" >/dev/null && DEFAULT=$b && break; done
-[ -z "$DEFAULT" ] && for b in main master; do git rev-parse --verify --quiet "$b" >/dev/null && DEFAULT=$b && break; done
+# >>> Paste the DEFAULT ladder from ../shared/default-branch.md here. <<<
+# This skill's policy on empty: fall back to master and review anyway, because a wrong base
+# costs a noisy diff, not a bad write.
 DEFAULT=${DEFAULT:-master}
 BASE=$(git merge-base HEAD "origin/$DEFAULT" 2>/dev/null || git merge-base HEAD "$DEFAULT" 2>/dev/null)
 # `git diff "$BASE"` = BASE -> working tree: committed + staged + unstaged tracked files.

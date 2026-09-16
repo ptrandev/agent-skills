@@ -72,61 +72,20 @@ gh --version || echo "WARN: gh unavailable; the run needs the GitHub MCP transpo
 git config --global user.name "${GIT_AUTHOR_NAME:-Phillip Tran}"
 git config --global user.email "${GIT_AUTHOR_EMAIL:-donutdeflector@tuta.io}"
 
-CODEBASE_DIR="${CODEBASE_DIR:-./codebase}"
-AICC_DIR="${AICC_DIR:-./aicc-queues}"
-
-if [ -f "$CODEBASE_DIR/package.json" ]; then
-  ( cd "$CODEBASE_DIR" && corepack enable && yarn install --immutable ) ||
-    echo "WARN: codebase install failed; verification and lockfile resolution degrade"
-else
-  echo "WARN: codebase clone not found; the run skips that repo"
-fi
-
-if [ -f "$AICC_DIR/build.gradle" ]; then
-  ( cd "$AICC_DIR" && ./gradlew --no-daemon compileJava ) ||
-    echo "WARN: aicc-queues compile failed; verification degrades"
-else
-  echo "WARN: aicc-queues clone not found; the run skips that repo"
-fi
-
-HYZL_DIR="${HYZL_DIR:-./neema-simple-hyzl}"
-
-if [ -f "$HYZL_DIR/deno.json" ]; then
-  if ! command -v deno >/dev/null; then
-    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y --no-modify-path ||
-      echo "WARN: deno install failed"
-  fi
-  ( cd "$HYZL_DIR/web" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl web install failed; web/ checks unavailable"
-  ( cd "$HYZL_DIR/voice-control" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl voice-control install failed; its checks unavailable"
-  ( cd "$HYZL_DIR" && deno task check && deno task lint && deno task test ) ||
-    echo "WARN: neema-simple-hyzl checks failed; verification degrades"
-else
-  echo "WARN: neema-simple-hyzl clone not found; the run skips that repo"
-fi
-
-PGPT_DIR="${PGPT_DIR:-./pointsgpt}"
-
-if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
-  # No package.json and no install step: deno and node are the whole toolchain.
-  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
-    echo "WARN: pointsgpt deno check failed; verification degrades"
-  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
-    echo "WARN: pointsgpt admin-site check failed; verification degrades"
-else
-  echo "WARN: pointsgpt clone not found; the run skips that repo"
-fi
+DEGRADE="verification degrades"
+# >>> Paste the per-repo preflight block from ../shared/routine-preflight.md here. <<<
 ```
 
-The `shared` copy is mandatory. `SKILL.md` reads the transport contract at
-`../shared/github-transport.md`, which resolves next to the installed skill.
+The `shared` copy is mandatory. The skill reads the transport contract at
+`../shared/github-transport.md`, the repo set and verify commands at `../shared/repos.md`, and the
+default-branch ladder at `../shared/default-branch.md`. All three resolve next to the installed
+skill.
 
 The `git config` lines matter here. A merge commit needs an author, and an unconfigured sandbox
 fails `git commit` with `Please tell me who you are`.
 
-The runner stops on an unhandled non-zero command. Keep every optional step guarded when you
-change the script. Replace the four clone paths when the Routine uses different directories.
+The runner stops on an unhandled non-zero command, so keep every optional step guarded.
+[../shared/routine-preflight.md](../shared/routine-preflight.md) owns the clone-path rule.
 
 The environment caches setup for several days, so the first run is slower. Change a harmless
 setup-script comment to force a newly published skill revision to load.

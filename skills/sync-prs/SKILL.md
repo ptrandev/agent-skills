@@ -27,11 +27,9 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-Process these unless `--repo` narrows the run: `Atllas-Inc/codebase`, `Atllas-Inc/aicc-queues`,
-`Atllas-Inc/neema-simple-hyzl`, and `Atllas-Inc/pointsgpt`.
-
-`neema-simple-hyzl` and `pointsgpt` merge into `main`, the other two into `master`. Phase 0 already
-reads the default branch per repo, so add no branch name here.
+**Read [../shared/repos.md](../shared/repos.md).** It owns the repo set, the clone paths, and the
+default branches. Process every repo there unless `--repo` narrows the run. Phase 0 reads each
+repo's default branch through the transport, so **never** hardcode one.
 
 Each repo needs a clone. Resolve `CLONE` per repo, in this order, and take the first hit:
 
@@ -187,13 +185,8 @@ file and the decision.
 Run the repo's verification command. Skip this phase only when `CAN_VERIFY[$REPO]` is false, and
 say so per PR in the report.
 
-| Repo | Command |
-|---|---|
-| `Atllas-Inc/codebase` | `yarn ci:typecheck` in `apps/api` |
-| `Atllas-Inc/aicc-queues` | `./gradlew --no-daemon compileJava` |
-| `Atllas-Inc/neema-simple-hyzl` | `deno task check`, then `deno task lint` |
-| `Atllas-Inc/pointsgpt` | `deno check supabase/functions`, then `cd admin-site && node check.js` |
-| Another repo | The typecheck, lint, or build script its `package.json` or build file defines |
+This skill verifies a **merge**, not a change, so it has no changed-file set to narrow by.
+**Use the Merge check table in [../shared/repos.md](../shared/repos.md).** It owns the command.
 
 **Do not push a failing merge.** On failure, run `git reset --hard "origin/$HEAD_BRANCH"` and
 record the PR under Needs you with the first failing output line. A clean merge that fails

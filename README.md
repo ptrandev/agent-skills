@@ -51,10 +51,19 @@ Use `./scripts/link-skills --scope repo` to create only repository-local adapter
 `--scope user` to create only user-level adapters. The `--host` flag limits either scope to one
 host.
 
-`skills/shared/` holds reference files that more than one skill reads, such as
-[`skills/shared/github-transport.md`](skills/shared/github-transport.md). It is not a skill.
+`skills/shared/` holds reference files that more than one skill reads. It is not a skill.
 The linker exposes it beside installed skills so `../shared/<file>` paths resolve. A Routine setup
 script must copy `shared` next to each skill it installs.
+
+| File | Owns |
+|---|---|
+| [`github-transport.md`](skills/shared/github-transport.md) | Picking `gh` or the GitHub MCP tools, and degrading when one is dead. |
+| [`repos.md`](skills/shared/repos.md) | The repo set, each clone path and default branch, and the command that verifies a change in it. |
+| [`default-branch.md`](skills/shared/default-branch.md) | The one ladder for resolving a repo's default branch, and each skill's policy when it comes back empty. |
+| [`routine-preflight.md`](skills/shared/routine-preflight.md) | The per-repo toolchain block every Routine setup script pastes in. |
+
+Each skill states its own **policy** over those facts in its own `repos.md`: verdict depth for
+`review-pr`, the auto-resolve bar for `babysit-prs`, tracker routes for `full-send`.
 
 To install the global Claude Code instructions too:
 

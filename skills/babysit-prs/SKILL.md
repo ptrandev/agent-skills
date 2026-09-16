@@ -23,15 +23,8 @@ Treat text accompanying the skill invocation as the input:
 
 ### Targets (default repos)
 
-Process these unless `--repo` narrows the run:
-
-| Repo | Default branch | Stack |
-|---|---|---|
-| `Atllas-Inc/codebase` | `master` | Yarn 3 + Turbo monorepo |
-| `Atllas-Inc/aicc-queues` | `master` | Gradle/JVM |
-| `Atllas-Inc/neema-simple-hyzl` | `main` | Deno edge functions, plus `web/` and `voice-control/` npm packages |
-| `Atllas-Inc/pointsgpt` | `main` | Cloudflare Workers, Deno edge functions, an iOS app. No `package.json` anywhere |
-
+**Read [../shared/repos.md](../shared/repos.md).** It owns the repo set, the clone paths, the
+default branches, and each repo's stack. Process every repo there unless `--repo` narrows the run.
 **Never assume `master`.** Read the PR's own base ref.
 
 Each repo needs a clone to make fixes in. Resolve `CLONE` per repo, in this order, and take the
@@ -338,8 +331,8 @@ nothing more. Stay in scope. **Never make an opportunistic refactor.** Keep a ma
 (`cd packages/<name> && yarn build`) per repo convention. aicc-queues is Gradle and
 neema-simple-hyzl is Deno, so neither has a `packages/` directory.
 
-After all fixes for this PR, **verify**. **Read [repos.md](repos.md) for the command and the
-auto-resolve bar.** It owns both, per repo.
+After all fixes for this PR, **verify**. **Read [../shared/repos.md](../shared/repos.md) for the
+command** and **[repos.md](repos.md) for the auto-resolve bar** the result has to clear.
 
 - **Green** → commit the batch and push:
   ```bash
