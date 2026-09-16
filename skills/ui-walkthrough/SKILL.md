@@ -29,17 +29,11 @@ Treat text accompanying the skill invocation as the input:
 
 ### Repos this skill can walk
 
-| Repo | Walkable |
-|---|---|
-| `Atllas-Inc/codebase` | Yes. `apps/agents-portal` on the sealed `e2e` stack. |
-| `Atllas-Inc/aicc-queues` | No. It has no frontend. |
-| `Atllas-Inc/neema-simple-hyzl` | No. See below. |
-
-**Stop before walking a `neema-simple-hyzl` PR.** Its `web/` Next.js dashboard has no sealed stack:
-the repo carries no Playwright install, no emulator, and no seeded persona (verified 2026-09-16 in
-the clone). `npm run dev` there talks to **real Supabase**, which invariant 7 forbids. Post a
-neutral note ("no sealed stack in this repo, walkthrough skipped"), never a finding, and never fall
-back to `dev`. Remove this row once the repo grows an `e2e` target.
+Only `Atllas-Inc/codebase` is walkable: its `apps/agents-portal` has the sealed `e2e` stack, and
+`Atllas-Inc/aicc-queues` has no frontend. **Stop before walking an `Atllas-Inc/neema-simple-hyzl`
+PR:** that repo has no sealed stack (verified 2026-09-16), and its `npm run dev` hits **real
+Supabase**, which invariant 7 forbids. Post a neutral note ("no sealed stack, walkthrough skipped"),
+never a finding, and never fall back to `dev`.
 
 ---
 
