@@ -44,6 +44,22 @@ One HTML file. Product-real tokens. Every state reachable by clicking. Opens fro
 - **Never add a row to the walkthrough bar.** Two rows is the budget. New controls join the
   existing control row or move inside the frame.
 
+## Design principles
+
+These four decide every layout choice in Phase 3 and Phase 4. When two conflict, the earlier one
+wins.
+
+1. **Minimum surface.** Use the fewest words and the fewest elements that complete the user story.
+   Cut every element that carries no reader decision. A label that repeats its value, a helper line
+   that restates its label, an icon beside an already clear word: delete all three.
+2. **One primary action per state.** Give each state exactly one obvious next action, styled the
+   way the product styles a primary button. Demote the rest to secondary, to a link, or to one
+   level down. **Never give two controls in one state the same visual weight.**
+3. **Reuse before invention.** Build the change from components the product already has. A new
+   component is a thing somebody must then build, so it needs a reason you state in Phase 6.
+4. **Show data, not chrome.** Spend the space on content. Add a border, card, divider, or icon only
+   when it carries a distinction the reader must see.
+
 ## Phase 1: scope the change
 
 Read the source. Name the one surface the change lands on. Then pick the shape:
@@ -124,7 +140,7 @@ and a mockup is thousands of lines.
 
 ## Phase 5: check it
 
-Run all five. A failure here is cheaper than a failure in the reader's browser.
+Run all six. A failure here is cheaper than a failure in the reader's browser.
 
 ```bash
 # 0. The script parses. One syntax error kills every state at once.
@@ -147,7 +163,11 @@ grep -in 'lorem\|example\.com\|John Doe\|Item [0-9]\|TODO\|FIXME' "$OUT"
 grep -c 'data-bp=' "$OUT"
 ```
 
-5. **Sweep it with [references/sweep.js](references/sweep.js).** Open the file with `browse`
+5. **Cut pass.** Walk every state once against the design principles. Delete each word and each
+   element that no reader decision depends on. Demote every control that competes with the state's
+   primary action.
+
+6. **Sweep it with [references/sweep.js](references/sweep.js).** Open the file with `browse`
    and evaluate that script once. It visits every state at every device preset and every variant,
    fires every control, and returns the defects. Read the file for what each key means.
 
@@ -176,6 +196,8 @@ Give the file path, then:
 - The open questions as a numbered list. Each one names the option you recommend and why.
 - Anything in the frame that approximates rather than reproduces the product. Every line here is a
   defect you chose to ship, so this list is normally empty.
+- Every component the mockup introduces that the product does not have, and the reason it earned
+  its place.
 - **Do not ask about anything the mockup already answers.** That is what it is for.
 
 With `--publish`, also publish it as an Artifact and give the URL. Artifacts carry comment threads,
