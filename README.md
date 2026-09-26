@@ -24,7 +24,7 @@ agents, so a `git pull` updates every linked copy.
 | [`debrief`](skills/debrief/SKILL.md) | Audits a completed session for unchecked assumptions and remaining risks. | `/debrief [deep] [topic]` |
 | [`merge-master`](skills/merge-master/SKILL.md) | Merges `origin/master` into the current branch, resolves conflicts, and pushes. | `/merge-master` |
 | [`sync-prs`](skills/sync-prs/SKILL.md) | Merges the default branch into every open PR you authored, resolves conflicts, and pushes. Conflict contract in [`resolver.md`](skills/sync-prs/resolver.md), cloud schedule in [`routine.md`](skills/sync-prs/routine.md). | `/sync-prs [PR# ...]`<br>`--repo owner/name`, `--dry-run`, `--ready-only` |
-| [`launch-summary`](skills/launch-summary/SKILL.md) | Summarizes daily or weekly Atllas launches for non-developers, across every default repo. | `/launch-summary [daily\|weekly]` |
+| [`launch-summary`](skills/launch-summary/SKILL.md) | Summarizes daily or weekly Atllas launches for non-developers, grouped by product and credited to who built and merged each change. | `/launch-summary [daily\|weekly]` |
 | [`plain-english`](skills/plain-english/SKILL.md) | Extracts claims, caveats, omissions, and implications from dense text. | `/plain-english <text>` |
 | [`copy-edit`](skills/copy-edit/SKILL.md) | Turns a transcript or rough draft into a polished post without adding claims. | `/copy-edit <text\|path>` |
 | [`skill-edit`](skills/skill-edit/SKILL.md) | Rewrites one skill to match this repository's house style. | `/skill-edit [skill\|path]` |
