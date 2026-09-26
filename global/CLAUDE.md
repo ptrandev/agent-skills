@@ -125,7 +125,3 @@ runs, e.g. Fable, Opus, or Sonnet).
     (main loop needs raw evidence, not summaries), sequential dependent steps
     (no fan-out = pure overhead), small precision edits, and stateful/risky
     ops (git, deploys, prod data: one visible actor, in order).
-
-## gstack
-
-Use `/browse` for all web browsing. Never use `mcp__claude-in-chrome__*` tools.
