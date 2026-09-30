@@ -99,6 +99,9 @@ result, then capture the empty and error states if the surface has them. Naming:
 $SCRATCH/shots-$NAME-$PR/<nn>-<surface>-<viewport>[-<state>].png
 ```
 
+`<surface>` is the route with its slashes trimmed and inner slashes as `-`: `/app/` is `app`,
+`/billing/invoices` is `billing-invoices`, and `/` is `root`.
+
 ```bash
 $B viewport 1440x900
 $B goto "$BASE_URL/<surface>"
@@ -139,7 +142,10 @@ own.
 $B js 'document.documentElement.scrollWidth - window.innerWidth'          # > 1 → candidate BLOCKER
 
 # touch targets below 44px (mobile only)
+# Skips a link inline in running text: WCAG 2.5.8 exempts it.
 $B js '[...document.querySelectorAll("a,button,input,select,textarea,[role=button],[onclick]")]
+  .filter(e=>!(e.tagName==="A" && getComputedStyle(e).display==="inline"
+    && e.parentElement.innerText.trim().length>e.innerText.trim().length))
   .map(e=>({t:(e.innerText||e.tagName).slice(0,40),...e.getBoundingClientRect().toJSON()}))
   .filter(r=>r.width>0&&r.height>0&&(r.width<44||r.height<44))'
 

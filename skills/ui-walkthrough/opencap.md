@@ -75,7 +75,8 @@ browser has no window to target either, which is the only reason this skill ever
    resolves to nothing.
 3. **Never target the terminal.** ScreenCaptureKit deadlocks capturing the window that hosts the
    process that started it. Target Chromium, only ever Chromium.
-4. **Never start a second recording.** One run produces one video. The active-session lock lives at
+4. **Never start a second recording while one is live.** One run posts one video. A take that
+   failed a beat is discarded with `record discard`, then recorded again once. The active-session lock lives at
    `~/.opencap/active`, and `opencap event` appends to *the* active recording, so with two live
    sessions marker routing is undefined. If `record status` reports an active session, it is not
    yours: skip with a note.
@@ -88,7 +89,7 @@ browser has no window to target either, which is the only reason this skill ever
 8. **Video never blocks and never fails a run.** Every `opencap` call is best-effort. Non-zero exit,
    empty output, missing binary → note it, continue the walkthrough, post the screenshots.
 9. **Never leave an orphan session.** An abandoned recording holds the lock and burns a Free-tier
-   slot (25 for the lifetime of the account). Discard it in the EXIT trap.
+   slot (25 for the lifetime of the account). Discard it in the teardown call.
 
 ---
 
@@ -419,7 +420,7 @@ timeline and which did not.
 ## Teardown
 
 ```bash
-# In the EXIT trap, before releasing the stack lock:
+# In the teardown call, before releasing the stack lock:
 if [ "$CAN_VIDEO" = 1 ] && [ -z "${VIDEO_URL:-}" ]; then
   opencap record discard >/dev/null 2>&1 || true    # aborted run: don't upload, don't burn a slot
 fi

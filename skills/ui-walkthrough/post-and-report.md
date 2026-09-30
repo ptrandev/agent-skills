@@ -123,7 +123,7 @@ between those surfaces.
 `Surfaces walked`.** A surface the route fails to reach at all is named with its reason. That is a
 run defect to report, never a length trade the skill is allowed to make.
 
-Teardown is the EXIT trap from Phase 4 (stack down, lock released). It must not depend on the
+Teardown is the explicit final Bash call (stack down, lock released). It must not depend on the
 walkthrough having succeeded. It must leave the machine exactly as it was found:
 
 - [ ] the injected `uiw-hold.spec.ts` **and any in-workspace driver/probe `.mjs`** (Phase 0, they

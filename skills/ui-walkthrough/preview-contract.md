@@ -78,9 +78,9 @@ A repo PR that adds or changes the command must keep all of these true:
 | 3 | Filter changed files with `sourceDirs`. Map `<appDir>/**/page.tsx` to its route, and a `layout.tsx` to every route beneath it. The root `layout.tsx` is global: walk `entryPath` plus the two next top-level routes. Walk component importers up to `appDir`. Pass a state query on every first navigation to a surface, because a fixture database can carry writes across pages. Every other Phase 3 rule holds. |
 | 3 | When the manifest has `ios` and the diff touches `ios/`, do not exit early for a PR with no web file. Skip Phases 4 to 5c and run the iOS capture alone. |
 | 4 | Boot and health check, below. |
-| 5a | Navigate as `$BASE_URL<route>?<persona query>&<state query>`. Walk the default state on every surface. Add a state only when its `when` matches the diff. A state with `persona` is walked with that persona only. A requested persona the manifest does not list is a neutral note, never a substitute. |
+| 5a | Navigate as `$BASE_URL<route>?<persona query>&<state query>`. Walk the default state on every surface, at every viewport. A manifest state other than the default is an interaction state for [capture.md](capture.md): desktop and mobile only. Add a state only when its `when` matches the diff. A state with `persona` is walked with that persona only. A requested persona the manifest does not list is a neutral note, never a substitute. |
 | 5a | After each surface, read `window.__fixturePreview.escaped`. A non-empty array is a **coverage gap**, reported by URL. The PR owns the missing fixture, like seed rung 1 in `full-send/evidence.md`. |
-| 5c | Start the journey with one `goto` to `$BASE_URL<entryPath>?<persona query>&<default state query>`. Every later beat clicks, per [opencap.md](opencap.md). The fixture state persists in the tab, so a click keeps the persona and state. |
+| 5c | Start the journey with one `goto` to `$BASE_URL<entryPath>?<persona query>&<default state query>`. Every later beat clicks, per [opencap.md](opencap.md). The fixture state persists in the tab, so a click keeps the persona and state. After an action, wait for an element the action creates, never for text the start state already shows. |
 | 7 | Add the `ios` screenshots to the evidence, when the ios row below produced any. |
 | 8 | The `Stack:` line reads `Stack: <repo> fixtures (<label>, no live backend)`. Carry `caveat` under it. |
 
@@ -88,23 +88,26 @@ A repo PR that adds or changes the command must keep all of these true:
 
 ## Boot and health check (Phase 4)
 
+Boot in two Bash calls. A cold build can pass the 600 s ceiling of one call, so the first call runs
+with `run_in_background` and holds the preview in the foreground of its own shell:
+
 ```bash
-PORT=$((3000 + LANE * 10))
-M="$WORKDIR/walkthrough.json"
-PORT_ENV=$(jq -r .preview.portEnv "$M"); READY=$(jq -r .preview.readyPath "$M")
-( cd "$WORKDIR" && env "$PORT_ENV=$PORT" sh -c "$(jq -r .preview.command "$M")" ) \
-  > "$SCRATCH/preview.log" 2>&1 &
-PREVIEW_PID=$!
-BASE_URL="http://localhost:$PORT"
-for _ in $(seq 1 60); do
-  curl -sf -o /dev/null "$BASE_URL$READY" && break
-  kill -0 "$PREVIEW_PID" 2>/dev/null || break
-  sleep 5
-done
+# Call 1, run_in_background. No `&`: the background call itself keeps the server alive.
+PORT=$((3000 + LANE * 10)); M="$WORKDIR/walkthrough.json"
+cd "$WORKDIR" && env "$(jq -r .preview.portEnv "$M")=$PORT" sh -c "$(jq -r .preview.command "$M")" \
+  > "$SCRATCH/preview.log" 2>&1
 ```
 
-Run the boot as its own background call, because a cold build can pass the 600 s Bash ceiling. Kill
-`$PREVIEW_PID` and its process group in the EXIT trap.
+```bash
+# Call 2, foreground: wait for readiness, then record the process that holds the port.
+PORT=$((3000 + LANE * 10)); READY=$(jq -r .preview.readyPath "$WORKDIR/walkthrough.json")
+BASE_URL="http://localhost:$PORT"
+for _ in $(seq 1 100); do curl -sf -o /dev/null "$BASE_URL$READY" && break; sleep 5; done
+lsof -t -nP -iTCP:$PORT -sTCP:LISTEN > "$SCRATCH/preview.pid"
+```
+
+Teardown kills each pid in `$SCRATCH/preview.pid`. **Never kill by the pid of the call or the
+`npm` wrapper**: `npm run` starts the server as a child, which keeps the port after its parent dies.
 
 Three assertions, all required. A failure is a neutral note that quotes the last 20 lines of
 `preview.log`, never a finding:
@@ -120,6 +123,12 @@ Then assert in the page, through the driver: `typeof window.__fixturePreview` re
 
 A `-dirty` SHA fails the second assertion. The walked tree must equal the PR head, or the evidence
 shows code the PR does not contain.
+
+The readiness line names the fixture target instead of the e2e persona and emulator ports:
+
+```
+ui-walkthrough:  gh ✓ (ptrandev)  driver: Playwright headed, chrome  RAM 32GB ✓  lane 0 (preview :3000)  persona: premium (account=pro)  target: pointsgpt fixtures  video: opencap ✓ window-scoped desktop journey
+```
 
 ## iOS screenshots
 

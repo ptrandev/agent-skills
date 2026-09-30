@@ -183,7 +183,7 @@ TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 IN_PLACE=0
 if [ -n "$TOP" ] && [ "$(git -C "$TOP" rev-parse HEAD)" = "$HEAD_SHA" ] \
    && [ -z "$(git -C "$TOP" status --porcelain --untracked-files=no)" ] \
-   && ! grep -qxF "$TOP" /private/tmp/ui-walkthrough/*.lock/workdir 2>/dev/null; then
+   && [ -z "$(find /private/tmp/ui-walkthrough -path '*.lock/workdir' -exec grep -lxF "$TOP" {} + 2>/dev/null)" ]; then
   IN_PLACE=1; WORKDIR="$TOP"
 fi
 ```
@@ -249,7 +249,7 @@ Lane 0 busy then means no `dev` walkthrough this run: neutral note, and the loop
 
 ## Teardown
 
-Add to the EXIT trap, alongside the stack teardown in [stack.md](stack.md):
+Add to the teardown call, alongside the stack teardown in [stack.md](stack.md):
 
 ```bash
 "$B" stop 2>/dev/null || true                 # the lane wrapper: this lane's daemon only

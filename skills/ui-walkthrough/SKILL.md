@@ -23,7 +23,7 @@ Treat text accompanying the skill invocation as the input:
 | `--target=e2e\|dev` | Which stack to walk. **Always defaults to `e2e`**, in every role and environment. `dev` runs only when this flag is typed, see [target-selection.md](target-selection.md). |
 | `--lane=N` | Which port lane to boot on. Default: the first free lane. See [concurrency.md](concurrency.md). |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
-| `--no-post` | Assemble the report + print the exact payload, **post nothing**. |
+| `--no-post` | Assemble the report + print the exact payload, **post nothing**, and push no evidence ref. |
 | `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
 | `--embedded` | Called by another skill: return findings, **post nothing**. See [embedded.md](embedded.md). |
 
@@ -141,8 +141,9 @@ preview). Literal `~`/`$` in code stay inside backticks instead.
 
 Locate the directories containing the loaded `ui-walkthrough`, `full-send`, `review-pr`, and
 `design-review` skills. Call them `UI_WALKTHROUGH_DIR`, `FULL_SEND_DIR`, `REVIEW_PR_DIR`, and
-`DESIGN_REVIEW_DIR`. Use those directories for every skill file, credential file, reference, and
-script path below.
+`DESIGN_REVIEW_DIR`. Each is the real directory of `~/.claude/skills/<name>/SKILL.md`, symlinks
+resolved: `dirname "$(readlink -f ~/.claude/skills/<name>/SKILL.md)"`. Use those directories for every
+skill file, credential file, reference, and script path below.
 
 Run `node -p "process.platform"` before any shell-specific command. Set `HOST_PLATFORM` from this
 table:
@@ -431,7 +432,9 @@ Three rules from it that the earlier phases depend on, so they stay here too:
 
 - **Re-check `draft` and `author` immediately before posting** (invariant 10), not just at discovery.
 - **Post through `GH_TRANSPORT`** ([../shared/github-transport.md](../shared/github-transport.md)).
-- **Teardown is the Phase 4 EXIT trap, and it runs whether or not the walkthrough succeeded.**
+- **Teardown is an explicit final Bash call, and it runs whether or not the walkthrough succeeded.**
+  Each Bash call is its own shell, so an EXIT trap dies with the call that set it. Record every pid
+  under `$SCRATCH/*.pid` when it starts, and kill from those files.
 
 ---
 

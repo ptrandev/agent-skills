@@ -163,7 +163,7 @@ Refine it by *what kind* of dirty:
 ```
 
 **Always restore the user's branch in teardown.** Record `git rev-parse --abbrev-ref HEAD` before
-checkout and switch back in the EXIT trap. This skill borrows the clone, it does not take it.
+checkout and switch back in the teardown call. This skill borrows the clone, it does not take it.
 Worktree path -> `git worktree remove --force` instead, and expect the install cost.
 
 ## Lifecycle: defer to the harness, then to `/review-pr`
