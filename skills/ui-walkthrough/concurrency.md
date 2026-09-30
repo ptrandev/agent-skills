@@ -158,16 +158,36 @@ that never booted blocks the next one.
 Ports are not the only shared resource. Two runs in the **same directory** collide on the checked
 out branch, `apps/agents-portal/.next`, `apps/agents-portal/e2e/.auth/*.json`, the injected
 `uiw-hold.spec.ts`, and the `uiw-drive.mjs` driver. Separate ports do not separate any of those.
-In `neema-simple-hyzl` the colliding paths are `web/out` and `web/.next`, and `web/out` is the more
-dangerous one: it is what the fixture host serves, so a second run's build silently replaces the
-pages the first run is screenshotting.
+In a `walkthrough.json` repo the colliding path is the build output the preview serves, so a second
+run's build silently replaces the pages the first run is screenshotting.
 
-**Lane 0 uses the checkout-strategy table in [stack.md](stack.md). Every lane above 0 uses a
-worktree**, whatever that table says:
+**Walk in place when the current directory already is the PR.** A Conductor workspace or a
+`/full-send` branch is its own checkout, so a second worktree only costs an install. Walk in place,
+on any lane, when all of these hold:
+
+- `git rev-parse HEAD` in the current directory equals `$HEAD_SHA`.
+- `git status --porcelain` lists no tracked change.
+- No live lane lock records the same directory.
 
 ```bash
-if [ "$LANE" != 0 ]; then WORKDIR="$SCRATCH/checkout"; fi   # git worktree add "$WORKDIR" "$HEAD_SHA"
+TOP=$(git rev-parse --show-toplevel 2>/dev/null)
+IN_PLACE=0
+if [ -n "$TOP" ] && [ "$(git -C "$TOP" rev-parse HEAD)" = "$HEAD_SHA" ] \
+   && ! git -C "$TOP" status --porcelain | grep -qv '^??' \
+   && ! grep -qxF "$TOP" /private/tmp/ui-walkthrough/*.lock/workdir 2>/dev/null; then
+  IN_PLACE=1; WORKDIR="$TOP"
+fi
 ```
+
+Otherwise, **lane 0 uses the checkout-strategy table in [stack.md](stack.md), and every lane above 0
+uses a worktree**, whatever that table says:
+
+```bash
+if [ "$IN_PLACE" = 0 ] && [ "$LANE" != 0 ]; then WORKDIR="$SCRATCH/checkout"; fi   # git worktree add "$WORKDIR" "$HEAD_SHA"
+echo "$WORKDIR" > "$LOCK/workdir"
+```
+
+An in-place walk never switches the branch and never removes the directory in teardown.
 
 Pay the cost knowingly: the repo is `nodeLinker: node-modules` with `enableGlobalCache: false`, so a
 worktree needs its own `yarn install`, roughly **3.6 GB and several minutes**. Budget it before
@@ -215,7 +235,7 @@ Add to the EXIT trap, alongside the stack teardown in [stack.md](stack.md):
 
 ```bash
 $B_ENV "$B" stop 2>/dev/null || true          # this lane's daemon only, never a bare `browse stop`
-if [ "$LANE" != 0 ]; then git worktree remove --force "$WORKDIR" 2>/dev/null || true; fi
+if [ "$IN_PLACE" = 0 ] && [ "$LANE" != 0 ]; then git worktree remove --force "$WORKDIR" 2>/dev/null || true; fi
 rm -rf "$LOCK"
 ```
 

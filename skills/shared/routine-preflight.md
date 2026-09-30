@@ -44,22 +44,19 @@ if [ -f "$HYZL_DIR/deno.json" ]; then
     curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh -s -- -y --no-modify-path ||
       echo "WARN: deno install failed"
   fi
-  ( cd "$HYZL_DIR/web" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl web install failed; web/ checks unavailable"
-  ( cd "$HYZL_DIR/voice-control" && npm ci ) ||
-    echo "WARN: neema-simple-hyzl voice-control install failed; its checks unavailable"
+  ( cd "$HYZL_DIR" && npm ci ) ||
+    echo "WARN: neema-simple-hyzl npm install failed; web/ and voice-control/ checks unavailable"
   ( cd "$HYZL_DIR" && deno task check && deno task lint && deno task test ) ||
     echo "WARN: neema-simple-hyzl checks failed; $DEGRADE"
 else
   echo "WARN: neema-simple-hyzl clone not found; $DEGRADE"
 fi
 
-if [ -f "$PGPT_DIR/admin-site/check.js" ]; then
-  # No package.json and no install step: deno and node are the whole toolchain.
-  ( cd "$PGPT_DIR" && deno check supabase/functions ) ||
+if [ -f "$PGPT_DIR/deno.json" ]; then
+  ( cd "$PGPT_DIR" && deno task check ) ||
     echo "WARN: pointsgpt deno check failed; $DEGRADE"
-  ( cd "$PGPT_DIR/admin-site" && node check.js ) ||
-    echo "WARN: pointsgpt admin-site check failed; $DEGRADE"
+  ( cd "$PGPT_DIR" && npm ci && npm run typecheck ) ||
+    echo "WARN: pointsgpt npm check failed; $DEGRADE"
 else
   echo "WARN: pointsgpt clone not found; $DEGRADE"
 fi

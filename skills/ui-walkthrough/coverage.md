@@ -12,8 +12,8 @@ changed component sits behind a tab, a state, or a document shape the fixture ne
 shot then counts as a walked surface and the change is never seen (invariant 11).
 
 Build a **component ledger** beside the route list and carry it to Phase 9. One row per changed file
-under the repo's UI source dirs: `apps/agents-portal/src/{pages,components}/` in `codebase`,
-`web/{app,components}/` in `neema-simple-hyzl`. An empty ledger means the filter is wrong for the
+under the repo's UI source dirs: `apps/agents-portal/src/{pages,components}/` in `codebase`, and
+the manifest's `sourceDirs` in a `walkthrough.json` repo. An empty ledger means the filter is wrong for the
 repo, never that the PR changed no UI:
 
 | Column | How to fill it |

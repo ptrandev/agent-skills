@@ -112,9 +112,19 @@ CAN_VIDEO=0
 if [ "$(uname)" = Darwin ] && [ "$ENVIRONMENT" = local ] \
    && [ "${NO_VIDEO:-0}" = 0 ] && command -v opencap >/dev/null 2>&1 \
    && opencap config doctor >/dev/null 2>&1 \
+   && opencap whoami >/dev/null 2>&1 \
    && ! opencap record status --json 2>/dev/null | grep -q '"active"[[:space:]]*:[[:space:]]*true'
 then CAN_VIDEO=1; else echo "video: skipped (see neutral note)"; fi
 ```
+
+Name the failed condition in the note. `whoami` exit 3 means an expired login: the note reads
+`video: skipped: OpenCap login expired (run 'opencap login' once)`.
+
+**`doctor` passing does not prove the permission.** Verified 2026-09-29 in a Conductor workspace:
+`doctor` reported the display probe healthy, then `record start` failed with
+`Grant Screen Recording permission to your terminal in System Settings → Privacy & Security → Screen Recording, then re-run.`
+The grant belongs to the app that hosts the shell (Conductor, Terminal, or the editor), not to
+`opencap`. Step 5 of *The sequence* is therefore the real permission probe.
 
 ### The role does not gate the video, and attendance does not either
 
@@ -268,6 +278,8 @@ $B wait --networkidle
 START_OUT=$(opencap record start \
               --task "PR #$PR: $PR_TITLE (walkthrough)" \
               --window "$WIN" 2>&1) || CAN_VIDEO=0
+# A failed start names its cause in START_OUT. Quote it in the neutral note. On
+# "Screen Recording permission", name the host app: ${__CFBundleIdentifier:-unknown}.
 SESSION=$(printf '%s' "$START_OUT" | sed -n 's/^[[:space:]]*session:[[:space:]]*//p' | head -1)
 [ -n "$SESSION" ] || CAN_VIDEO=0
 

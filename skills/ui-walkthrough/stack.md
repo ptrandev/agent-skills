@@ -1,7 +1,7 @@
 # Stack boot and lifecycle
 
 How `/ui-walkthrough` gets `Atllas-Inc/codebase` running and healthy before Phase 5 drives it.
-`neema-simple-hyzl` boots differently: [hyzl-stack.md](hyzl-stack.md) owns it. Read this at
+A repo with a `walkthrough.json` boots differently: [preview-contract.md](preview-contract.md) owns it. Read this at
 the start of Phase 4, after [concurrency.md](concurrency.md) has set the lane. `SKILL.md` keeps only
 the two target rules and the pointer here.
 

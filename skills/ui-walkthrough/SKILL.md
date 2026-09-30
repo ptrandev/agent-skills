@@ -30,11 +30,10 @@ Treat text accompanying the skill invocation as the input:
 ### Repos this skill can walk
 
 `Atllas-Inc/codebase` walks on the sealed `e2e` stack. `Atllas-Inc/aicc-queues` has no frontend.
-**Read [hyzl-stack.md](hyzl-stack.md) at Phase 0 when `$NAME` is `neema-simple-hyzl`**: it owns that
-repo's target, boot, personas, routes, states, and evidence label. **Skip `Atllas-Inc/pointsgpt`**
-with a neutral note: it has no sealed stack, its `wrangler dev` Worker calls live Supabase and
-Stripe, and its own QA signs a reserved test account into production, which invariant 7 forbids.
-Its iPhone app is out of reach for a browser either way. Any other repo: neutral note.
+**Read [preview-contract.md](preview-contract.md) at Phase 0 when the checkout has a
+`walkthrough.json` at its root** (`neema-simple-hyzl`, `pointsgpt`): it owns that repo's target,
+boot, personas, routes, states, iOS screenshots, and evidence label. The repo owns its boot command.
+Any other repo: neutral note.
 
 ---
 
@@ -313,8 +312,8 @@ gh pr diff "$PR" --repo "$REPO" --name-only > "$SCRATCH/files-$NAME-$PR.txt"
 grep -E '^apps/agents-portal/src/(pages|components)/' "$SCRATCH/files-$NAME-$PR.txt"
 ```
 
-**`neema-simple-hyzl` uses a different filter and route map**, in [hyzl-stack.md](hyzl-stack.md).
-Every rule below still holds.
+**A `walkthrough.json` repo uses its manifest's filter and route map**, in
+[preview-contract.md](preview-contract.md). Every rule below still holds.
 
 - **No matching files -> exit early with a neutral note.** Not a UI PR, so nothing to walk.
 - **`pages/**` -> route directly.** `pages/foo/bar.tsx` -> `/foo/bar`. `index.tsx` -> the directory
@@ -340,8 +339,8 @@ derivation. Carry the ledger to Phase 5a and Phase 9.
 
 ## Phase 4: boot the PR's code (evidence integrity)
 
-**Read [stack.md](stack.md) before booting the stack**, or [hyzl-stack.md](hyzl-stack.md) for
-`neema-simple-hyzl`. `stack.md` owns both agents-portal boot procedures, the hold
+**Read [stack.md](stack.md) before booting the stack**, or [preview-contract.md](preview-contract.md)
+for a `walkthrough.json` repo. `stack.md` owns both agents-portal boot procedures, the hold
 spec, the host-environment scrub, backgrounding, pre-warm, login, the checkout-strategy
 table, and the deference to `/review-pr`'s stack lifecycle. The two rules that decide everything else:
 

@@ -4,8 +4,8 @@ Owns the environment probe, the attended probe, target resolution, every `dev` r
 `Stack:` line the comment carries. Read it at Phase 0, before [concurrency.md](concurrency.md).
 Carry `$ENVIRONMENT`, `$ATTENDED`, and `$TARGET` out of it.
 
-`neema-simple-hyzl` resolves to `fixtures` here and then follows
-[hyzl-stack.md](hyzl-stack.md), which owns its `Stack:` line.
+A repo with a `walkthrough.json` resolves to `fixtures` here and then follows
+[preview-contract.md](preview-contract.md), which owns its `Stack:` line.
 
 **The target is `e2e`.** Every role, every environment, attended or not. Nothing derives it and
 nothing falls back to it. `dev` runs only when the invocation carries `--target=dev`, or the session
@@ -30,7 +30,7 @@ fi
 ATTENDED=1
 if [ "${UIW_UNATTENDED:-0}" = 1 ] || [ -n "${CI:-}" ] || [ "$ENVIRONMENT" = routine ]; then ATTENDED=0; fi
 
-[ "$NAME" = neema-simple-hyzl ] && TARGET=fixtures   # hyzl-stack.md owns it from here
+[ -f "$CLONE/walkthrough.json" ] && TARGET=fixtures   # preview-contract.md owns it from here
 TARGET=${TARGET:-e2e}                       # the only default, in every role and environment
 if [ "${UIW_TARGET:-}" = dev ]; then TARGET=dev; fi   # session-wide operator opt-in
 if [ "${ARG_TARGET:-}" = dev ]; then TARGET=dev; fi   # --target=dev typed on this invocation

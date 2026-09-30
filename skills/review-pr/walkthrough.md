@@ -11,12 +11,11 @@ Run when `CAN_LIVE_HEADLESS` **AND** the PR is UI-touching **AND** not `--no-liv
 | Repo | UI-touching prefixes |
 |---|---|
 | `codebase` | `apps/agents-portal/src/pages/`, `apps/agents-portal/src/components/` |
-| `neema-simple-hyzl` | `web/app/`, `web/components/` |
+| a repo with `walkthrough.json` (`neema-simple-hyzl`, `pointsgpt`) | the manifest's `sourceDirs` |
 | `aicc-queues` | none. It has no frontend, so its PRs never reach this phase. |
-| `pointsgpt` | none. It has a frontend, but no sealed stack to walk it on, so its PRs never reach this phase either. |
 
-A `neema-simple-hyzl` walkthrough runs on that repo's fixture stack, and its evidence carries the
-`contract fixtures` label. `/ui-walkthrough` owns both in `hyzl-stack.md`.
+A `walkthrough.json` walkthrough runs on that repo's own fixture preview, and its evidence carries
+the manifest's `label`. `/ui-walkthrough` owns both in `preview-contract.md`.
 
 Otherwise **skip, and if it is a UI PR add a NEEDS-DYNAMIC-RUN note** to the report ("UI PR: run
 /review-pr <n> on a ≥8 GB runtime (cloud Routine or local) for the dynamic walkthrough"). `--no-live`

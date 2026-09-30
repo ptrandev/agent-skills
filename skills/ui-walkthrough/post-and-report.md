@@ -64,8 +64,8 @@ Stack: locally booted at <sha>, externally stubbed.
 Video: <link> (desktop journey, all <n> surfaces, <b> beats). Screenshots cover all three viewports.
 ```
 
-**A `neema-simple-hyzl` run replaces the `Stack:` line and adds the fixture caveat**, both spelled
-out in [hyzl-stack.md](hyzl-stack.md). Post neither wording anywhere else.
+**A `walkthrough.json` run replaces the `Stack:` line and adds the manifest's `caveat`**, as
+[preview-contract.md](preview-contract.md) spells out. Post neither wording anywhere else.
 
 **The Coverage block always names the viewports, and always next to the video line.** The video is
 desktop-only by design ([opencap.md](opencap.md)), so a reader who sees only the link otherwise

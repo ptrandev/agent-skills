@@ -146,7 +146,7 @@ can do and degrade per tier instead of failing:**
   # neema-simple-hyzl
   command -v deno && test -f "$CLONE/deno.json"
   # pointsgpt
-  command -v deno && command -v node && test -f "$CLONE/admin-site/check.js"
+  command -v deno && command -v npm && test -f "$CLONE/dev-docs/testing.md"
   ```
   A failing probe makes that repo **triage-only** for this run: reply/resolve where no code change
   is required. Route fix-needed threads to the Needs-you queue.

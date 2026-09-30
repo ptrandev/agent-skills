@@ -32,6 +32,11 @@ case "$BROWSE_HELP" in *prettyscreenshot*) SHOT=prettyscreenshot;; *) SHOT=scree
 case "$BROWSE_HELP" in *--headed*) BROWSE_CAN_HEAD=1;; *) BROWSE_CAN_HEAD=0;; esac
 ```
 
+**A `browse` whose first launch fails also swaps the driver.** Verified 2026-09-30: the binary passed
+`--help`, then failed at launch because its `chromium_headless_shell-1208` build was missing. Use the
+headed Playwright driver below with `channel: 'chrome'`, which launches the installed Google Chrome.
+Name the swap in the readiness line.
+
 **`BROWSE_CAN_HEAD=0` swaps the driver, it never drops the video.** One headed Playwright launch
 gives what `browse` cannot: a real OS window for OpenCap to scope to, a native `.webm` even when
 OpenCap is unavailable, and `storageState` auth that **does** restore the Firebase session
@@ -50,11 +55,11 @@ const context = await browser.newContext({
 - **The driver script must live INSIDE the workspace.** Node resolves ESM `node_modules` from the
   *script's own path*, not cwd, so a driver written to `$SCRATCH` throws
   `ERR_MODULE_NOT_FOUND: Cannot find package '@playwright/test'`. Write it next to the app
-  (`apps/agents-portal/uiw-drive.mjs`, or `web/uiw-drive.mjs` in `neema-simple-hyzl`), untracked,
-  and delete it in teardown with the hold spec.
-- **`neema-simple-hyzl` passes no `storageState`.** It has no `.auth/*.json` and no login form: the
-  persona is the `auth` and `admin` query parameters ([hyzl-stack.md](hyzl-stack.md)). It also ships
-  no Playwright, so the fallback installs its own. Prefer the `browse` path there.
+  (`apps/agents-portal/uiw-drive.mjs`, or `<appDir>/../uiw-drive.mjs` in a `walkthrough.json`
+  repo), untracked, and delete it in teardown with the hold spec.
+- **A `walkthrough.json` repo passes no `storageState`.** It has no login form: the persona is a
+  query string ([preview-contract.md](preview-contract.md)). When the repo ships no Playwright, the
+  fallback installs its own. Prefer the `browse` path there.
   Phase 9's `git status --porcelain` check catches a forgotten one.
 - **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Windows does not use this
   argument. Verified in `/review-pr`
@@ -81,6 +86,13 @@ const context = await browser.newContext({
   The cost is real and belongs in the report: the **repo's own E2E specs cannot execute** on a
   mismatched build, so a run there can judge "this UI PR is missing E2E specs" by reading the diff
   but can never run them. That is a neutral note, never a finding (invariant 2).
+- **Local Bash sandbox: a browser failure is infra, not a finding.** Claude Code's sandbox can stop
+  Chromium from launching or from opening sockets, while `curl` from the shell still reaches
+  `$BASE_URL`. Test it once: when `curl -sf "$BASE_URL"` passes and the first navigation fails
+  with `net::ERR_` or a launch error, the sandbox is the cause. **Do not** disable the sandbox from
+  this skill. Post the neutral note
+  `browser blocked by the Claude Code sandbox: add the driver to sandbox.excludedCommands`, and
+  name the driver binary in it (the `browse` path, or `node` for the Playwright driver).
 - **Capacity gate: skip if total RAM < \~8 GB** (Next.js + JVM Firebase emulators + API). Note it
   and exit: a constrained runtime produces flaky evidence, which is worse than none.
 

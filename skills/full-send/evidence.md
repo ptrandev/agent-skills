@@ -3,10 +3,16 @@
 Loaded from `SKILL.md` Phase 8 only when the change touches UI.
 
 **Skip gate.** Skip this phase when `git diff --name-only "origin/$BASE"...HEAD` shows no frontend
-source files. Atllas default: no files under `apps/agents-portal/src/pages/` or
-`apps/agents-portal/src/components/`. In any other repo, substitute that repo's frontend source
-dirs. **Never** let an unmatched hardcoded path skip the phase silently: when the gate skips, say
-which paths it checked in the Phase 9 report.
+source files. The paths per repo:
+
+| Repo | Frontend source |
+|---|---|
+| `codebase` | `apps/agents-portal/src/pages/`, `apps/agents-portal/src/components/` |
+| a repo with `walkthrough.json` | its `sourceDirs`, plus `ios/` when the manifest has an `ios` key |
+| any other repo | its own frontend source dirs |
+
+**Never** let an unmatched hardcoded path skip the phase silently: when the gate skips, say which
+paths it checked in the Phase 9 report.
 
 This phase produces two parts:
 
@@ -19,14 +25,11 @@ This phase produces two parts:
 The video is **best-effort**. Capture screenshots only when OpenCap is not installed, is not logged
 in, or lacks the screen-recording permission. **Never** block the PR on the video.
 
-**`neema-simple-hyzl` frontend source lives under `web/app/` and `web/components/`.** Use those as
-the gate paths there. It walks on that repo's own fixture stack, so `UIW_ALLOW_DEV` never applies:
-`/ui-walkthrough` refuses `--target=dev` in that repo outright. Its evidence carries the `contract
-fixtures` label, which the Phase 9 report repeats.
-
-**`Atllas-Inc/pointsgpt` has no walkable stack.** `/ui-walkthrough` skips it, because its Worker
-calls live Supabase and Stripe and its iPhone app is out of a browser's reach. Skip this phase
-there and say so in the Phase 9 report.
+**A `walkthrough.json` repo walks on its own fixture preview**
+(`ui-walkthrough/preview-contract.md`), so `UIW_ALLOW_DEV` never applies there and the dev escape
+hatch below does not exist. The evidence carries the manifest's `label`, which the Phase 9 report
+repeats. An iOS-only change gets simulator screenshots and no video. A repo with no manifest and no
+e2e stack gets no evidence: skip this phase and say so in the Phase 9 report.
 
 **Delegate the capture to `/ui-walkthrough`.** **Do not** hand-roll it here. That skill owns surface
 discovery, the three-viewport matrix, the deterministic detectors, and publishing images to GitHub
