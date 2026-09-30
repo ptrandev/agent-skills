@@ -25,7 +25,7 @@ if ! mkdir "$LOCK" 2>/dev/null; then
   fi
   rm -rf "$LOCK" && mkdir "$LOCK"      # stale lock from a dead run: reclaim
 fi
-echo $$ > "$LOCK/pid"
+echo "$PPID" > "$LOCK/pid"   # the agent process: $$ is this one Bash call, which exits at once
 ```
 
 Sequential: the ports below are pinned and `browse` is a singleton Chromium daemon, so two stacks

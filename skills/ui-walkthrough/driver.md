@@ -18,16 +18,16 @@ exists for it to scope to.
 When `HOST_PLATFORM=windows`, use headless Playwright from the WSL2 worktree. Skip the `browse` probe
 and omit `recordVideo`.
 
-**Every `browse` call that touches the daemon carries `$B_ENV`**, the lane's
-`BROWSE_STATE_FILE` + `BROWSE_PORT` prefix from [concurrency.md](concurrency.md). Without it two
-concurrent runs drive one browser. `--help` is the one exception below.
+**Every `browse` call that touches the daemon goes through the lane wrapper** that
+[concurrency.md](concurrency.md) writes to `$SCRATCH/browse`. Without it two concurrent runs drive
+one browser. `--help` needs no daemon, so the probe below runs on the binary itself.
 
 **Probe the `browse` build, do not assume this table.** Some builds are **headless-only**: no
 `--headed`, no `prettyscreenshot` (verified 2026-08-05: that build's `--help` advertises only
 `screenshot`, and its banner reads "Fast **headless** browser for AI coding agents").
 
 ```bash
-BROWSE_HELP=$("$B" --help 2>&1)      # --help needs no daemon, so it needs no $B_ENV
+BROWSE_HELP=$("$B" --help 2>&1)      # before the lane wrapper exists: --help needs no daemon
 case "$BROWSE_HELP" in *prettyscreenshot*) SHOT=prettyscreenshot;; *) SHOT=screenshot;; esac
 case "$BROWSE_HELP" in *--headed*) BROWSE_CAN_HEAD=1;; *) BROWSE_CAN_HEAD=0;; esac
 ```
@@ -58,8 +58,14 @@ const context = await browser.newContext({
   (`apps/agents-portal/uiw-drive.mjs`, or `<appDir>/../uiw-drive.mjs` in a `walkthrough.json`
   repo), untracked, and delete it in teardown with the hold spec.
 - **A `walkthrough.json` repo passes no `storageState`.** It has no login form: the persona is a
-  query string ([preview-contract.md](preview-contract.md)). When the repo ships no Playwright, the
-  fallback installs its own. Prefer the `browse` path there.
+  query string ([preview-contract.md](preview-contract.md)).
+- **When the repo ships no Playwright, import gstack's copy by absolute path**, and write the driver
+  to `$SCRATCH`. **Never install Playwright into the checkout**, because that edits
+  `node_modules` or the lockfile (invariant 9). Verified 2026-09-30 in `neema-simple-hyzl`:
+
+  ```js
+  const { chromium } = await import(`${process.env.HOME}/.claude/skills/gstack/node_modules/playwright/index.mjs`)
+  ```
   Phase 9's `git status --porcelain` check catches a forgotten one.
 - **Cloud Chromium launch requires `args: ['--ssl-version-max=tls1.2']`.** Windows does not use this
   argument. Verified in `/review-pr`

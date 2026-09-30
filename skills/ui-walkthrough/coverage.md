@@ -13,8 +13,8 @@ shot then counts as a walked surface and the change is never seen (invariant 11)
 
 Build a **component ledger** beside the route list and carry it to Phase 9. One row per changed file
 under the repo's UI source dirs: `apps/agents-portal/src/{pages,components}/` in `codebase`, and
-the manifest's `sourceDirs` in a `walkthrough.json` repo. An empty ledger means the filter is wrong for the
-repo, never that the PR changed no UI:
+the manifest's `sourceDirs` in a `walkthrough.json` repo. An empty ledger on a UI PR means the filter
+is wrong for the repo. It is expected only when `--surfaces` forced the walk of a PR with no UI file:
 
 | Column | How to fill it |
 |---|---|
@@ -63,7 +63,8 @@ Explicit routes replace discovery. Three consequences, all deliberate:
 - **The not-a-UI-PR early exit does not apply.** Walk the listed routes even when the diff touches no
   `pages/`/`components/` file. Say `explicit --surfaces, discovery skipped` in the Coverage block.
 - **Fixture derivation still runs**, keyed off the PR's changed specs (`e2e/tests/**`), not off
-  discovered routes. With no changed spec covering a listed route, an unpopulated surface is a
+  discovered routes. A `walkthrough.json` repo has no specs to derive from: its manifest `states`
+  are the fixtures ([preview-contract.md](preview-contract.md)). With no changed spec covering a listed route, an unpopulated surface is a
   **neutral note** ("no fixture, route not in this PR's diff"), not the MEDIUM below. That MEDIUM is
   reserved for a surface this PR actually changes.
 - **The component ledger still applies.** Build it from the diff as usual, and report any changed

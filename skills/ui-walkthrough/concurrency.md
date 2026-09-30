@@ -2,7 +2,7 @@
 
 Owns lane allocation, the port map, the per-lane lock, `browse` daemon scoping, the codebase
 capability probe, and lane teardown. Read it at the end of Phase 0, before [stack.md](stack.md).
-Carry `$LANE`, `$LOCK`, `$SCRATCH`, `$BASE_URL`, `$WORKDIR`, and `$B_ENV` out of it.
+Carry `$LANE`, `$LOCK`, `$SCRATCH`, `$BASE_URL`, `$WORKDIR`, and the lane-scoped `$B` out of it.
 
 When `HOST_PLATFORM=windows`, use the values from the loaded Windows adapter. Skip every Bash block
 in this file. The Windows adapter owns lane allocation, locks, scratch paths, and teardown.
@@ -78,12 +78,16 @@ for N in $(seq 0 "$LANE_MAX"); do
     if [ -n "$OLDPID" ] && kill -0 "$OLDPID" 2>/dev/null; then continue; fi   # live run, next lane
     rm -rf "$CAND" && mkdir "$CAND" || continue                               # stale, reclaim
   fi
-  echo $$ > "$CAND/pid"
+  echo "$PPID" > "$CAND/pid"   # the agent process: $$ is this one Bash call, which exits at once
   O=$(( N * 10 ))
-  BUSY=$(lsof -nP -sTCP:LISTEN \
-    -iTCP:$((3000+O)) -iTCP:$((4000+O)) -iTCP:$((8080+O)) -iTCP:$((8085+O)) \
-    -iTCP:$((9000+O)) -iTCP:$((9099+O)) -iTCP:$((9199+O)) \
-    -iTCP:$((4400+O)) -iTCP:$((4500+O)) 2>/dev/null | tail -n +2 || true)
+  if [ "$TARGET" = fixtures ]; then   # a fixture preview binds the FE port alone
+    BUSY=$(lsof -nP -sTCP:LISTEN -iTCP:$((3000+O)) 2>/dev/null | tail -n +2 || true)
+  else
+    BUSY=$(lsof -nP -sTCP:LISTEN \
+      -iTCP:$((3000+O)) -iTCP:$((4000+O)) -iTCP:$((8080+O)) -iTCP:$((8085+O)) \
+      -iTCP:$((9000+O)) -iTCP:$((9099+O)) -iTCP:$((9199+O)) \
+      -iTCP:$((4400+O)) -iTCP:$((4500+O)) 2>/dev/null | tail -n +2 || true)
+  fi
   if [ -n "$BUSY" ]; then rm -rf "$CAND"; continue; fi   # foreign squatter, try the next lane
   LANE="$N"; LOCK="$CAND"; break
 done
@@ -125,6 +129,7 @@ BASE_URL="http://localhost:$((3000+O))"
 ```
 
 `LANE_CAPABLE=0` -> export nothing, and lane 0's committed defaults apply unchanged.
+`TARGET=fixtures` -> skip the `e2e-lane.mjs` eval and `E2E_LANE`. Set `SCRATCH` and `BASE_URL` only.
 
 **Never export `E2E_PREFLIGHT_PORTS`.** `e2e-stack.sh` treats it as a full override
 (`_PREFLIGHT_PORTS="${E2E_PREFLIGHT_PORTS:-...}"`), so a hand-written list silently replaces the
@@ -144,7 +149,11 @@ outside `e2e-stack.sh` ([stack.md](stack.md)).
 taking a lane above 0, require 8 GB of *free* RAM on top of what is already running:
 
 ```bash
-FREE_MB=$(( $(vm_stat | LC_ALL=C sed -n 's/^Pages free: *\([0-9]*\)\./\1/p') * 4096 / 1048576 ))
+# Page size from the header (16 KB on Apple Silicon). Inactive and speculative pages are reclaimable.
+PAGE=$(vm_stat | LC_ALL=C sed -n 's/.*page size of \([0-9]*\) bytes.*/\1/p')
+PAGES=$(vm_stat | LC_ALL=C sed -nE 's/^Pages (free|inactive|speculative): *([0-9]+)\./\2/p' \
+  | paste -sd+ - | bc)
+FREE_MB=$(( ${PAGES:-0} * ${PAGE:-4096} / 1048576 ))
 if [ "$LANE" != 0 ] && [ "${FREE_MB:-0}" -lt 8000 ]; then
   rm -rf "$LOCK"; echo "SKIP: ${FREE_MB}MB free < 8GB for lane $LANE"; exit 0
 fi
@@ -173,7 +182,7 @@ on any lane, when all of these hold:
 TOP=$(git rev-parse --show-toplevel 2>/dev/null)
 IN_PLACE=0
 if [ -n "$TOP" ] && [ "$(git -C "$TOP" rev-parse HEAD)" = "$HEAD_SHA" ] \
-   && ! git -C "$TOP" status --porcelain | grep -qv '^??' \
+   && [ -z "$(git -C "$TOP" status --porcelain --untracked-files=no)" ] \
    && ! grep -qxF "$TOP" /private/tmp/ui-walkthrough/*.lock/workdir 2>/dev/null; then
   IN_PLACE=1; WORKDIR="$TOP"
 fi
@@ -200,12 +209,21 @@ worth that. A third rarely is.
 runs sharing that daemon share one browser: tabs, cookies, and viewport all collide, and one run's
 `browse stop` kills the other's session mid-matrix.
 
-Give each lane its own daemon. Prefix **every** `browse` call with `$B_ENV`:
+Give each lane its own daemon. Replace `$B` with a wrapper script that pins this lane's state file
+and port, so every later `"$B"` call is lane-scoped:
 
 ```bash
-B_ENV="env BROWSE_STATE_FILE=$SCRATCH/browse.json BROWSE_PORT=$((6499+LANE))"
-$B_ENV "$B" goto "$BASE_URL"
+BROWSE_BIN="$B"
+printf '#!/bin/sh\nexec env BROWSE_STATE_FILE=%s BROWSE_PORT=%s %s "$@"\n' \
+  "$SCRATCH/browse.json" "$((6499+LANE))" "$BROWSE_BIN" > "$SCRATCH/browse"
+chmod +x "$SCRATCH/browse"
+B="$SCRATCH/browse"
+"$B" goto "$BASE_URL"
 ```
+
+**Use a wrapper, never an `env` prefix in a variable.** Verified 2026-09-30: zsh does not split an
+unquoted variable, so `$B_ENV "$B" goto` failed with `no such file or directory: env BROWSE_STATE_FILE=…`.
+Shell state does not persist between Bash calls, so set `B="$SCRATCH/browse"` again in each call.
 
 Verified 2026-08-26: two daemons launched with distinct `BROWSE_STATE_FILE` and `BROWSE_PORT` values
 ran side by side, each reporting `Status: healthy` with its own pid, and `lsof` showed both listening
@@ -234,7 +252,7 @@ Lane 0 busy then means no `dev` walkthrough this run: neutral note, and the loop
 Add to the EXIT trap, alongside the stack teardown in [stack.md](stack.md):
 
 ```bash
-$B_ENV "$B" stop 2>/dev/null || true          # this lane's daemon only, never a bare `browse stop`
+"$B" stop 2>/dev/null || true                 # the lane wrapper: this lane's daemon only
 if [ "$IN_PLACE" = 0 ] && [ "$LANE" != 0 ]; then git worktree remove --force "$WORKDIR" 2>/dev/null || true; fi
 rm -rf "$LOCK"
 ```

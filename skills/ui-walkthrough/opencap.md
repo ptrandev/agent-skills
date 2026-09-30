@@ -151,7 +151,7 @@ naming because the target is someone else's PR:
 serve a headed request. It refuses and tells you to `browse disconnect` first.
 
 **Read the state of this lane's daemon, not the default one.** Every probe and every call here
-carries `$B_ENV` ([concurrency.md](concurrency.md)). On any lane above 0 the daemon is this run's own
+uses the lane-scoped `$B` ([concurrency.md](concurrency.md)). On any lane above 0 the daemon is this run's own
 and starts headed, so the headless row below is a lane-0 case in practice.
 
 **Do not disconnect a daemon you did not start.** It can be holding the operator's logged-in
@@ -264,7 +264,7 @@ Order is load-bearing.
 $B viewport 1440x900
 
 # 3. Navigate to the journey's ENTRY point and let it settle. This frame is the video's first.
-$B goto "$BASE_URL/"
+$B goto "$BASE_URL/"                 # walkthrough.json repo: "$BASE_URL<entryPath>?<persona>&<default state>"
 $B wait --networkidle
 
 # 4. Check the gutter, resolve the window id (both above), then inject the cursor.
@@ -495,7 +495,7 @@ an `--unexpected argument` on `record start`.
 | `opencap config doctor` | signing · **screen-recording permission** · network · creds |
 | `opencap whoami` | exit 3 → run `opencap login` |
 | `opencap windows list --json` | `[{id, title}]`; includes menubar items |
-| `opencap record status --json` | `{active, session_id, duration_ms, event_count}` |
+| `opencap record status --json` | `{active, session_id, duration_ms, event_count}`. Exit 4 means no session, which is the healthy case |
 | `opencap record start --task "…" --window <id>` | **NO `--json`, the one exception in this table.** Daemonizes, returns at once; prints plain text (`session: <ULID>`). Passing `--json` exits 1 with "unexpected argument". |
 | `opencap event marker "<label>" --tag <t>` | shortcut for a `session.marker` event |
 | `opencap event '<json>'` | full event; `{type, summary, tags?, data?}` |
@@ -503,7 +503,7 @@ an `--unexpected argument` on `record start`.
 | `opencap record discard` | stop without uploading |
 | `opencap events list <id> --summary-only --json` | for trimming |
 | `opencap trim <id> --start <ms> --end <ms> --save-as-copy --json` | `{share_url}` |
-| `opencap billing usage` | plan + recording count |
+| `opencap billing usage` | plan + recording count. Verified 2026-09-30: it can fail with `Error: usage: resource not found`. Treat that as plan unknown and record anyway |
 
 Exit codes: `0` ok · `1` user error · `2` system · `3` auth · `4` not found.
 `OPENCAP_TOKEN` overrides `~/.opencap/credentials` (useful headless). `OPENCAP_API` overrides the

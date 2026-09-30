@@ -156,6 +156,17 @@ table:
 **On Windows, read [windows.md](windows.md) before any checkout, lane, stack, driver, or teardown
 command.** It owns the WSL2 adapter and every Windows command override.
 
+Set `CLONE`. When the current directory is a checkout of `$OWNER/$NAME`, use its top level, because a
+Conductor workspace or a `/full-send` branch is the PR's own checkout. Otherwise take the first hit of
+the clone ladder in [../shared/repos.md](../shared/repos.md).
+
+```bash
+CLONE=""
+case "$(git remote get-url origin 2>/dev/null)" in
+  *"$OWNER/$NAME"|*"$OWNER/$NAME.git") CLONE=$(git rev-parse --show-toplevel);;
+esac
+```
+
 Probe, record booleans, branch later. **Never assume a driver.**
 
 ```bash
@@ -205,7 +216,7 @@ The rule it enforces: **the target is `e2e`**, and `dev` runs only when a human 
 
 **Read [concurrency.md](concurrency.md) before Phase 4.** It owns lane allocation, the port map, the
 per-lane lock, `browse` daemon scoping, the codebase capability probe, and lane teardown. Carry
-`$LANE`, `$LOCK`, `$SCRATCH`, `$BASE_URL`, `$WORKDIR`, and `$B_ENV` out of it.
+`$LANE`, `$LOCK`, `$SCRATCH`, `$BASE_URL`, `$WORKDIR`, and the lane-scoped `$B` out of it.
 
 The lane is infra, so it belongs in the readiness line and the neutral notes, **never** in a
 finding and never in the posted `Stack:` line.
@@ -257,7 +268,7 @@ step instead of rediscovering it at Phase 5c.
 ## Phase 1: resolve role + PR
 
 ```bash
-PR_JSON=$(gh api "repos/$OWNER/$NAME/pulls/$PR" --jq '{author:.user.login, draft:.draft, head:.head.sha, base:.base.ref, headRepo:.head.repo.full_name}')
+PR_JSON=$(gh api "repos/$OWNER/$NAME/pulls/$PR" --jq '{author:.user.login, state:.state, draft:.draft, head:.head.sha, base:.base.ref, headRepo:.head.repo.full_name}')
 ```
 
 - `author == ME` -> **author mode** (comment only, invariant 4).
@@ -265,6 +276,8 @@ PR_JSON=$(gh api "repos/$OWNER/$NAME/pulls/$PR" --jq '{author:.user.login, draft
   When you are not one, disclose it in the **top-level `body` of the review payload** (the summary body
   posted to `POST /repos/{o}/{r}/pulls/{n}/reviews`), never in an inline comment. One line, at the
   top: `Not a requested reviewer. Posting a UI walkthrough for context.`
+- `state` is `closed` (merged or not) -> **skip with a neutral note** ("PR #N is closed"), unless
+  `--no-post` is set. A closed PR has no reviewer left to read the evidence.
 - `draft == true` -> **reviewer mode skips** ("PR #N is a draft, re-run when it is ready").
   **Author mode proceeds** (invariant 10). Re-checked in Phase 8.
 - `--author`/`--reviewer` override the inference, except that **author mode can never be forced

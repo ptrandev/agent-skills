@@ -47,7 +47,7 @@ neutral note that names the missing manifest.
 | `preview.readyPath` | A path that answers 200 once the preview serves pages. |
 | `sourceDirs` | The Phase 3 filter. A changed file under one of them is a UI file. |
 | `appDir` | The Next.js App Router root. Phase 3 maps `page.tsx` and `layout.tsx` under it to routes. |
-| `trailingSlash` | `true` when `next.config` sets `trailingSlash: true`. Keep the slash on every route then. |
+| `trailingSlash` | `true` when `next.config` sets `trailingSlash: true`. Keep the slash on every route that Phase 3 maps then. `readyPath` and `entryPath` stay exactly as the server serves them. |
 | `entryPath` | The first frame of the video journey. |
 | `personas` | Persona name to query string. `premium` is required. A persona selects identity only: its query never sets a key that a state query sets. |
 | `states` | State name to query string. Exactly one entry has `default: true`. `when` says which diff adds that state. `persona` (optional) names the persona the state needs, for example an admin-only state. |
@@ -80,7 +80,7 @@ A repo PR that adds or changes the command must keep all of these true:
 | 4 | Boot and health check, below. |
 | 5a | Navigate as `$BASE_URL<route>?<persona query>&<state query>`. Walk the default state on every surface. Add a state only when its `when` matches the diff. A state with `persona` is walked with that persona only. A requested persona the manifest does not list is a neutral note, never a substitute. |
 | 5a | After each surface, read `window.__fixturePreview.escaped`. A non-empty array is a **coverage gap**, reported by URL. The PR owns the missing fixture, like seed rung 1 in `full-send/evidence.md`. |
-| 5c | Start the journey at `entryPath`. |
+| 5c | Start the journey with one `goto` to `$BASE_URL<entryPath>?<persona query>&<default state query>`. Every later beat clicks, per [opencap.md](opencap.md). The fixture state persists in the tab, so a click keeps the persona and state. |
 | 7 | Add the `ios` screenshots to the evidence, when the ios row below produced any. |
 | 8 | The `Stack:` line reads `Stack: <repo> fixtures (<label>, no live backend)`. Carry `caveat` under it. |
 

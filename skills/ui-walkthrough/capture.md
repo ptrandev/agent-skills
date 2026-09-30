@@ -26,7 +26,7 @@ is not obviously wrong downstream: a viewport that was resized instead of reload
 plausible screenshot of a layout no user can reach.
 
 The sub-agent **measures and reports. It never classes, never attributes, never posts.**
-Give it the surface list, the viewports, the personas, `$BASE_URL`, `$SHOTS`, `$B`, and `$B_ENV`, and require
+Give it the surface list, the viewports, the personas, `$BASE_URL`, `$SHOTS`, and the lane-scoped `$B`, and require
 back exactly:
 
 ```
@@ -104,11 +104,25 @@ $B viewport 1440x900
 $B goto "$BASE_URL/<surface>"
 $B wait --networkidle
 $B console --clear                      # so the next read is scoped to THIS surface
-$B_ENV $B "$SHOT" "$SHOTS/01-agents-desktop.png"
+"$B" "$SHOT" "$SHOTS/01-agents-desktop.png"
 $B viewport 375x812
 $B reload && $B wait --networkidle      # re-layout, don't just resize a laid-out page
-$B_ENV $B "$SHOT" "$SHOTS/01-agents-mobile.png"
+"$B" "$SHOT" "$SHOTS/01-agents-mobile.png"
 ```
+
+**A full-page shot misses content that scrolls inside an inner container**, such as a `<main>` with
+`overflow-y: auto`. Verified 2026-09-30 in `neema-simple-hyzl`: the mobile shot showed 812 of 1525px.
+Probe before each full-page shot:
+
+```bash
+$B js '[...document.querySelectorAll("body *")].filter(e=>{const c=getComputedStyle(e)
+  return /auto|scroll/.test(c.overflowY) && e.scrollHeight>e.clientHeight+1 && e.clientHeight>200})
+  .map(e=>e.tagName+"."+e.className.toString().slice(0,40)+" "+e.clientHeight+"/"+e.scrollHeight)'
+```
+
+A hit gets extra shots of that container: scroll it by its `clientHeight` per step, with
+`el.scrollTop = n`, and add `-part<k>` to the file name. Name the container in the Coverage block.
+**Never restyle the page to flatten it**, because the shot then shows a layout no user sees.
 
 **Reload after a viewport change.** Resizing a page that already laid out at 1440 leaves
 JS-measured components (virtualized lists, popovers, charts) in a desktop state. You screenshot
@@ -130,8 +144,10 @@ $B js '[...document.querySelectorAll("a,button,input,select,textarea,[role=butto
   .filter(r=>r.width>0&&r.height>0&&(r.width<44||r.height<44))'
 
 # clipped / overflowing text
-$B js '[...document.querySelectorAll("*")].filter(e=>e.scrollWidth>e.clientWidth+1
-  && getComputedStyle(e).overflow!=="visible" && e.clientWidth>0)
+# Skips visually hidden text (sr-only: clip, clip-path, 1px box) and deliberate ellipsis truncation.
+$B js '[...document.querySelectorAll("*")].filter(e=>{const c=getComputedStyle(e)
+  return e.scrollWidth>e.clientWidth+1 && c.overflow!=="visible" && e.clientWidth>1
+    && c.clip==="auto" && c.clipPath==="none" && c.textOverflow!=="ellipsis"})
   .slice(0,20).map(e=>e.className+" :: "+e.innerText.slice(0,40))'
 
 # zoom-blocking viewport meta

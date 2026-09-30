@@ -35,6 +35,10 @@ TARGET=${TARGET:-e2e}                       # the only default, in every role an
 if [ "${UIW_TARGET:-}" = dev ]; then TARGET=dev; fi   # session-wide operator opt-in
 if [ "${ARG_TARGET:-}" = dev ]; then TARGET=dev; fi   # --target=dev typed on this invocation
 
+if [ -f "$CLONE/walkthrough.json" ] && [ "$TARGET" = dev ]; then
+  echo "REFUSING --target=dev: this repo's dev server reaches a real backend (invariant 7)."; TARGET=fixtures
+fi
+
 if [ "$ROLE" = reviewer ] && [ "$TARGET" = dev ]; then
   echo "REFUSING --target=dev in reviewer mode (invariant 7). Using e2e."; TARGET=e2e
 fi
@@ -51,6 +55,8 @@ if [ "$ATTENDED" = 0 ] && [ "$TARGET" = dev ] && [ "${UIW_ALLOW_DEV:-0}" != 1 ];
   exit 0
 fi
 ```
+
+`$ROLE` is empty until Phase 1. Run the reviewer refusal again at Phase 1, once `$ROLE` is set.
 
 **The posted comment always names the target**, so a reader can weigh the evidence:
 `Stack: e2e (emulators, stubbed, seeded)` or

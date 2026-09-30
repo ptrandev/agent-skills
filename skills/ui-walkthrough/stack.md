@@ -159,7 +159,7 @@ Refine it by *what kind* of dirty:
 | **modified/staged tracked** files | worktree | never switch branches under someone's edits |
 
 ```bash
-git -C "$CLONE" status --porcelain | grep -qv '^??' && DIRTY_TRACKED=1 || DIRTY_TRACKED=0
+[ -n "$(git -C "$CLONE" status --porcelain --untracked-files=no)" ] && DIRTY_TRACKED=1 || DIRTY_TRACKED=0
 ```
 
 **Always restore the user's branch in teardown.** Record `git rev-parse --abbrev-ref HEAD` before
