@@ -32,6 +32,10 @@
 6. **Suggest better ways.** I want the better approach, especially one with long-lasting
    impact over a tactical patch. Say so when you see it, then do what I decide.
 
+7. **Keep every deliverable in the repo.** Never publish a Claude artifact (a claude.ai
+   page) unless I ask for one explicitly. Put viewers, reports, diagrams, and documents in
+   the repository, where the team can open, review, and version them.
+
 ## Writing style
 
 When you write technical text (documentation, READMEs, runbooks, procedures, error messages, release notes, reports), write plain English in the spirit of ASD-STE100 Simplified Technical English, so that a smart reader outside the field understands it on one read. Obey these rules:
