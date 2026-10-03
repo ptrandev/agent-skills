@@ -249,11 +249,13 @@ follows the last fix is a **confirmation round**.
 - The confirmation round IS scoped to the lines changed by fixes applied since the last
   round (a delta re-check), and it still fans out to BOTH reviewers. Keep the full-diff
   scope for any round that is still finding issues.
-- Cap the loop at 3 rounds total. Every round counts against the cap, confirmation rounds
-  included.
-- **Never** start a 4th round.
-- If round 3 is not dry, stop and implement the outstanding fixes. Flag in the report that the
-  change is churny and the final fixes are UNCONFIRMED (no dry round followed them).
+- Cap finding rounds at 2. A confirmation round that surfaces verified HIGH/MEDIUM is a
+  finding round, and counts.
+- Run one confirmation round after the 2nd finding round. The loop therefore runs at most 3
+  rounds. **Never** start a 4th round.
+- If that confirmation round is not dry, stop and implement the outstanding fixes. Flag in the
+  report that the change is churny and the final fixes are UNCONFIRMED (no dry round followed
+  them).
 - **Do not** start another round after a dry round.
 
 ## 3. Final review report
@@ -266,7 +268,7 @@ a nested path that does not exist.
 ```
 ### Phillip self-review -> <branch>, <date>
 Reviewers: Claude (blind|blind, subprocess|inline, not blind) + Codex   Rounds run: <n> (<f> finding, <c> confirmation)
-Stopped because: dry round / round cap
+Stopped because: dry round / finding-round cap
 
 | # | Severity | File:line | Finding | Source | Status |
 |---|----------|-----------|---------|--------|--------|
@@ -285,7 +287,7 @@ Then:
 - Verdict:
   - "Ready for PR" ONLY if the loop stopped on a dry round with zero unresolved
     HIGH/MEDIUM. The dry round is what confirms the last fixes.
-  - If it stopped on the round cap (not a dry round), the verdict is "Needs human
+  - If it stopped on the finding-round cap (not a dry round), the verdict is "Needs human
     review -> cap hit, final-round fixes unconfirmed," never "Ready for PR," regardless
     of the unresolved count.
   - Otherwise, say what remains and why.

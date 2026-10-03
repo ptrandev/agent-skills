@@ -397,7 +397,7 @@ PR and Done summary that **no self-review ran**. When `/phillip` is present but 
 unauthenticated, let `/phillip` degrade to the reviewers that are available (down to Claude-only).
 **Do not** block.
 
-- Let it run to completion, up to its 3-round cap. **Never** run `/phillip` a second time to get more rounds. It applies the HIGH/MEDIUM fixes directly to the working tree, and it can commit them itself.
+- Let it run to completion, up to its cap of 2 finding rounds plus 1 confirmation round. **Never** run `/phillip` a second time to get more rounds. It applies the HIGH/MEDIUM fixes directly to the working tree, and it can commit them itself.
 - Commit any fixes it left uncommitted: `git add <the files it changed>` then `git commit -m "fix(<scope>): address /phillip self-review findings"`. Skip the commit when it changed nothing.
 - **Do not** stop for the verdict (zero stops). Carry it forward to Phase 9 (Done):
   - **"Ready for PR"** → proceed normally.
