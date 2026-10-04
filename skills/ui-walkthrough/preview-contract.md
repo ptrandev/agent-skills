@@ -136,8 +136,8 @@ ui-walkthrough:  gh ✓ (ptrandev)  driver: Playwright headed, chrome  RAM 32GB 
 ## The demo server
 
 The fixture preview answers every backend call from fixtures, so the PR's backend code never runs
-there. The demo server serves the same app and answers the calls under `liveDirs` with the working
-tree's own handler code. [behavior.md](behavior.md) owns when the walkthrough uses it.
+there. The demo server serves the same app against a real backend on the machine: the working
+tree's own handlers, and a local database built from the repo. [behavior.md](behavior.md) owns when the walkthrough uses it.
 
 | Field | Meaning |
 |---|---|
@@ -145,28 +145,33 @@ tree's own handler code. [behavior.md](behavior.md) owns when the walkthrough us
 | `demo.readyPath` | A path that answers 200 once the demo server serves pages |
 | `demo.liveDirs` | The backend source dirs whose handlers the demo server runs |
 
-The demo command keeps rules 1 to 4 and 6 to 8 of the preview command. Rule 5 changes, and two rules
+The demo command keeps rules 1 to 4 and 6 to 8 of the preview command. Rule 5 changes, and four rules
 are added:
 
-5. **Run the working tree's handler for each backend call under `liveDirs`.** Stub every dependency
-   outside the repo (model calls, the database, third-party APIs) on the machine, with deterministic
-   answers. Send `Content-Security-Policy: connect-src 'self'`. Never reach a production or staging
-   host.
+5. **Serve the working tree's handlers for each backend call under `liveDirs`, on the machine.** Point
+   the app at that local backend. Never reach a production or staging host. Allow only `'self'` and
+   loopback origins in the `connect-src` of the `Content-Security-Policy`.
+   - **The database is local.** Build it from the repo's migrations and seed on every start. Never
+     connect to a hosted database.
+   - **Stub every service outside the repo** (model calls, third-party APIs, payments, SMS) with
+     deterministic answers.
 9. **Push one entry, `{method, url}`, to `window.__fixturePreview.live`** for each request that the
    working tree's code answered.
 10. **Start each page load with the persona from its query and an empty history**, so each scenario
     starts from a clean state.
+11. **Derive every backend port from the port in `portEnv`**, so two lanes never collide.
+12. **Stop every process and container the command started** when it gets a signal.
 
 **Boot it after Phase 5b, on the same port.** Kill each pid in `$SCRATCH/preview.pid`. Then run the
 two boot calls from *Boot and health check* with `demo.command`, `demo.readyPath`, `demo.log`, and
 `demo.pid`. Run the three assertions and the `window.__fixturePreview` check. Teardown kills each pid
 in `$SCRATCH/demo.pid`. A failure is a neutral note that quotes the last 20 lines of `demo.log`.
 
-A changed backend file outside `liveDirs`, or a dependency with no stub, leaves its claims NOT
-DEMONSTRATED. The PR owns the fix, like seed rung 1 in `full-send/evidence.md`.
+A changed backend file outside `liveDirs`, a table the migrations do not build, or a service with no
+stub leaves its claims NOT DEMONSTRATED. The PR owns the fix, like seed rung 1 in `full-send/evidence.md`.
 
 The `Stack:` line for a recording on the demo server reads
-`Stack: <repo> demo server (the PR's handlers, stubbed externals)`.
+`Stack: <repo> demo server (the PR's handlers, local database, stubbed externals)`.
 
 ## iOS screenshots
 

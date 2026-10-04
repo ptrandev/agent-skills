@@ -43,7 +43,7 @@ found in it.
 | Repo | Stack for the demo |
 |---|---|
 | `codebase` | the e2e stack from Phase 4. Its backend runs the PR's code with stubbed externals |
-| `walkthrough.json` with a `demo` section | the demo server, per [preview-contract.md](preview-contract.md) *The demo server* |
+| `walkthrough.json` with a `demo` section | the demo server: the PR's handlers and a local database, per [preview-contract.md](preview-contract.md) *The demo server* |
 | `walkthrough.json` with no `demo` section | none. Every claim whose steps call the backend is NOT DEMONSTRATED |
 | any other repo | none |
 
