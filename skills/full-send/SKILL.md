@@ -2,7 +2,7 @@
 name: full-send
 description: >
   End-to-end feature workflow: take a Linear ticket or a raw idea, implement it, self-review,
-  open a PR, address every bot review thread, then capture UI evidence. Autonomous by default.
+  open a PR, address every bot review thread, then capture UI and behavior evidence. Autonomous by default.
   Use with /full-send <TICKET-ID>, /full-send alone, or a free-text idea.
 ---
 
@@ -129,7 +129,7 @@ Check the tools this run will use before any other work. Print a **readiness sum
 **Required** (**stop** and say so clearly when any is missing):
 - `gh` CLI, authenticated (`gh auth status`), needed for the PR and bot review.
 - A route to the repo's tracker, needed to fetch, create, and update the ticket ([repos.md](repos.md)).
-- **`/ui-walkthrough`** (Phase 8), required only when the change touches UI. It owns the capture and
+- **`/ui-walkthrough`** (Phase 8), required only when the change touches UI or behavior a user sees. It owns the capture and
   its own driver detection. Without it, Phase 8 degrades to no visual evidence and says so.
 
   **Never probe with `command -v browse`.** It ships as a binary inside the gstack skill
@@ -464,10 +464,10 @@ Phase 7 only when every bot thread is resolved and CI is green.
 
 ---
 
-## Phase 8: Evidence (screenshots and video)
+## Phase 8: Evidence (screenshots, behavior, and video)
 
 **Read [evidence.md](evidence.md) and follow it at Phase 8.** It owns the skip gate for a non-UI
-change, the capture, and the PR comment. Continue to Phase 9 when it finishes.
+change, the capture, the behavior demo, and the PR comment. Continue to Phase 9 when it finishes.
 
 ---
 
@@ -485,7 +485,8 @@ Report:
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
   attached (Phase 8d): the video link, or the specific reason there is none (screen-recording
   permission not granted, OpenCap not installed/logged in, reviewer mode, `--no-video`). **Never**
-  report "video skipped" with no reason.
+  report "video skipped" with no reason. Add the behavior verdicts (`<passed> of <total> claims
+  pass`), each NOT DEMONSTRATED claim with its reason, and any follow-up ticket for a demo server.
 - Alignment context (per the Modes table):
   - **Grill ran:** the clarifications captured during the Phase 0.5 grill.
   - **Grill skipped:** the **Assumptions** block recorded in Phase 0 for anything inferred.

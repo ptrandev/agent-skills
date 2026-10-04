@@ -1,9 +1,10 @@
 ---
 name: ui-walkthrough
 description: >
-  Walks a PR's UI changes in a real browser, judges what it sees, and posts the screenshots back
-  to GitHub as the PR's reviewer or as its author. Reports defects, never fixes them.
-  Use for "walk the UI", "screenshot the PR", or "show me what changed visually".
+  Walks a PR's UI changes and demonstrates its behavior changes in a real browser, judges what it
+  sees, and posts the screenshots and video to GitHub as the PR's reviewer or as its author.
+  Reports defects, never fixes them. Use for "walk the UI", "screenshot the PR", "show me what
+  changed visually", or "demo how this works now".
 ---
 
 # ui-walkthrough
@@ -46,7 +47,8 @@ Any other repo: neutral note.
    emulator crashed -> **neutral note**, walkthrough skipped. "Did not boot on my machine" is not
    "PR is broken".
 3. **Only *detected* defects can block.** Deterministic detector output (Phase 5b: horizontal
-   scroll, touch target < 44px, console error, clipped text) can drive `REQUEST_CHANGES`. **Judged** findings
+   scroll, touch target < 44px, console error, clipped text) and a failed mechanical behavior
+   assertion (Phase 5d) can drive `REQUEST_CHANGES`. **Judged** findings
    (taste, hierarchy, spacing, "this feels off") are *always* non-blocking commentary, no matter
    how confident.
 4. **The role determines the post primitive.** GitHub **422s** `REQUEST_CHANGES`/`APPROVE` on your
@@ -87,7 +89,7 @@ Any other repo: neutral note.
 
 | Class | Source | Reviewer mode | Author mode |
 |---|---|---|---|
-| **BLOCKER** | detector fired, or the surface failed to render, or a console error attributed to this PR | inline on the diff + `REQUEST_CHANGES` | flagged in the comment as self-caught |
+| **BLOCKER** | detector fired, or the surface failed to render, or a console error attributed to this PR, or a mechanical behavior assertion failed | inline on the diff + `REQUEST_CHANGES` | flagged in the comment as self-caught |
 | **MEDIUM** | judged inconsistency, visible in a screenshot | inline + `COMMENT` | listed in the comment |
 | **NIT** | polish | local report only | local report only |
 | clean | none | proof comment + `COMMENT` | walkthrough comment |
@@ -292,8 +294,12 @@ Re-runs must not spam. The state lives in the posted comment, not a state file, 
 across machines and between local and routine runs. Embed a marker in every body this skill posts:
 
 ```
-<!-- ui-walkthrough head=<HEAD_SHA> viewports=<list> personas=<list> -->
+<!-- ui-walkthrough head=<HEAD_SHA> viewports=<list> personas=<list> behavior=<demonstrated>/<total> -->
 ```
+
+**Read [behavior.md](behavior.md) before the marker query.** It owns the behavior claims, the stack
+that can demonstrate them, Phase 5d, the verdicts, and the `### Behavior` evidence. Extract the claims
+now, because the comparison below counts them. Carry the claim list to Phase 5d.
 
 Before working, look for it:
 
@@ -305,7 +311,8 @@ gh api "repos/$OWNER/$NAME/issues/$PR/comments" --paginate \
 Compare the requested `viewports x personas` set against the set in the marker of the newest hit at
 this head:
 
-- Hit with the **same** set -> **skip** ("already walked at this head").
+- Hit with the **same** set and a `behavior` total no lower than this run's claim count -> **skip**
+  ("already walked at this head").
 - Hit at an **older** head -> proceed. Scope discovery to `git diff <old-head>..<HEAD_SHA>` so the
   new comment covers what changed since, and link the prior comment.
 - **Not a subset** of the posted set (broader in either dimension: previously desktop-only and now
@@ -313,6 +320,8 @@ this head:
 - **A subset** of the posted set (narrower re-run: fewer viewports, fewer personas, or both) ->
   **skip** and print the prior comment's URL. The posted evidence is already a superset, so a
   narrower re-run can only duplicate it. Override by targeting a new head, not by re-running.
+- Hit at this head whose `behavior` total is lower than this run's claim count, or absent -> proceed,
+  and run the behavior pass alone.
 
 ---
 
@@ -329,7 +338,8 @@ grep -E '^apps/agents-portal/src/(pages|components)/' "$SCRATCH/files-$NAME-$PR.
 **A `walkthrough.json` repo uses its manifest's filter and route map**, in
 [preview-contract.md](preview-contract.md). Every rule below still holds.
 
-- **No matching files -> exit early with a neutral note.** Not a UI PR, so nothing to walk.
+- **No matching files -> walk no surface.** Exit early with a neutral note only when the PR also
+  states no behavior claim.
 - **`pages/**` -> route directly.** `pages/foo/bar.tsx` -> `/foo/bar`. `index.tsx` -> the directory
   root. `_app`/`_document` -> treat as *global* (walk the app's 3 highest-traffic routes instead,
   since a global change affects everything).
@@ -382,13 +392,14 @@ Three additions specific to this skill:
 
 ## Phase 5: capture
 
-Three passes, in this order:
+Four passes, in this order:
 
 | Pass | What it does | Recorded |
 |---|---|---|
 | **5a** | the screenshot matrix (surface × viewport × states) + the ledger mount probes | no |
 | **5b** | the deterministic detectors | no |
 | **5c** | one desktop user journey | **yes**, `CAN_VIDEO` only |
+| **5d** | one scenario per behavior claim, in the same recording as 5c ([behavior.md](behavior.md)) | **yes**, `CAN_VIDEO` only |
 
 **Read [capture.md](capture.md) before capturing anything.** It owns all three passes, the sub-agent
 delegation contract, and the detector set. The 5a+5b sub-agent is given that file and not this one.
@@ -413,10 +424,11 @@ the fallback ladder, and ref pruning.
 Push every captured shot to the ref, then **embed in this priority order and link the rest**:
 
 1. Every BLOCKER shot, with the state that shows the defect.
-2. One desktop full-page shot per surface walked.
-3. The mobile shot of each surface whose diff changes responsive behavior.
-4. One tablet shot, only if a finding is tablet-only.
-5. Everything else: linked, not embedded.
+2. The outcome shot of each behavior claim.
+3. One desktop full-page shot per surface walked.
+4. The mobile shot of each surface whose diff changes responsive behavior.
+5. One tablet shot, only if a finding is tablet-only.
+6. Everything else: linked, not embedded.
 
 Drop from the bottom of that list until both limits hold, and say in the Coverage block how many
 were linked rather than embedded. Capture at scale 1. Use retina for a hero shot only.

@@ -185,5 +185,8 @@ Five facts shape this pass:
 - Reaching a Phase 5b blocker is best-effort. One that only reproduces at 375 or 768, or on a surface
   off the route, stays a screenshot finding. **Never re-stage a defect just to get it on tape.**
 
+Phase 5d continues this recording with the behavior scenarios ([behavior.md](behavior.md)). Do not
+stop the recording at the last surface when the claim list is not empty.
+
 Skipping this pass entirely (`CAN_VIDEO=0`) costs a link and nothing else. The verdict, the findings,
 and the published evidence all come from 5a and 5b.

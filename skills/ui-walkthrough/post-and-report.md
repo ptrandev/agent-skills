@@ -36,9 +36,9 @@ gh api "repos/$OWNER/$NAME/pulls/$PR/reviews" --method POST --input "$SCRATCH/pa
 only**, the ones Phase 7's priority list kept. Every other surface gets a linked line:
 
 ```markdown
-## UI walkthrough: <n> surfaces × <viewports>
+## UI walkthrough: <n> surfaces × <viewports>[, <m> behavior claims]
 
-<!-- ui-walkthrough head=<sha> viewports=... personas=... -->
+<!-- ui-walkthrough head=<sha> viewports=... personas=... behavior=<demonstrated>/<total> -->
 
 **What changed visually:** <2-3 lines>
 
@@ -52,6 +52,9 @@ only**, the ones Phase 7's priority list kept. Every other surface gets a linked
 ### Other surfaces walked
 - `/x` [desktop](…) [mobile](…) · no findings
 
+### Behavior: <passed> of <total> claims pass   (when the PR states a behavior claim)
+<the table from behavior.md>
+
 ### Self-caught issues
 - **BLOCKER** `/agents` mobile: horizontal scroll, 41px overflow (detector output attached)
 
@@ -59,6 +62,7 @@ only**, the ones Phase 7's priority list kept. Every other surface gets a linked
 Personas: premium. Viewports: desktop, tablet, mobile.
 Surfaces walked: 10 of 11, dropped `/x` (stack died mid-matrix).
 Components covered: 7 of 7 changed UI files proven on screen.
+Behavior: 4 of 4 claims demonstrated on the e2e stack.
 Images: 11 embedded, 13 linked (budget).
 Stack: locally booted at <sha>, externally stubbed.
 Video: <link> (desktop journey, all <n> surfaces, <b> beats). Screenshots cover all three viewports.
@@ -109,6 +113,7 @@ NEUTRAL NOTES (infra, never findings):
 
 COVERAGE: 10/11 surfaces (dropped: …). Assets: refs/ui-walkthrough/pr-1773-<head-sha> @ <commit>
 COMPONENTS: 7/7 changed UI files proven on screen (uncovered: <file>, <reason>, rung <n> tried)
+BEHAVIOR: 3/4 claims pass on <stack> (B<n> <verdict>: <assert expression> -> <result>)
 Posted: <review id|comment url>, event=<…>, <k> inline, <m> images embedded.
 ```
 

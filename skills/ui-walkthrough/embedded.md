@@ -9,6 +9,7 @@ With `--embedded`, post nothing and **return** to the caller:
 { blockers: [...], mediums: [...], nits: [...],
   images: [{surface, viewport, state, url}], neutralNotes: [...],
   video: {url, sessionId, viewport, surfaces, surfacesUnreached, beats, jumps, truncated} | null,
+  behavior: {stack, claims: [...], notDemonstrable: [...]} | null,
   coverage: {surfacesWalked, surfacesTotal, dropped, personas, viewports,
              componentsCovered, componentsTotal, componentsUncovered:[{file, why, lastRung}]},
   markdown: "<ready-to-paste evidence section>" }
@@ -32,6 +33,10 @@ claiming the change is covered, never as a completed walkthrough with a caveat.
 **`video.surfaces` equals `coverage.surfacesWalked` on every healthy run**, because the journey
 covers all of them. `video.surfacesUnreached` is normally empty. A non-empty one means a surface
 never rendered. The caller reads that as a defect, never as a shortened video.
+
+**`behavior` is owned by [behavior.md](behavior.md).** A claim with verdict FAIL is a BLOCKER and
+is also in `blockers`. A NOT DEMONSTRATED claim is an evidence gap, never a pass. The caller reads
+it the same way as `componentsUncovered`.
 
 - **`/review-pr` Phase 6**: call it instead of hand-rolling a walkthrough. `/review-pr` owns the
   verdict, because it can `APPROVE` and this skill cannot. It merges `blockers` into its own findings, which

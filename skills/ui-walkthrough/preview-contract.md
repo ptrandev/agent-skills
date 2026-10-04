@@ -36,7 +36,8 @@ neutral note that names the missing manifest.
   },
   "label": "contract fixtures",
   "caveat": "Contract fixtures: these shots prove rendering and request contracts, not live authentication, RLS, or delivery.",
-  "ios": { "command": "scripts/capture-flows.sh --iphone", "outputDir": "admin-site/web/public/flows" }
+  "ios": { "command": "scripts/capture-flows.sh --iphone", "outputDir": "admin-site/web/public/flows" },
+  "demo": { "command": "npm run preview:demo", "readyPath": "/home/", "liveDirs": ["supabase/functions"] }
 }
 ```
 
@@ -53,6 +54,7 @@ neutral note that names the missing manifest.
 | `states` | State name to query string. Exactly one entry has `default: true`. `when` says which diff adds that state. `persona` (optional) names the persona the state needs, for example an admin-only state. |
 | `label`, `caveat` | Printed on the posted comment, verbatim. |
 | `ios` | Optional. Captures iPhone screenshots. Absent means the repo has no native app. |
+| `demo` | Optional. Boots the demo server that the behavior pass needs. See *The demo server*. Absent means no behavior claim that calls the backend can be demonstrated. |
 
 ## What the preview command must do
 
@@ -80,6 +82,7 @@ A repo PR that adds or changes the command must keep all of these true:
 | 4 | Boot and health check, below. |
 | 5a | Navigate as `$BASE_URL<route>?<persona query>&<state query>`. Walk the default state on every surface, at every viewport. A manifest state other than the default is an interaction state for [capture.md](capture.md): desktop and mobile only. Add a state only when its `when` matches the diff. A state with `persona` is walked with that persona only. A requested persona the manifest does not list is a neutral note, never a substitute. |
 | 5a | After each surface, read `window.__fixturePreview.escaped`. A non-empty array is a **coverage gap**, reported by URL. The PR owns the missing fixture, like seed rung 1 in `full-send/evidence.md`. |
+| 5c | When the demo server booted, the journey and Phase 5d run on it, with the persona query and no state query. |
 | 5c | Start the journey with one `goto` to `$BASE_URL<entryPath>?<persona query>&<default state query>`. Every later beat clicks, per [opencap.md](opencap.md). The fixture state persists in the tab, so a click keeps the persona and state. After an action, wait for an element the action creates, never for text the start state already shows. |
 | 7 | Add the `ios` screenshots to the evidence, when the ios row below produced any. |
 | 8 | The `Stack:` line reads `Stack: <repo> fixtures (<label>, no live backend)`. Carry `caveat` under it. |
@@ -129,6 +132,41 @@ The readiness line names the fixture target instead of the e2e persona and emula
 ```
 ui-walkthrough:  gh ✓ (ptrandev)  driver: Playwright headed, chrome  RAM 32GB ✓  lane 0 (preview :3000)  persona: premium (account=pro)  target: pointsgpt fixtures  video: opencap ✓ window-scoped desktop journey
 ```
+
+## The demo server
+
+The fixture preview answers every backend call from fixtures, so the PR's backend code never runs
+there. The demo server serves the same app and answers the calls under `liveDirs` with the working
+tree's own handler code. [behavior.md](behavior.md) owns when the walkthrough uses it.
+
+| Field | Meaning |
+|---|---|
+| `demo.command` | Run from the repo root. Builds the working tree, then serves it in the foreground. Reads its port from `preview.portEnv` |
+| `demo.readyPath` | A path that answers 200 once the demo server serves pages |
+| `demo.liveDirs` | The backend source dirs whose handlers the demo server runs |
+
+The demo command keeps rules 1 to 4 and 6 to 8 of the preview command. Rule 5 changes, and two rules
+are added:
+
+5. **Run the working tree's handler for each backend call under `liveDirs`.** Stub every dependency
+   outside the repo (model calls, the database, third-party APIs) on the machine, with deterministic
+   answers. Send `Content-Security-Policy: connect-src 'self'`. Never reach a production or staging
+   host.
+9. **Push one entry, `{method, url}`, to `window.__fixturePreview.live`** for each request that the
+   working tree's code answered.
+10. **Start each page load with the persona from its query and an empty history**, so each scenario
+    starts from a clean state.
+
+**Boot it after Phase 5b, on the same port.** Kill each pid in `$SCRATCH/preview.pid`. Then run the
+two boot calls from *Boot and health check* with `demo.command`, `demo.readyPath`, `demo.log`, and
+`demo.pid`. Run the three assertions and the `window.__fixturePreview` check. Teardown kills each pid
+in `$SCRATCH/demo.pid`. A failure is a neutral note that quotes the last 20 lines of `demo.log`.
+
+A changed backend file outside `liveDirs`, or a dependency with no stub, leaves its claims NOT
+DEMONSTRATED. The PR owns the fix, like seed rung 1 in `full-send/evidence.md`.
+
+The `Stack:` line for a recording on the demo server reads
+`Stack: <repo> demo server (the PR's handlers, stubbed externals)`.
 
 ## iOS screenshots
 

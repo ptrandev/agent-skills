@@ -14,6 +14,10 @@ The video is a **threaded journey**: one continuous route that starts at the app
 point, navigates to each changed surface **by clicking**, performs the action the PR changes, and
 shows the result. Desktop width, start to finish. Markers are the beats of that route.
 
+**Behavior scenarios follow the surface beats in the same recording.** Phase 5d runs one scenario
+per behavior claim after the last surface beat, and the recording stops after the last claim.
+[behavior.md](behavior.md) owns the scenario beats and their markers.
+
 **The route reaches every surface Phase 3 walked. Full coverage, no budget, no sampling.** A video
 that visits 6 of 8 surfaces is worse than useless: a reviewer cannot tell a surface the route
 skipped from a surface the PR did not change. **Length is never a reason to drop a surface.** The
@@ -366,7 +370,8 @@ $B click "$SEL"
 
 **This is a simulation, and it is confined to the video.** The overlay is injected in Phase 5c only,
 after every screenshot in the matrix is already on disk, so no published still ever contains it. It
-is a `pointer-events:none` div, so it cannot intercept a click or change what the page does. It does
+is a `pointer-events:none` div, so it cannot intercept a click or change what the page does. Phase 5d
+takes its step screenshots during the recording, so it hides the cursor for each shot. It does
 not survive a navigation, which is why it is re-injected per page.
 
 If injection fails on a surface (a strict CSP, a page that replaces `document.body`), continue
@@ -440,6 +445,7 @@ did not happen:
 
 ```
 Video: https://opencap.dev/r/Bs_eYjKW  (desktop journey, all 8 surfaces, 9 beats, 1 jump)
+Video: https://opencap.dev/r/Bs_eYjKW  (desktop journey, all 1 surface, 4 of 4 behavior claims, 14 beats, 5 jumps)
 Video: skipped: headless browse daemon already running
 Video: skipped: OpenCap screen-recording permission not granted (run `opencap config doctor`)
 Video: truncated at 5:00 (Free tier), covers beats 1 to 6 of 9

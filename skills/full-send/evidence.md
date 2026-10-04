@@ -1,9 +1,13 @@
-# full-send Phase 8: Evidence (screenshots and video)
+# full-send Phase 8: Evidence (screenshots, behavior, and video)
 
-Loaded from `SKILL.md` Phase 8 only when the change touches UI.
+Loaded from `SKILL.md` Phase 8.
 
-**Skip gate.** Skip this phase when `git diff --name-only "origin/$BASE"...HEAD` shows no frontend
-source files. The paths per repo:
+**Skip gate.** Skip this phase only when both hold:
+
+- `git diff --name-only "origin/$BASE"...HEAD` shows no frontend source files.
+- The ticket and the PR body state no behavior claim, as `ui-walkthrough/behavior.md` defines it.
+
+A backend-only change that a user sees through the app runs this phase. The frontend paths per repo:
 
 | Repo | Frontend source |
 |---|---|
@@ -14,12 +18,14 @@ source files. The paths per repo:
 **Never** let an unmatched hardcoded path skip the phase silently: when the gate skips, say which
 paths it checked in the Phase 9 report.
 
-This phase produces two parts:
+This phase produces three parts:
 
 - **Screenshots** of every affected surface at desktop/tablet/mobile. They are the only responsive
   coverage.
-- A **walkthrough video**: one desktop user journey through the change, recorded with
-  [OpenCap](https://opencap.dev), scoped to the browser window and indexed by markers. It is
+- A **behavior demo**: one scenario per behavior claim in the ticket, with a screenshot per step and
+  a verdict per claim.
+- A **walkthrough video**: one desktop user journey through the change and the scenarios, recorded
+  with [OpenCap](https://opencap.dev), scoped to the browser window and indexed by markers. It is
   desktop-only.
 
 The video is **best-effort**. Capture screenshots only when OpenCap is not installed, is not logged
@@ -105,8 +111,19 @@ mode (`ui-walkthrough` invariant 10, which names this phase as the caller it pro
 proceeds on a draft. A run reporting "skipped, PR is a draft" means the walkthrough is on a stale
 copy of that invariant and this phase produced nothing. Treat that as a failure, not a skip.
 
-It returns `{blockers, mediums, nits, images, neutralNotes, video, coverage, markdown}` and **posts
-nothing**: this phase stays the single writer.
+It returns `{blockers, mediums, nits, images, neutralNotes, video, behavior, coverage, markdown}`
+and **posts nothing**: this phase stays the single writer.
+
+**A failed behavior claim means the feature does not work.** Fix the code, commit, run Phase 4, and
+run the walkthrough again. Post only after every claim is PASS or NOT DEMONSTRATED.
+
+**A NOT DEMONSTRATED claim is an evidence gap.** Close it when the PR can:
+
+| Cause | Action |
+|---|---|
+| the changed backend path is outside the manifest's `demo.liveDirs`, or a dependency has no stub | extend the demo server in this PR, then run the walkthrough again |
+| the repo's `walkthrough.json` has no `demo` section | do not build one in this PR. Post the gap, and name a follow-up ticket for the demo server in Phase 9 |
+| a step never rendered | treat it as a defect of the change: fix it and run the walkthrough again |
 
 **Empty states.** `/ui-walkthrough` derives fixtures from the PR's own e2e specs and reports a
 surface it did not populate. Caller-side decision: an unpopulated surface is a real gap to fix
