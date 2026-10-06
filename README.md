@@ -28,6 +28,7 @@ agents, so a `git pull` updates every linked copy.
 | [`plain-english`](skills/plain-english/SKILL.md) | Extracts claims, caveats, omissions, and implications from dense text. | `/plain-english <text>` |
 | [`copy-edit`](skills/copy-edit/SKILL.md) | Turns a transcript or rough draft into a polished post without adding claims. | `/copy-edit <text\|path>` |
 | [`skill-edit`](skills/skill-edit/SKILL.md) | Rewrites one skill to match this repository's house style. | `/skill-edit [skill\|path]` |
+| [`delegate`](skills/delegate/SKILL.md) | Tells the agent to use subagents while it stays the orchestrator and verifier. | `/delegate` |
 
 Brackets mark optional input, and pipes mark alternatives. The linked `SKILL.md` files contain
 specialized flags and exact behavior.
