@@ -77,6 +77,10 @@ procedure. The rules above bind on their own when that file is not on disk.
 
 ## Model delegation (cost + latency + quality)
 
+This is a standing request to use subagents. Do not wait for me to ask.
+Delegate when the rules below say that a subagent finishes the work faster or
+cheaper at the same quality. Look hardest for work that a smaller model can do.
+
 Pick the smallest model that can do the task at full quality. Match the tier
 to the task, not to the session model. Never delegate to a model stronger
 than the main loop; the verifier must not be weaker than the workers. All
