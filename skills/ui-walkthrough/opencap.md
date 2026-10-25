@@ -60,6 +60,11 @@ every width". **Do not merge the two questions back together.**
 
 ---
 
+## Personal recording preferences
+
+Before opening a recording window, read [recording.md](../../global/recording.md).
+Apply its display preferences only when its machine identity matches.
+
 ## Why window-scoped, always
 
 `opencap record start` with no target flag captures the **entire primary display**. These recordings

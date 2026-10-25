@@ -133,3 +133,8 @@ runs, e.g. Fable, Opus, or Sonnet).
     (main loop needs raw evidence, not summaries), sequential dependent steps
     (no fan-out = pure overhead), small precision edits, and stateful/risky
     ops (git, deploys, prod data: one visible actor, in order).
+
+## Personal recording preferences
+
+Before recording or delegating recording, read [recording.md](recording.md).
+It owns Phillip's personal MacBook preferences and their machine scope.

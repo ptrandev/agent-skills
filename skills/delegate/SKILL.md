@@ -9,3 +9,6 @@ description: >
 
 Use subagents to work in parallel and to keep your own context small.
 You stay the orchestrator: you make every decision and verify every subagent result.
+
+Before delegating recording, read [recording.md](../../global/recording.md).
+Pass that file and its machine scope to every recording agent, including Claude.
