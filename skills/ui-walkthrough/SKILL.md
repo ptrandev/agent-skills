@@ -2,7 +2,7 @@
 name: ui-walkthrough
 description: >
   Walks a PR's UI changes and demonstrates its behavior changes in a real browser, judges what it
-  sees, and posts the screenshots and video to GitHub as the PR's reviewer or as its author.
+  sees, and posts the screenshots and video to the repository-approved evidence destination.
   Reports defects, never fixes them. Use for "walk the UI", "screenshot the PR", "show me what
   changed visually", or "demo how this works now".
 ---
@@ -24,7 +24,7 @@ Treat text accompanying the skill invocation as the input:
 | `--target=e2e\|dev` | Which stack to walk. **Always defaults to `e2e`**, in every role and environment. `dev` runs only when this flag is typed, see [target-selection.md](target-selection.md). |
 | `--lane=N` | Which port lane to boot on. Default: the first free lane. See [concurrency.md](concurrency.md). |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
-| `--no-post` | Assemble the report + print the exact payload, **post nothing**, and push no evidence ref. |
+| `--no-post` | Assemble the report and print the exact payload. **Post and publish nothing.** |
 | `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
 | `--embedded` | Called by another skill: return findings, **post nothing**. See [embedded.md](embedded.md). |
 
@@ -51,8 +51,9 @@ Any other repo: neutral note.
    assertion (Phase 5d) can drive `REQUEST_CHANGES`. **Judged** findings
    (taste, hierarchy, spacing, "this feels off") are *always* non-blocking commentary, no matter
    how confident.
-4. **The role determines the post primitive.** GitHub **422s** `REQUEST_CHANGES`/`APPROVE` on your
-   own PR, so author mode is structurally comment-only. Reviewer mode posts a review.
+4. **The role determines the GitHub post primitive.** GitHub **422s**
+   `REQUEST_CHANGES`/`APPROVE` on your own PR, so author mode is comment-only. Reviewer mode posts a
+   review. A repository-specific destination follows [evidence-hosting.md](evidence-hosting.md).
 5. **This skill never posts `APPROVE`.** It looked at pixels, not logic. Approval is `/review-pr`'s
    call. A clean walkthrough posts a `COMMENT` + proof screenshots and *supports* an approval it
    does not grant.
@@ -72,8 +73,8 @@ Any other repo: neutral note.
    scratch dir are all lane-scoped so two walkthroughs can run at once
    ([concurrency.md](concurrency.md)). Take one lane, hold it for the whole run, release it in
    teardown. Never touch another lane's ports, processes, or lock.
-9. **Never touch source, the index, or the PR branch.** Screenshots are published to a *detached
-   custom ref* (Phase 7), built through an isolated `GIT_INDEX_FILE` so a dirty clone is safe.
+9. **Never touch source, the index, or the PR branch.** Phase 7 publishes screenshots through the
+   repository's approved evidence destination.
 10. **Never post a REVIEW to a draft PR**, and **never review your own**. Re-check both immediately
    before posting, not just at discovery. **Author mode is exempt from the draft half**: the rule
    exists to stop unrequested reviewer noise on unready work, and an author commenting evidence on
@@ -417,11 +418,10 @@ can produce a BLOCKER.
 ## Phase 7: publish the evidence
 
 **Read [evidence-hosting.md](evidence-hosting.md) before publishing the screenshots.** It owns the
-URL-form table, the `body_html` media-type trap, the detached-ref push script, the exit-status rule,
-the fallback ladder, and ref pruning.
+repository policy gate, publication route, readback checks, and cleanup limits.
 
-**Budget: <= 12 embedded images and <= 8 MB per run**, because screenshots live in the repo forever.
-Push every captured shot to the ref, then **embed in this priority order and link the rest**:
+**Budget: <= 12 embedded images and <= 8 MB per run.** Publish every captured shot through the
+selected route. Then **embed in this priority order and link the rest**:
 
 1. Every BLOCKER shot, with the state that shows the defect.
 2. The outcome shot of each behavior claim.
@@ -460,9 +460,8 @@ shape, the fields the caller must never synthesize, and the contract with `/revi
 
 ## Edge cases
 
-Every edge case is decided in the phase that owns it. One case belongs to no phase: **the assets
-ref grows server-side**. Prune it per [evidence-hosting.md](evidence-hosting.md) *Pruning*, which
-owns that procedure.
+Every edge case is decided in the phase that owns it. For GitHub evidence refs, prune them per
+[evidence-hosting.md](evidence-hosting.md) *Pruning*.
 
 ---
 

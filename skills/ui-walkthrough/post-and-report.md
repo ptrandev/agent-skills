@@ -5,6 +5,11 @@ Owns the post payloads, both body templates, the local report, and the teardown 
 
 ## Phase 8: post
 
+For `Atllas-Inc/pointsgpt`, post the grouped Linear comments defined in
+[evidence-hosting.md](evidence-hosting.md). Do not post a duplicate GitHub gallery. Put the Linear
+issue link in the PR's evidence section, and record the verified comment URLs in the local report.
+Use the Linear marker query instead of the GitHub marker query below.
+
 **Re-check before posting** (invariant 10): re-read `draft` and `author`, and re-run the Phase 2
 marker query. A concurrent routine can have posted since discovery, or the PR can have flipped to
 draft. Either -> skip with a note. Every body posted here, both modes, is held to **Writing style**.
@@ -111,7 +116,7 @@ Stack: booted ✓ identity-asserted ✓
 NEUTRAL NOTES (infra, never findings):
 - <e.g. tablet pass skipped: stack died mid-matrix>
 
-COVERAGE: 10/11 surfaces (dropped: …). Assets: refs/ui-walkthrough/pr-1773-<head-sha> @ <commit>
+COVERAGE: 10/11 surfaces (dropped: …). Assets: <verified Linear comment URLs or Git evidence ref>
 COMPONENTS: 7/7 changed UI files proven on screen (uncovered: <file>, <reason>, rung <n> tried)
 BEHAVIOR: 3/4 claims pass on <stack> (B<n> <verdict>: <assert expression> -> <result>)
 Posted: <review id|comment url>, event=<…>, <k> inline, <m> images embedded.

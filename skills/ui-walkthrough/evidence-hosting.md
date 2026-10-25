@@ -1,7 +1,41 @@
 # Publishing screenshots so a teammate's browser can load them
 
-Phase 7's mechanics. `gh` cannot upload an image, so the screenshots need a URL that renders inside a
-GitHub comment on a **private** repo. **Verified experimentally (2026-07-30, private repo, spike
+Phase 7 selects the repository-approved evidence destination before it uploads a file.
+
+## PointsGPT: Linear comments
+
+When `$OWNER/$NAME` is `Atllas-Inc/pointsgpt`, read the checkout's `AGENTS.md` Evidence section.
+It owns the allowed destinations. **Never create or push an evidence Git ref for PointsGPT.**
+
+Upload screenshots with Linear's `fileUpload` flow. Do not call `attachmentCreate` for a new
+screenshot. Group related screenshots in contextual issue comments instead of the Resources list.
+Each comment must state what the group proves. Put a visible caption before each Markdown image.
+Start each caption with before, after, or mockup. Then name the environment, viewport, and theme.
+Use this shape:
+
+```markdown
+**After | local fixture preview | 390 px | dark**
+![Account screen after the change](https://uploads.linear.app/...)
+```
+
+Include the walkthrough marker from Phase 2 in the Linear comment. On a rerun, query the related
+issue comments for that marker before uploading. Apply the same skip rules as Phase 2.
+
+After each comment mutation, read the comment back and compare its body with the intended Markdown.
+Open every embedded asset URL and verify the returned image bytes. Keep upload receipts so a rerun
+reuses an asset with the same path and SHA-256 hash.
+
+During migration, remove only a redundant screenshot Resource link after the comment readback and
+all image checks pass. Never delete the uploaded asset. Never delete another person's comment.
+Preserve unrelated Resources and discussion. Markdown and report files can remain Resources.
+
+OpenCap remains the only video host. Put its share link in the contextual Linear comment. Stop here
+for PointsGPT. The GitHub route below does not apply.
+
+## GitHub comments
+
+For other repositories, `gh` cannot upload an image. The screenshots need a URL that renders inside
+a GitHub comment on a **private** repo. **Verified experimentally (2026-07-30, private repo, spike
 PR):**
 
 | Path | Renders for a viewer? | Notes |

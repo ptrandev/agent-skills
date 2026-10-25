@@ -151,8 +151,16 @@ Read each returned PNG with the Read tool. Judge the screenshots yourself before
 
 ### Step 8d: Attach the evidence to the PR
 
+**Read [../ui-walkthrough/evidence-hosting.md](../ui-walkthrough/evidence-hosting.md) before
+publishing.** It owns repository-specific evidence destinations and verification.
+
+For `Atllas-Inc/pointsgpt`, use its Linear comment route. Do not create an evidence Git ref or a
+duplicate GitHub gallery. Put the Linear issue link and a short description in the PR's
+"Screenshots and videos" section after the comment and image readback checks pass.
+
 Post one comment built from the returned `markdown`. Its image URLs are already published and
-rendering, so **do not** re-upload anything.
+rendering, so **do not** re-upload anything. This GitHub comment applies to repositories whose
+selected route is GitHub.
 
 ```bash
 gh pr comment "$PR_NUMBER" --body "$(cat <<EOF

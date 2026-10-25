@@ -3,7 +3,7 @@ name: full-send
 description: >
   End-to-end feature workflow: take a Linear ticket or a raw idea, implement it, self-review,
   open a PR, address every bot review thread, then capture UI and behavior evidence. Autonomous by default.
-  Use with /full-send <TICKET-ID>, /full-send alone, or a free-text idea.
+  Use with /full-send TICKET-ID, /full-send alone, or a free-text idea.
 ---
 
 # full-send
