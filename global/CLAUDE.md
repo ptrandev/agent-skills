@@ -75,6 +75,14 @@ doc, a PR body, a skill, or a summary for people who did not watch the work happ
 the full list of AI writing tells, the ones that are not tells, and its own refresh
 procedure. The rules above bind on their own when that file is not on disk.
 
+## Task routing
+
+Use Claude CLI for long ticket work and substantial implementation across several steps.
+Use Claude Opus with high reasoning for those assignments.
+For a trivial issue or a quick one-off change, use Codex when it finishes faster.
+Route ChatGPT model calls from Claude through Codex CLI.
+Do not use the OpenAI API for those calls.
+
 ## Model delegation (cost + latency + quality)
 
 This is a standing request to use subagents. Do not wait for me to ask.
