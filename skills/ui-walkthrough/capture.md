@@ -93,11 +93,19 @@ states -> capture the first 3 and list the rest as not walked. Phase 7's embed p
 the captured set to the image budget.
 
 **Exercise the change, do not just render the page.** Open the modal, submit the form, show the
-result, then capture the empty and error states if the surface has them. Naming:
+result, then capture the empty and error states if the surface has them.
 
+**Claim a new `$SHOTS` directory for every run, before the first capture.** Phase 7 publishes every
+PNG in `$SHOTS`, so a reused directory publishes an earlier run's shots as this run's evidence.
+`mkdir` without `-p` fails on an existing directory. **Never reuse, empty, or delete an earlier
+shots directory.** On Windows, [windows.md](windows.md) claims it instead.
+
+```bash
+SHOTS="$SCRATCH/shots-$NAME-$PR-$(printf '%.12s' "$HEAD_SHA")-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir "$SHOTS" || { echo "SKIP: could not claim a new shots directory at $SHOTS"; exit 1; }
 ```
-$SCRATCH/shots-$NAME-$PR/<nn>-<surface>-<viewport>[-<state>].png
-```
+
+Name each shot `$SHOTS/<nn>-<surface>-<viewport>[-<state>].png`.
 
 `<surface>` is the route with its slashes trimmed and inner slashes as `-`: `/app/` is `app`,
 `/billing/invoices` is `billing-invoices`, and `/` is `root`.
@@ -174,7 +182,8 @@ review body.
 
 ## 5c: the journey (recorded, `CAN_VIDEO` only)
 
-Follow [opencap.md](opencap.md) for this pass.
+Follow the video driver's file for this pass: [opencap.md](opencap.md) on macOS,
+[browser-video.md](browser-video.md) on Windows.
 
 Five facts shape this pass:
 
@@ -184,6 +193,9 @@ Five facts shape this pass:
 - 5a and 5b are **already done**, so the route can be authored around the defects they found.
 - Reaching a Phase 5b blocker is best-effort. One that only reproduces at 375 or 768, or on a surface
   off the route, stays a screenshot finding. **Never re-stage a defect just to get it on tape.**
+- **Never replay a paid action for nicer footage.** A paid action is a real charge, a paid API call,
+  or a message to a real person. Its first take is the evidence, defects included. Retake a journey
+  only when it contains no paid action.
 
 Phase 5d continues this recording with the behavior scenarios ([behavior.md](behavior.md)). Do not
 stop the recording at the last surface when the claim list is not empty.

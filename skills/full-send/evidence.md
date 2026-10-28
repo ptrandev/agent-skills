@@ -24,12 +24,12 @@ This phase produces three parts:
   coverage.
 - A **behavior demo**: one scenario per behavior claim in the ticket, with a screenshot per step and
   a verdict per claim.
-- A **walkthrough video**: one desktop user journey through the change and the scenarios, recorded
-  with [OpenCap](https://opencap.dev), scoped to the browser window and indexed by markers. It is
-  desktop-only.
+- A **walkthrough video**: one desktop user journey through the change and the scenarios. On macOS,
+  [OpenCap](https://opencap.dev) records the browser window and indexes it by markers. On Windows,
+  `/ui-walkthrough` records the browser page and converts it to MP4. It is desktop-only.
 
-The video is **best-effort**. Capture screenshots only when OpenCap is not installed, is not logged
-in, or lacks the screen-recording permission. **Never** block the PR on the video.
+The video is **best-effort**. Capture screenshots only when `/ui-walkthrough` reports
+`CAN_VIDEO=0`, with its reason. **Never** block the PR on the video.
 
 **A `walkthrough.json` repo walks on its own fixture preview**
 (`ui-walkthrough/preview-contract.md`), so `UIW_ALLOW_DEV` never applies there and the dev escape
@@ -139,9 +139,10 @@ Never report the change as walked because its route was captured.
 ### Step 8c: The video comes back with the walkthrough
 
 **Do not** start a recording here. `/ui-walkthrough` owns it and returns
-`video: {url, sessionId, viewport, beats, jumps, truncated} | null`, a contract owned by
-`ui-walkthrough/opencap.md`. `VIDEO_LINK` is `video.url`, or empty when `video` is `null`, in which
-case the reason is already in `neutralNotes` and Step 8d prints it.
+`video: {driver, url, file, sha256, sessionId, viewport, beats, jumps, truncated} | null`, a contract
+owned by `ui-walkthrough/embedded.md`. `VIDEO_LINK` is `video.url`, or empty when `video` is `null`, in
+which case the reason is already in `neutralNotes` and Step 8d prints it. A Windows browser video
+with no approved destination has `url: null` and a local `file`: report the file name and SHA-256.
 
 `video.viewport` is always `desktop`. It describes the recording, never the run's coverage: read
 `coverage.viewports` for that, and keep the two next to each other in the posted body. A video link

@@ -8,7 +8,7 @@ With `--embedded`, post nothing and **return** to the caller:
 ```
 { blockers: [...], mediums: [...], nits: [...],
   images: [{surface, viewport, state, url}], neutralNotes: [...],
-  video: {url, sessionId, viewport, surfaces, surfacesUnreached, beats, jumps, truncated} | null,
+  video: {driver, url, file, sha256, sessionId, viewport, surfaces, surfacesUnreached, beats, jumps, truncated} | null,
   behavior: {stack, claims: [...], notDemonstrable: [...]} | null,
   coverage: {surfacesWalked, surfacesTotal, dropped, personas, viewports,
              componentsCovered, componentsTotal, componentsUncovered:[{file, why, lastRung}]},
@@ -20,7 +20,8 @@ browser exists, is logged in, is sized at 1440×900, and the matrix and detector
 facts only this skill holds. A caller wrapping its own `record start` around the delegated call
 records the wrong window at the wrong size, with the login in frame and the matrix instead of the
 journey. `video` is `null` whenever `CAN_VIDEO` was 0, with the reason in `neutralNotes`. The
-`markdown` block already embeds the link when there is one.
+`markdown` block already embeds the link when there is one. `video.driver` is `opencap` or
+`browser`. [browser-video.md](browser-video.md) *Report* owns the `browser` fields.
 
 **`video.viewport` is always `desktop`, and it does not describe the run's coverage.** Read
 `coverage.viewports` for that. A caller that renders the video link without the coverage block

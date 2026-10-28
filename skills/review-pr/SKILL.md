@@ -169,10 +169,10 @@ Resolve the **target repo set** (`--repo` override, else every Targets row). For
     ```
     Branch on the OS. `free` does not exist on macOS, so a `free -m`-only probe returns
     `TOTAL_MB=0` there, sets `HAVE_RAM=0`, and disables the walkthrough on every local Mac run.
-  - `CAN_VIDEO`: an OpenCap walkthrough video can be recorded. **Local macOS only.**
-    `/ui-walkthrough` produces it (`ui-walkthrough/opencap.md`), not this skill. An unattended
-    `/loop` records the same artifact as an attended run: the capture is scoped to the browser
-    window, so nothing else on screen reaches GitHub.
+  - `CAN_VIDEO`: a walkthrough video can be recorded. **Local runs only:** OpenCap on macOS, a
+    browser page recording on Windows. `/ui-walkthrough` produces it (its Phase 0 driver table),
+    not this skill. An unattended `/loop` records the same artifact as an attended run: the
+    capture is scoped to the browser, so nothing else on screen reaches GitHub.
 
 **Refresh the rubric (non-blocking):** invoke `phillip-sync` once (a 24 h cooldown makes it a no-op
 when it ran in the last 24 h). If it reports it ADDED lines, **re-Read** the rubric. **It is a

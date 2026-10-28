@@ -399,8 +399,8 @@ component with the commit SHA, like any other fix. Handle a thread that needs vi
 capability:
 
 - **`CAN_VISUAL` (local run):** after the fix, capture proof with **`/ui-walkthrough`**: screenshots
-  of the affected surface, plus a window-scoped OpenCap video when the flow is interactive.
-  **Never hand-roll `opencap` here.** `ui-walkthrough/opencap.md` owns the capture contract,
+  of the affected surface, plus a browser-scoped video when the flow is interactive.
+  **Never hand-roll a recording here.** `/ui-walkthrough` owns the capture contract per platform,
   including why the capture never widens to the whole display. Attach the image to the thread
   reply, *then* resolve.
 - **`!CAN_VISUAL` (sandbox/Routine):** **Do not** resolve on a code-only basis when the reviewer
@@ -448,7 +448,7 @@ Pick the runtime by the **deepest tier you need**:
 | Runtime | Tiers available | Latency on a new review comment |
 |---|---|---|
 | **Routine (cloud), primary** | 1 + 2. The cloud session clones the repo and runs a `yarn install` setup step, so it has the real code and toolchain. | Hourly. Routines have **no review-comment event** (only `pull_request.*` / `release.*`), so the schedule is the workhorse. A `pull_request` `labeled` trigger is an optional nudge for one PR. |
-| **Local cron / `/loop`** | 1 + 2 + 3 (`browse` + OpenCap). The only runtime that can produce visual evidence. | Whatever you set, sub-hour allowed. |
+| **Local cron / `/loop`** | 1 + 2 + 3 (a browser, plus OpenCap on macOS or the browser page recorder on Windows). The only runtime that can produce visual evidence. | Whatever you set, sub-hour allowed. |
 | **GitHub Actions** | 1 + 2 | Seconds. The only option that triggers on `pull_request_review_comment`. |
 
 - **Read [routine.md](routine.md) before you set up the Routine.** It owns the GitHub connection,

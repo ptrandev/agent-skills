@@ -2,8 +2,8 @@
 
 Owns driver selection, the `browse` build probe, the headed Playwright fallback, the cloud launch
 arguments, and the capacity gate. `SKILL.md` Phase 0 keeps the pointer here. Read this before
-driving anything. Recording is [opencap.md](opencap.md)'s. This file only guarantees a window
-exists for it to scope to.
+driving anything. Recording is [opencap.md](opencap.md)'s on macOS and
+[browser-video.md](browser-video.md)'s on Windows. This file only guarantees a browser for them.
 
 **Driver** (in preference order, first available wins):
 
@@ -12,11 +12,11 @@ exists for it to scope to.
 | Browser | `browse` binary (`$ROOT/.claude/skills/gstack/browse/dist/browse`, else `~/.claude/skills/gstack/browse/dist/browse`) | WSL2 Playwright/Chromium | headless Playwright/Chromium |
 | Viewport | `browse viewport WxH` | `page.setViewportSize` | `page.setViewportSize` |
 | Screenshot | `browse prettyscreenshot`, else `browse screenshot` | `page.screenshot({fullPage:true})` | `page.screenshot({fullPage:true})` |
-| Video | OpenCap **scoped to the browser window**, either role, needs a HEADED browser | none | none (skip, never block) |
+| Video | OpenCap **scoped to the browser window**, either role, needs a HEADED browser | browser page `recordVideo`, converted to MP4 natively | none (skip, never block) |
 | Credentials | `dev-credentials.md` | seeded E2E credentials | **env vars only** (the file is gitignored, so it is absent) |
 
-When `HOST_PLATFORM=windows`, use headless Playwright from the WSL2 worktree. Skip the `browse` probe
-and omit `recordVideo`.
+When `HOST_PLATFORM=windows`, use headless Playwright from the WSL2 worktree. Skip the `browse` probe.
+Omit `recordVideo` from the Phase 5a and 5b context. Only the Phase 5c context sets it.
 
 **Every `browse` call that touches the daemon goes through the lane wrapper** that
 [concurrency.md](concurrency.md) writes to `$SCRATCH/browse`. Without it two concurrent runs drive
@@ -38,8 +38,8 @@ headed Playwright driver below with `channel: 'chrome'`, which launches the inst
 Name the swap in the readiness line.
 
 **`BROWSE_CAN_HEAD=0` swaps the driver, it never drops the video.** One headed Playwright launch
-gives what `browse` cannot: a real OS window for OpenCap to scope to, a native `.webm` even when
-OpenCap is unavailable, and `storageState` auth that **does** restore the Firebase session
+gives what `browse` cannot: a real OS window for OpenCap to scope to, and `storageState` auth that
+**does** restore the Firebase session
 (Playwright replays `origins[].indexedDB`, but `browse cookie-import` cannot, see [stack.md](stack.md)),
 so the harness's own `e2e/.auth/*.json` replaces form login.
 
@@ -48,7 +48,6 @@ const browser = await chromium.launch({ headless: false, args: ['--window-size=1
 const context = await browser.newContext({
   storageState: `${WORKDIR}/apps/agents-portal/e2e/.auth/user.json`,  // set by the harness's setup project
   viewport: { width: 1440, height: 900 },        // matches --window-size: the video frames the page
-  recordVideo: { dir: VIDEO, size: { width: 1440, height: 900 } },   // native .webm fallback
 })
 ```
 

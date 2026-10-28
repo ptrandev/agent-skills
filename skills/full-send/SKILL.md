@@ -139,10 +139,11 @@ Check the tools this run will use before any other work. Print a **readiness sum
   Report the driver, not a bare ✗.
 
 **Optional** (note what is missing and how to enable it, then continue):
-- **OpenCap** (walkthrough video): `command -v opencap` and `opencap config doctor`. `doctor` also
-  surfaces a missing **macOS screen-recording permission**, a TCC grant no script can make, so a
-  human grants it once by hand. Missing → video is skipped, never blocks. To enable: install
-  OpenCap, `opencap login` once, then approve screen recording when macOS asks.
+- **OpenCap** (walkthrough video on macOS): `command -v opencap` and `opencap config doctor`.
+  `doctor` also surfaces a missing **macOS screen-recording permission**, a TCC grant no script can
+  make, so a human grants it once by hand. Missing → video is skipped, never blocks. To enable:
+  install OpenCap, `opencap login` once, then approve screen recording when macOS asks. On Windows,
+  `/ui-walkthrough` probes its browser page recorder instead (`ui-walkthrough/browser-video.md`).
 - **Skill dependencies** (`/grilling`, and the Phase 5 `/phillip` + its `/codex` reviewer):
   **auto-installed when missing**, with any CLI auth walked through interactively.
 
@@ -167,7 +168,7 @@ to Claude-only. A missing reviewer CLI is **never** a bail-out.
 Phase 5 holds the operative gate when `/phillip` itself cannot be installed.
 
 **Mode behavior:** Print the summary and proceed. Fold this summary into the grill when the grill
-runs. The operative OpenCap gate is `/ui-walkthrough`'s own `CAN_VIDEO` probe (its Phase 0). This
+runs. The operative video gate is `/ui-walkthrough`'s own `CAN_VIDEO` probe (its Phase 0). This
 preflight only reports what the operator can fix now.
 
 ---
@@ -483,8 +484,9 @@ Report:
 - Which bots reviewed (Copilot, Gemini Code Assist, both, or neither) and how their threads were handled
 - **CI status** (Step 7d): green, or which checks failed and how they were handled
 - Evidence: link to the PR comment where the screenshots and walkthrough video are already
-  attached (Phase 8d): the video link, or the specific reason there is none (screen-recording
-  permission not granted, OpenCap not installed/logged in, reviewer mode, `--no-video`). **Never**
+  attached (Phase 8d): the video link or local file, or the specific reason there is none
+  (screen-recording permission not granted, OpenCap not installed/logged in, no MP4 encoder on
+  Windows, reviewer mode, `--no-video`). **Never**
   report "video skipped" with no reason. Add the behavior verdicts (`<passed> of <total> claims
   pass`), each NOT DEMONSTRATED claim with its reason, and any follow-up ticket for a demo server.
 - Alignment context (per the Modes table):

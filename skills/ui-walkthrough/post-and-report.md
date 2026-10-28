@@ -126,7 +126,7 @@ The `Video:` field is never bare. Either a URL with its surface, beat, and jump 
 (`https://opencap.dev/r/Bs_eYjKW (desktop journey, all 8 surfaces, 9 beats, 1 jump)`), or the reason
 it is absent: `skipped (headless browse daemon running)`, `skipped (screen-recording permission)`,
 `skipped (headless routine)`, `truncated at 5:00 (Free tier)`. "Video: ✓" without a URL is not a
-report. Say in the report when a journey is mostly jumps: it means the app had no in-app route
+report. A Windows browser video uses the forms in [browser-video.md](browser-video.md) *Report*. Say in the report when a journey is mostly jumps: it means the app had no in-app route
 between those surfaces.
 
 **The journey covers every walked surface, so the count reads `all <n>` and matches
@@ -145,6 +145,7 @@ walkthrough having succeeded. It must leave the machine exactly as it was found:
 - [ ] the lane's lock released, and the lane's ports free (`concurrency.md` *Teardown*)
 - [ ] **no orphaned recording**: if a session was started and no `share_url` came back,
       `opencap record discard` (it holds the active lock and burns a Free-tier slot otherwise)
+- [ ] **Windows**: the recorded context closed, so the WebM finished ([browser-video.md](browser-video.md) *Teardown*)
 - [ ] **this lane's** `browse` daemon stopped, and no other lane's touched. A daemon this run did
       not start is left exactly as found
 - [ ] `git status --porcelain` **identical** to the pre-run capture: diff them and say so in the

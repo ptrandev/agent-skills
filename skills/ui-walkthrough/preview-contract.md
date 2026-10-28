@@ -91,6 +91,9 @@ A repo PR that adds or changes the command must keep all of these true:
 
 ## Boot and health check (Phase 4)
 
+On Windows, [windows.md](windows.md) *Fixture preview* runs this boot inside WSL2 instead of the two
+calls below. The three assertions stay the same.
+
 Boot in two Bash calls. A cold build can pass the 600 s ceiling of one call, so the first call runs
 with `run_in_background` and holds the preview in the foreground of its own shell:
 
