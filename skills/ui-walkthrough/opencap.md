@@ -62,8 +62,10 @@ every width". **Do not merge the two questions back together.**
 
 ## Personal recording preferences
 
-Before opening a recording window, read [recording.md](../../global/recording.md).
-Apply its display preferences only when its machine identity matches.
+Before opening a recording window, read `$UI_WALKTHROUGH_DIR/../../global/recording.md`
+([recording.md](../../global/recording.md)). `SKILL.md` Phase 0 resolves `$UI_WALKTHROUGH_DIR`
+through the installed link, so the path reaches the canonical file. Apply its display
+preferences only when its machine identity matches.
 
 ## Why window-scoped, always
 

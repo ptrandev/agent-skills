@@ -29,8 +29,9 @@ During migration, remove only a redundant screenshot Resource link after the com
 all image checks pass. Never delete the uploaded asset. Never delete another person's comment.
 Preserve unrelated Resources and discussion. Markdown and report files can remain Resources.
 
-OpenCap remains the only video host. Put its share link in the contextual Linear comment. Stop here
-for PointsGPT. The GitHub route below does not apply.
+On macOS, OpenCap remains the only video host. Put its share link in the contextual Linear comment.
+A Windows browser video follows [browser-video.md](browser-video.md) *Publication*. Stop here for
+PointsGPT. The GitHub route below does not apply.
 
 ## GitHub comments
 

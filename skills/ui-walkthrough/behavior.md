@@ -106,7 +106,8 @@ express the claim.
 | FLAKY | a mechanical assertion failed once, then held on a re-run | **MEDIUM** |
 | NOT DEMONSTRATED | no stack runs the code, a step never rendered, or the PR's code never answered | neutral note |
 
-Re-run a failed claim once from a clean state before you class it. **Never** raise a finding about
+Re-run a failed claim once from a clean state before you class it. **Never** re-run a claim whose
+steps make a paid action ([capture.md](capture.md) 5c). **Never** raise a finding about
 the wording of stubbed output: it is the stub, not the PR.
 
 ## Evidence

@@ -25,7 +25,7 @@ Treat text accompanying the skill invocation as the input:
 | `--lane=N` | Which port lane to boot on. Default: the first free lane. See [concurrency.md](concurrency.md). |
 | `--surfaces=/a,/b` | Skip discovery, walk exactly these routes. Semantics in Phase 3. |
 | `--no-post` | Assemble the report and print the exact payload. **Post and publish nothing.** |
-| `--no-video` | Skip the OpenCap recording even when available (local macOS only, either role). Video also forces a **headed** browser, see [opencap.md](opencap.md). |
+| `--no-video` | Skip the walkthrough video even when available (local macOS or Windows, either role). See *Video capability* in Phase 0. |
 | `--embedded` | Called by another skill: return findings, **post nothing**. See [embedded.md](embedded.md). |
 
 ### Repos this skill can walk
@@ -205,10 +205,18 @@ out of it.
 
 ### Video capability: `CAN_VIDEO`
 
-**Read [opencap.md](opencap.md) before probing or recording.** It owns the probe, the
-window-scoping rule, the journey, the sequence, the markers, the quota, and the teardown. Probe
-there, carry one boolean, branch in **Phase 5c**. Video is **local macOS only, under either role**,
-and **always** best-effort. **Never** let an `opencap` call block, fail, or slow the walkthrough.
+Pick the video driver from `HOST_PLATFORM`. **Read the driver's file before probing or recording.**
+It owns the probe, the capture, the teardown, and the `Video:` line for that driver.
+
+| `HOST_PLATFORM` | `VIDEO_DRIVER` | Read |
+|---|---|---|
+| `macos` | `opencap`: the browser window, headed | [opencap.md](opencap.md) |
+| `windows` | `browser`: the browser page, Playwright WebM converted to H.264 MP4 | [browser-video.md](browser-video.md) |
+| `linux` | none | `video: skipped (headless routine)` |
+
+Probe there, carry `CAN_VIDEO` and `VIDEO_DRIVER`, and branch in **Phase 5c**. Video runs under
+either role and is **always** best-effort. **Never** let a video step block, fail, or slow the
+walkthrough.
 
 ### Target selection
 
@@ -481,7 +489,9 @@ Phase 0 selects one of three platform paths:
   `UIW_UNATTENDED=1`, which sets `ATTENDED=0` and refuses `--target=dev` (Phase 0). Recording does
   **not** make a run attended, and does not occupy the machine: see [opencap.md](opencap.md).
 - **Local Windows**: run the sealed stack and headless Playwright through WSL2. Use PowerShell for
-  GitHub access and evidence publication. Skip OpenCap. The Windows adapter supports `e2e` only.
+  GitHub access and evidence publication. Record the browser page per
+  [browser-video.md](browser-video.md). The Windows adapter supports the `codebase` `e2e` stack and
+  `walkthrough.json` fixture previews.
 
 The Phase 2 marker makes repeated runs safe: each picks up only PRs not yet walked at their current
 head, and Phase 8's re-check closes the window where two overlapping runs both pass the gate.
