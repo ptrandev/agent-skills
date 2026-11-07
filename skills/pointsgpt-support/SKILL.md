@@ -44,7 +44,7 @@ Set `S=<this skill dir>/scripts`.
 
 | Script | Does |
 |---|---|
-| `node $S/user.mjs <uuid> [--since YYYY-MM-DD]` | One member: account, billing in the database, every Stripe subscription and charge, a timeline of turns, refusals, slow flags, searches and app events, and the full chat: every question, every answer, and every board row with stops, taxes, and seats |
+| `node $S/user.mjs <uuid> [--since YYYY-MM-DD]` | One member: account, billing in the database, every Stripe subscription and charge, a timeline of turns, refusals, slow flags, searches and app events, and the full chat: every question, every answer, and every board row with stops, taxes, and seats. Billing also covers the guest identities linked into the member, and names the identity behind each record |
 | `node $S/q.mjs "<sql>"` | One read-only statement. Only the last statement's rows come back |
 | `node $S/stripe.mjs "<path>"` | One Stripe GET, for example `subscriptions/sub_123` |
 
@@ -69,6 +69,8 @@ Read the output yourself before you write a verdict.
    claim such as "the board showed only 1-stop fares" must hold for every row.
 5. Do not shorten the dump with `head`, `cut`, or a subagent summary. A shortened answer or board
    leads to a wrong diagnosis.
+6. **Never** report "no subscription" when the Stripe section starts with `INCOMPLETE EVIDENCE`.
+   Name the `evidence` lines and read those sources first.
 
 **Read [references/diagnosis.md](references/diagnosis.md) when the dump shows a deleted account,
 an empty chat, a refusal, an empty board, or a payment the database does not show.** It owns the
