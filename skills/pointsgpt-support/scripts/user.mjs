@@ -1,12 +1,15 @@
 // Usage: node user.mjs <user uuid> [--since 2026-10-01]
-// Prints one PointsGPT member's account, billing (database and Stripe), activity, and chat.
+// Prints one PointsGPT member's account, billing (database and Stripe, including linked guest
+// identities), activity, and chat. Account, activity, and chat use the requested UUID only.
 // Read-only: SQL runs with read_only, and Stripe calls are GET.
+import { collectBilling, formatBilling, isIsoDate, isUuid, sqlDb } from "./billing.mjs";
 import { et, sql, stripe } from "./env.mjs";
 
 const id = process.argv[2];
-if (!/^[0-9a-f-]{36}$/.test(id ?? "")) throw new Error("usage: node user.mjs <user uuid>");
+if (!isUuid(id)) throw new Error("usage: node user.mjs <user uuid>");
 const sinceAt = process.argv.indexOf("--since");
 const since = sinceAt > 0 ? process.argv[sinceAt + 1] : "2026-01-01";
+if (!isIsoDate(since)) throw new Error("usage: --since takes a real date as YYYY-MM-DD");
 
 const one = async (q) => (await sql(q))[0] ?? null;
 const rows = (q) => sql(q);
@@ -24,47 +27,12 @@ line(`== Account ${id}`);
 line(auth ? `exists, created ${et(auth.created_at)}, last sign-in ${et(auth.last_sign_in_at)}` : "DELETED: no auth.users row (waitlist, entitlement, chat_thread cascade away)");
 if (wl) line(`waitlist: ${wl.name} · ${wl.phone} · ${wl.email ?? "no email"} · ${wl.source} · home ${wl.home_origin} · joined ${et(wl.joined_at)} · sms opt-out ${et(wl.sms_opted_out_at) ?? "no"}`);
 
-// Billing in the database
-line("\n== Billing (database)");
-const ent = await one(`select tier, is_active, expires_at, store, product_id, last_event, granted_by, updated_at from entitlement where user_id='${id}'`);
-line(`entitlement: ${ent ? JSON.stringify(ent) : "none"}`);
-const trials = await rows(`select subscription_id, sold_on, plan, started_at, canceled_at, converted_at, converted_usd from stripe_trial where user_id='${id}' order by started_at`);
-for (const t of trials) line(`stripe_trial: ${JSON.stringify(t)}`);
-for (const t of await rows(`select * from appstore_trial where user_id='${id}'`)) line(`appstore_trial: ${JSON.stringify(t)}`);
-for (const p of await rows(`select provider, payment_id, amount_usd, paid_at, kind from payment_ledger where user_id='${id}' order by paid_at`)) line(`payment_ledger: ${JSON.stringify(p)}`);
-
+// Billing covers the requested user plus the guest identities linked into it (billing.mjs).
 // Stripe is the authority: the database misses cancels made in the dashboard.
-line("\n== Stripe (authority)");
-const subIds = new Set(trials.map((t) => t.subscription_id));
-const bySub = await stripe(`subscriptions/search?query=${encodeURIComponent(`metadata['supabase_user_id']:'${id}'`)}`);
-for (const s of bySub.data ?? []) subIds.add(s.id);
-const customers = await stripe(`customers/search?query=${encodeURIComponent(`metadata['supabase_user_id']:'${id}'`)}`);
-for (const c of customers.data ?? []) {
-  const list = await stripe(`subscriptions?customer=${c.id}&status=all&limit=20`);
-  for (const s of list.data ?? []) subIds.add(s.id);
-}
-const customerIds = new Set();
-for (const sid of subIds) {
-  const s = await stripe(`subscriptions/${sid}`);
-  if (s.error) { line(`${sid}: ${s.error.message}`); continue; }
-  customerIds.add(s.customer);
-  const price = s.items.data[0]?.price;
-  line(
-    `${s.id} · ${s.status} · customer ${s.customer} · $${(price?.unit_amount ?? 0) / 100}/${price?.recurring?.interval}` +
-      ` · trial_end ${et(s.trial_end)} · cancel_at_period_end ${s.cancel_at_period_end} · canceled_at ${et(s.canceled_at)}`,
-  );
-  if (s.status === "trialing" && !s.cancel_at_period_end) {
-    const hours = (s.trial_end * 1000 - Date.now()) / 36e5;
-    line(`  LIVE TRIAL: charges $${(price?.unit_amount ?? 0) / 100} at ${et(s.trial_end)} (${hours.toFixed(1)} h from now)`);
-  }
-}
-for (const c of customerIds) {
-  const ch = await stripe(`charges?customer=${c}&limit=10`);
-  for (const x of ch.data ?? []) {
-    line(`charge ${x.id} · $${x.amount / 100} · ${x.status} · ${et(x.created)} · refunded $${x.amount_refunded / 100}`);
-  }
-}
-if (!subIds.size) line("no Stripe subscription found (check App Store: entitlement.store = APP_STORE)");
+line();
+const ent = await one(`select tier, is_active, expires_at, store, product_id, last_event, granted_by, updated_at from entitlement where user_id='${id}'`);
+const report = await collectBilling({ target: id, db: sqlDb(sql), stripe });
+for (const l of formatBilling(report, { et, entitlement: ent })) line(l);
 
 // Activity, oldest first
 line(`\n== Activity since ${since} (ET)`);
