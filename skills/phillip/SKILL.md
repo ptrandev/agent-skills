@@ -34,9 +34,6 @@ arrows, not em dashes.
 
 ## 0. Setup for this run
 
-- Use 6.1 Sol with High reasoning for Codex sessions, following Phillip's current preference.
-  Preserve separately configured Claude model preferences. **Do not** raise effort automatically.
-  If the host cannot change models, report the actual setting without interrupting supported work.
 - Treat text accompanying the skill invocation as the input. `quick` selects quick mode.
 - Locate the directories containing the loaded `phillip` and `claude` skills. Call them
   `PHILLIP_DIR` and `CLAUDE_SKILL_DIR`. Use those directories for every skill file, rubric,
@@ -157,7 +154,7 @@ blind Claude reviewer back into an in-session pass.
      does not edit, fix, or commit anything.
 
    Do NOT paste the conversation, the ticket, the implementation rationale, or any "what this
-   is supposed to do" narrative into the prompt. Do not select a smaller Claude model.
+   is supposed to do" narrative into the prompt.
 4. Collect: once the background job finishes, read `/tmp/phillip-codex.out`, and take the
    blind sub-agent's returned findings. Combine every finding from both reviewers into one list
    with proposed severity. You did NOT review.
@@ -193,8 +190,6 @@ holding the code under review:
 - `--rubric` is **mandatory**: without it the subprocess cannot Read `RUBRIC.md` and reviews
   against a generic bar. It grants the whole `$PHILLIP_DIR`, so the subprocess reaches
   `RUBRIC.private.md` from the same flag. Pass `RUBRIC.md` here and name both files in the prompt.
-- Omit `--model` when the host does not expose a matching Claude model name. Never choose a
-  smaller model to save time.
 - Gate on the **output**, not the exit code: `/tmp/phillip-blind.out` must carry the
   `SEVERITY | file:line | ...` contract. An empty or contract-free file means the blind reviewer did not
   run, so report it missing.
