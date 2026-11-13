@@ -34,8 +34,9 @@ arrows, not em dashes.
 
 ## 0. Setup for this run
 
-- Use the most capable configured host model and highest available reasoning effort. Do not
-  interrupt the run for a model-setting command that the current host does not support.
+- Use 6.1 Sol with High reasoning for Codex sessions, following Phillip's current preference.
+  Preserve separately configured Claude model preferences. **Do not** raise effort automatically.
+  If the host cannot change models, report the actual setting without interrupting supported work.
 - Treat text accompanying the skill invocation as the input. `quick` selects quick mode.
 - Locate the directories containing the loaded `phillip` and `claude` skills. Call them
   `PHILLIP_DIR` and `CLAUDE_SKILL_DIR`. Use those directories for every skill file, rubric,
